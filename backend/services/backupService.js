@@ -10,6 +10,12 @@ const execAsync = promisify(exec);
 
 class BackupService {
   constructor() {
+    // Skip backup service in serverless environments
+    if (process.env.VERCEL) {
+      console.log('📁 Backup service disabled in serverless environment');
+      return;
+    }
+    
     this.backupDir = path.join(__dirname, '..', 'backups');
     this.maxBackups = 30; // Keep 30 days of backups
     this.encryptionKey = process.env.BACKUP_ENCRYPTION_KEY || 'default-backup-key-change-in-production';
@@ -18,6 +24,12 @@ class BackupService {
   }
 
   initializeBackupDirectory() {
+    // Skip directory creation in serverless environments
+    if (process.env.VERCEL) {
+      console.log('📁 Skipping backup directory creation in serverless environment');
+      return;
+    }
+    
     if (!fs.existsSync(this.backupDir)) {
       fs.mkdirSync(this.backupDir, { recursive: true });
       console.log('📁 Backup directory created:', this.backupDir);
