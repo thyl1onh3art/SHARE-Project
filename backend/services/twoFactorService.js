@@ -11,11 +11,16 @@ class TwoFactorService {
   }
 
   initializeTwilio() {
-    if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
-      this.twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-      console.log('✅ Twilio SMS service initialized');
-    } else {
-      console.warn('⚠️ Twilio credentials not found. SMS 2FA will not be available.');
+    try {
+      if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+        this.twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+        console.log('✅ Twilio SMS service initialized');
+      } else {
+        console.warn('⚠️ Twilio credentials not found. SMS 2FA will not be available.');
+      }
+    } catch (error) {
+      console.warn('⚠️ Twilio initialization failed:', error.message);
+      this.twilioClient = null;
     }
   }
 
