@@ -122,7 +122,10 @@ const connectDB = async () => {
     console.log('✅ MongoDB connected successfully');
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
-    process.exit(1);
+    // Don't exit in serverless environment - let Vercel handle it
+    if (!process.env.VERCEL) {
+      process.exit(1);
+    }
   }
 };
 
@@ -163,7 +166,10 @@ const startServer = async () => {
     }
   } catch (error) {
     console.error('❌ Failed to start server:', error.message);
-    process.exit(1);
+    // Don't exit in serverless environment - let Vercel handle it
+    if (!process.env.VERCEL) {
+      process.exit(1);
+    }
   }
 };
 
