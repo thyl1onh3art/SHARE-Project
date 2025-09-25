@@ -75,7 +75,7 @@ app.get('/health', (req, res) => {
     message: 'SHARE Project API is running',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    version: '1.0.2' // Updated for registration fix deployment
+    version: '1.0.3' // Updated for User model fix deployment
   });
 });
 
@@ -86,7 +86,7 @@ app.get('/', (req, res) => {
     message: 'SHARE Project API is running',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    version: '1.0.2',
+    version: '1.0.3',
     endpoints: {
       health: '/health',
       users: '/api/users',
