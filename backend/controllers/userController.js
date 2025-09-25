@@ -9,7 +9,11 @@ const jwt = require('jsonwebtoken');
 // Register a new user
 exports.register = async (req, res) => {
   try {
-    const { name, age, interests, email, password } = req.body;
+    const { name, firstName, lastName, age, interests, email, password } = req.body;
+    
+    // Handle both frontend formats (name or firstName/lastName)
+    const userFirstName = firstName || (name ? name.split(' ')[0] : '');
+    const userLastName = lastName || (name ? name.split(' ').slice(1).join(' ') : '');
     
     // Check if user exists
     const existingUser = await User.findOne({ email });
@@ -35,7 +39,8 @@ exports.register = async (req, res) => {
     
     // Create user
     const user = new User({
-      name,
+      firstName: userFirstName,
+      lastName: userLastName,
       age,
       interests,
       email,
