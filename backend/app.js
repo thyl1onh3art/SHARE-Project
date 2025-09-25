@@ -79,6 +79,24 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Root endpoint (for Vercel dashboard)
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    message: 'SHARE Project API is running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    version: '1.0.1',
+    endpoints: {
+      health: '/health',
+      users: '/api/users',
+      sharedAccounts: '/api/shared-accounts',
+      events: '/api/events',
+      gallery: '/api/gallery'
+    }
+  });
+});
+
 // API routes with specific rate limiting
 app.use('/api/users/login', loginRateLimit, userRoutes);
 app.use('/api/users/register', registrationRateLimit, userRoutes);
