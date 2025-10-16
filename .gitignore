@@ -4,6 +4,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Production builds
+frontend/build/
+backend/dist/
+
 # Environment variables
 .env
 .env.local
@@ -28,7 +32,6 @@ coverage/
 .nyc_output
 
 # Dependency directories
-node_modules/
 jspm_packages/
 
 # Optional npm cache directory
@@ -74,6 +77,13 @@ jspm_packages/
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
 
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
 # OS generated files
 .DS_Store
 .DS_Store?
@@ -83,16 +93,11 @@ jspm_packages/
 ehthumbs.db
 Thumbs.db
 
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-
 # Uploads and temporary files
 uploads/
 temp/
 tmp/
+backend/uploads/
 
 # Backup files
 backups/
@@ -107,3 +112,6 @@ desktop.ini
 
 # Test files
 tests/coverage/
+
+# MongoDB data
+data/
