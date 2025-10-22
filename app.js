@@ -78,7 +78,7 @@ app.get('/health', async (req, res) => {
       message: 'SHARE Project API is running',
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || 'development',
-      version: '1.0.5', // Updated for MongoDB connection fix
+      version: '1.0.6', // FORCE REBUILD - MongoDB connection fix
       database: dbHealth
     });
   } catch (error) {
@@ -98,7 +98,7 @@ app.get('/', (req, res) => {
     message: 'SHARE Project API is running',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    version: '1.0.5',
+    version: '1.0.6',
     endpoints: {
       health: '/health',
       users: '/api/users',
@@ -141,6 +141,10 @@ app.use(errorHandler);
 const initializeDataStore = async () => {
   try {
     console.log('🔗 Initializing MongoDB connection...');
+    console.log('🔍 DEBUG: Environment variables:');
+    console.log('🔍 MONGO_PUBLIC_URL:', process.env.MONGO_PUBLIC_URL);
+    console.log('🔍 MONGO_URL:', process.env.MONGO_URL);
+    console.log('🔍 MONGODB_URI:', process.env.MONGODB_URI);
     await mongodbService.connect();
     const healthCheck = await mongodbService.healthCheck();
     console.log('📊 MongoDB health check:', healthCheck);
