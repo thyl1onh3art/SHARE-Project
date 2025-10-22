@@ -1,7 +1,6 @@
 const express = require('express');
 const https = require('https');
 const fs = require('fs');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -34,6 +33,7 @@ const {
 
 // Import services
 const backupService = require('./services/backupService');
+const mongodbService = require('./services/mongodb');
 
 const app = express();
 
@@ -69,14 +69,26 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'OK',
-    message: 'SHARE Project API is running',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    version: '1.0.3' // Updated for User model fix deployment
-  });
+app.get('/health', async (req, res) => {
+  try {
+    const dbHealth = await mongodbService.healthCheck();
+    
+    res.status(200).json({
+      status: 'OK',
+      message: 'SHARE Project API is running',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      version: '1.0.5', // Updated for MongoDB connection fix
+      database: dbHealth
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: 'ERROR',
+      message: 'Service temporarily unavailable',
+      timestamp: new Date().toISOString(),
+      error: error.message
+    });
+  }
 });
 
 // Root endpoint (for Vercel dashboard)
@@ -86,7 +98,7 @@ app.get('/', (req, res) => {
     message: 'SHARE Project API is running',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    version: '1.0.3',
+    version: '1.0.5',
     endpoints: {
       health: '/health',
       users: '/api/users',
@@ -125,22 +137,16 @@ app.use('*', (req, res) => {
 // Global error handler
 app.use(errorHandler);
 
-// MongoDB connection
-const connectDB = async () => {
+// Data store initialization
+const initializeDataStore = async () => {
   try {
-    const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/share_project';
-    console.log('🔗 Connecting to MongoDB...');
-    console.log('📍 MongoDB URI:', mongoURI);
-    
-    await mongoose.connect(mongoURI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-    
-    console.log('✅ MongoDB connected successfully');
+    console.log('🔗 Initializing MongoDB connection...');
+    await mongodbService.connect();
+    const healthCheck = await mongodbService.healthCheck();
+    console.log('📊 MongoDB health check:', healthCheck);
+    console.log('✅ MongoDB initialized successfully');
   } catch (error) {
-    console.error('❌ MongoDB connection error:', error.message);
-    // Don't exit in serverless environment - let Vercel handle it
+    console.error('❌ MongoDB initialization error:', error.message);
     if (!process.env.VERCEL) {
       process.exit(1);
     }
@@ -153,7 +159,7 @@ const HTTPS_PORT = process.env.HTTPS_PORT || 5443;
 
 const startServer = async () => {
   try {
-    await connectDB();
+    await initializeDataStore();
     
     // Only start HTTP server if not in Vercel environment
     if (!process.env.VERCEL) {
@@ -162,6 +168,7 @@ const startServer = async () => {
         console.log(`🚀 SHARE Project API server running on port ${PORT}`);
         console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
         console.log(`📊 Health check: http://localhost:${PORT}/health`);
+        console.log(`💾 Database: MongoDB with Mongoose ODM`);
       });
 
       // Start HTTPS server
@@ -194,15 +201,15 @@ const startServer = async () => {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('🛑 SIGTERM received, shutting down gracefully');
-  await mongoose.connection.close();
-  console.log('📦 MongoDB connection closed');
+  await mongodbService.disconnect();
+  console.log('🔌 MongoDB disconnected');
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   console.log('🛑 SIGINT received, shutting down gracefully');
-  await mongoose.connection.close();
-  console.log('📦 MongoDB connection closed');
+  await mongodbService.disconnect();
+  console.log('🔌 MongoDB disconnected');
   process.exit(0);
 });
 
