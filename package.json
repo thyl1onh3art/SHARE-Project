@@ -9,7 +9,10 @@
     "dev": "nodemon app.js",
     "test": "jest",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "migrate": "node scripts/migrate-to-mongodb.js",
+    "migrate:verify": "node scripts/migrate-to-mongodb.js verify",
+    "test:mongodb": "node scripts/test-mongodb.js"
   },
   "keywords": [
     "finance",
@@ -17,7 +20,7 @@
     "group-management",
     "nodejs",
     "express",
-    "mongodb"
+    "file-storage"
   ],
   "author": "SHARE Project Team",
   "license": "MIT",
@@ -43,7 +46,8 @@
     "qrcode": "^1.5.4",
     "selfsigned": "^3.0.1",
     "speakeasy": "^2.0.0",
-    "twilio": "^4.23.0"
+    "twilio": "^4.23.0",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "eslint": "^8.47.0",
