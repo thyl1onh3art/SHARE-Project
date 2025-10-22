@@ -93,16 +93,25 @@ jspm_packages/
 ehthumbs.db
 Thumbs.db
 
+# Uploads and temporary files
+uploads/
+temp/
+tmp/
+backend/uploads/
+
+# Backup files
+backups/
+
 # SSL certificates
 *.pem
 *.key
 *.crt
 
-# Uploads
-backend/uploads/
+# Windows specific
+desktop.ini
+
+# Test files
+tests/coverage/
 
 # MongoDB data
 data/
-
-# Backup files
-backups/
