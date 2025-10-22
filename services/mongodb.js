@@ -27,7 +27,6 @@ class MongoDBService {
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 45000,
         bufferCommands: false,
-        bufferMaxEntries: 0,
       };
 
       this.connection = await mongoose.connect(mongoUri, options);
