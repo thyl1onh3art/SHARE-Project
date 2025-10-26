@@ -8,8 +8,19 @@ exports.register = async (req, res) => {
     const { name, firstName, lastName, age, interests, email, password, username } = req.body;
     
     // Handle both frontend formats (name or firstName/lastName)
-    const userFirstName = firstName || (name ? name.split(' ')[0] : '');
-    const userLastName = lastName || (name ? name.split(' ').slice(1).join(' ') : '');
+    // If only name is provided, split it or use as firstName
+    let userFirstName, userLastName;
+    if (firstName && lastName) {
+      userFirstName = firstName;
+      userLastName = lastName;
+    } else if (name) {
+      const nameParts = name.trim().split(/\s+/);
+      userFirstName = nameParts[0] || '';
+      userLastName = nameParts.slice(1).join(' ') || nameParts[0] || ''; // Use first name as last name fallback
+    } else {
+      userFirstName = '';
+      userLastName = '';
+    }
     
     // Validate user data
     const validationErrors = await User.validateUserData({
