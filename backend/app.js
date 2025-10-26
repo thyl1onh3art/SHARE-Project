@@ -61,10 +61,15 @@ const corsOptions = {
       process.env.CORS_ORIGIN
     ].filter(Boolean);
     
+    console.log('CORS check - Request origin:', origin);
+    console.log('CORS check - Allowed origins:', allowedOrigins);
+    
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      console.log('CORS check - ALLOWED');
       callback(null, true);
     } else {
+      console.log('CORS check - BLOCKED');
       callback(new Error('Not allowed by CORS'));
     }
   },
