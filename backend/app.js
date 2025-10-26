@@ -93,7 +93,7 @@ app.get('/health', async (req, res) => {
       message: 'SHARE Project API is running',
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || 'development',
-      version: '1.0.6', // FORCE REBUILD - MongoDB connection fix
+      version: '1.0.7', // FORCE CORS FIX - Allow localhost:3001
       database: dbHealth
     });
   } catch (error) {
