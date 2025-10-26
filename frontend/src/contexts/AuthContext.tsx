@@ -22,7 +22,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://share-project-production-2934.up.railway.app/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://share-project-production.up.railway.app/api';
 
 // Configure axios defaults
 axios.defaults.baseURL = API_BASE_URL;
