@@ -150,6 +150,15 @@ userSchema.statics.validateUserData = async function(userData) {
   return errors;
 };
 
+// Static method to find user by email
+userSchema.statics.findByEmail = async function(email) {
+  try {
+    return await this.findOne({ email: email.toLowerCase() });
+  } catch (error) {
+    throw new Error(`Failed to find user by email: ${error.message}`);
+  }
+};
+
 // Static method to update password
 userSchema.statics.updatePassword = async function(userId, newPassword) {
   try {
