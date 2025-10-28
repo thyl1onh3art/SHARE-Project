@@ -183,6 +183,7 @@ const HTTPS_PORT = process.env.HTTPS_PORT || 5443;
 
 const startServer = async () => {
   try {
+    console.log('🚀 Starting server initialization...');
     await initializeDataStore();
     
     // Only start HTTP server if not in Vercel environment
@@ -193,6 +194,7 @@ const startServer = async () => {
         console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
         console.log(`📊 Health check: http://localhost:${PORT}/health`);
         console.log(`💾 Database: MongoDB with Mongoose ODM`);
+        console.log(`✅ Server successfully started and listening on port ${PORT}`);
       });
 
       // Start HTTPS server
@@ -215,8 +217,10 @@ const startServer = async () => {
     }
   } catch (error) {
     console.error('❌ Failed to start server:', error.message);
+    console.error('❌ Error stack:', error.stack);
     // Don't exit in serverless environment - let Vercel handle it
     if (!process.env.VERCEL) {
+      console.error('❌ Exiting process...');
       process.exit(1);
     }
   }
