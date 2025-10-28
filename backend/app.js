@@ -238,6 +238,11 @@ process.on('SIGINT', async () => {
 });
 
 // Start the server
-startServer();
+if (!process.env.VERCEL) {
+  startServer();
+} else {
+  // Export for serverless
+  module.exports = app;
+}
 
 module.exports = app;
