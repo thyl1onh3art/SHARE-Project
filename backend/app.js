@@ -186,7 +186,7 @@ const startServer = async () => {
     console.log('🚀 Starting server initialization...');
     await initializeDataStore();
     
-    // Only start HTTP server if not in Vercel environment
+    // Start HTTP server (for Railway, local dev, etc.)
     if (!process.env.VERCEL) {
       // Start HTTP server
       app.listen(PORT, () => {
