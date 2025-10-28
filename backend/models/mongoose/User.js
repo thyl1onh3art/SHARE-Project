@@ -103,7 +103,7 @@ userSchema.methods.toPublicJSON = function() {
   const user = this.toObject();
   delete user.password;
   delete user.twoFactorSecret;
-  delete user.email;
+  // Keep email but keep phone private for security
   delete user.phone;
   return user;
 };
