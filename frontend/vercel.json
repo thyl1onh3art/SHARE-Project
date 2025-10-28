@@ -6,6 +6,6 @@
     }
   ],
   "env": {
-    "REACT_APP_API_URL": "https://share-project-backend.vercel.app"
+    "REACT_APP_API_URL": "https://share-project-production.up.railway.app/api"
   }
 }
