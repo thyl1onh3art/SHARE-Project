@@ -1,6 +1,6 @@
 const Invite = require('../models/Invite');
 const SharedAccount = require('../models/SharedAccount');
-const User = require('../models/User');
+const User = require('../models/mongoose/User');
 const nodemailer = require('nodemailer');
 const twilio = require('twilio');
 
