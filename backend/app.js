@@ -18,6 +18,8 @@ const galleryRoutes = require('./routes/galleryRoutes');
 // const emailVerificationRoutes = require('./routes/emailVerificationRoutes'); // Temporarily disabled
 const twoFactorRoutes = require('./routes/twoFactorRoutes');
 const backupRoutes = require('./routes/backupRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
+const groupPaymentRoutes = require('./routes/groupPaymentRoutes');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -86,6 +88,9 @@ app.use(compression());
 // Logging middleware
 app.use(morgan('combined'));
 
+// PayPal webhook endpoint (if needed - PayPal uses IPN for webhooks)
+// Note: PayPal webhooks are handled differently than Stripe
+
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -147,6 +152,8 @@ app.use('/api/finance', financeRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/gallery', galleryRoutes);
 // app.use('/api/email-verification', emailVerificationRoutes); // Temporarily disabled
+app.use('/api/payments', paymentRoutes);
+app.use('/api/group-payments', groupPaymentRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
