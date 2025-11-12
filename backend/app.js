@@ -15,7 +15,7 @@ const sharedAccountRoutes = require('./routes/sharedAccountRoutes');
 const financeRoutes = require('./routes/financeRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 const galleryRoutes = require('./routes/galleryRoutes');
-// const emailVerificationRoutes = require('./routes/emailVerificationRoutes');
+// const emailVerificationRoutes = require('./routes/emailVerificationRoutes'); // Temporarily disabled
 const twoFactorRoutes = require('./routes/twoFactorRoutes');
 const backupRoutes = require('./routes/backupRoutes');
 
@@ -146,7 +146,7 @@ app.use('/api/shared-accounts', sharedAccountRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/gallery', galleryRoutes);
-// app.use('/api/email-verification', emailVerificationRoutes);
+// app.use('/api/email-verification', emailVerificationRoutes); // Temporarily disabled
 
 // 404 handler
 app.use('*', (req, res) => {

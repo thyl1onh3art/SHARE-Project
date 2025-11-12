@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import EmailVerification from './EmailVerification';
+// import EmailVerification from './EmailVerification'; // Temporarily disabled
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -14,7 +14,7 @@ const Register: React.FC = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  // const [showEmailVerification, setShowEmailVerification] = useState(false); // Temporarily disabled
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { register } = useAuth();
@@ -70,7 +70,7 @@ const Register: React.FC = () => {
       return;
     }
 
-    // Show email verification first
+    // Register directly (email verification temporarily disabled)
     setLoading(true);
     try {
       // Convert age group to a representative age for backend compatibility
@@ -90,45 +90,16 @@ const Register: React.FC = () => {
         return;
       }
       
-      // Store form data for after verification
-      (window as any).pendingRegistration = {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        age,
-        interests: formData.interests
-      };
-      
-      setShowEmailVerification(true);
-    } catch (err: any) {
-      // Display validation errors if available
-      const errorMessage = err.response?.data?.errors 
-        ? err.response.data.errors.map((e: any) => e.message || e).join(', ')
-        : err.response?.data?.message || err.message || 'Registration failed';
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerificationComplete = async () => {
-    setLoading(true);
-    setError('');
-
-    try {
-      const pendingData = (window as any).pendingRegistration;
-      if (!pendingData) {
-        throw new Error('Registration data not found');
-      }
-      
+      // Register user directly
       await register(
-        pendingData.name,
-        pendingData.email,
-        pendingData.password,
-        pendingData.age,
-        pendingData.interests
+        formData.name,
+        formData.email,
+        formData.password,
+        age,
+        formData.interests
       );
-      delete (window as any).pendingRegistration;
+      
+      // Redirect to login on success
       navigate('/login');
     } catch (err: any) {
       // Display validation errors if available
@@ -136,27 +107,55 @@ const Register: React.FC = () => {
         ? err.response.data.errors.map((e: any) => e.message || e).join(', ')
         : err.response?.data?.message || err.message || 'Registration failed';
       setError(errorMessage);
-      setShowEmailVerification(false);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleBackToRegistration = () => {
-    setShowEmailVerification(false);
-    setError('');
-    delete (window as any).pendingRegistration;
-  };
+  // Email verification handlers temporarily disabled
+  // const handleVerificationComplete = async () => {
+  //   setLoading(true);
+  //   setError('');
+  //   try {
+  //     const pendingData = (window as any).pendingRegistration;
+  //     if (!pendingData) {
+  //       throw new Error('Registration data not found');
+  //     }
+  //     await register(
+  //       pendingData.name,
+  //       pendingData.email,
+  //       pendingData.password,
+  //       pendingData.age,
+  //       pendingData.interests
+  //     );
+  //     delete (window as any).pendingRegistration;
+  //     navigate('/login');
+  //   } catch (err: any) {
+  //     const errorMessage = err.response?.data?.errors 
+  //       ? err.response.data.errors.map((e: any) => e.message || e).join(', ')
+  //       : err.response?.data?.message || err.message || 'Registration failed';
+  //     setError(errorMessage);
+  //     setShowEmailVerification(false);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
-  if (showEmailVerification) {
-    return (
-      <EmailVerification
-        email={formData.email}
-        onVerificationComplete={handleVerificationComplete}
-        onBack={handleBackToRegistration}
-      />
-    );
-  }
+  // const handleBackToRegistration = () => {
+  //   setShowEmailVerification(false);
+  //   setError('');
+  //   delete (window as any).pendingRegistration;
+  // };
+
+  // if (showEmailVerification) {
+  //   return (
+  //     <EmailVerification
+  //       email={formData.email}
+  //       onVerificationComplete={handleVerificationComplete}
+  //       onBack={handleBackToRegistration}
+  //     />
+  //   );
+  // }
 
   return (
     <div style={{
