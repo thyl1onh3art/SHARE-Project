@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-// import EmailVerification from './EmailVerification'; // Temporarily disabled
+import EmailVerification from './EmailVerification';
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -14,7 +14,7 @@ const Register: React.FC = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  // const [showEmailVerification, setShowEmailVerification] = useState(false); // Temporarily disabled
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { register } = useAuth();
@@ -47,17 +47,30 @@ const Register: React.FC = () => {
     e.preventDefault();
     setError('');
 
+    // Validate age group is selected
+    if (!formData.ageGroup) {
+      setError('Please select an age group');
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters long');
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters long');
       return;
     }
 
-    // Skip email verification and register directly
+    // Check password requirements
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
+    if (!passwordRegex.test(formData.password)) {
+      setError('Password must contain at least one uppercase letter, one lowercase letter, and one number');
+      return;
+    }
+
+    // Show email verification first
     setLoading(true);
     try {
       // Convert age group to a representative age for backend compatibility
@@ -69,60 +82,81 @@ const Register: React.FC = () => {
         '36-40': 38,
         '40+': 45
       };
-      const age = ageMap[formData.ageGroup] || 25;
+      const age = ageMap[formData.ageGroup];
       
-      await register(
-        formData.name,
-        formData.email,
-        formData.password,
+      if (!age) {
+        setError('Invalid age group selected');
+        setLoading(false);
+        return;
+      }
+      
+      // Store form data for after verification
+      (window as any).pendingRegistration = {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
         age,
-        formData.interests
-      );
-      navigate('/login');
+        interests: formData.interests
+      };
+      
+      setShowEmailVerification(true);
     } catch (err: any) {
-      setError(err.message);
+      // Display validation errors if available
+      const errorMessage = err.response?.data?.errors 
+        ? err.response.data.errors.map((e: any) => e.message || e).join(', ')
+        : err.response?.data?.message || err.message || 'Registration failed';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  // Email verification functions temporarily disabled
-  // const handleVerificationComplete = async () => {
-  //   setLoading(true);
-  //   setError('');
+  const handleVerificationComplete = async () => {
+    setLoading(true);
+    setError('');
 
-  //   try {
-  //     const interests = formData.interests.split(',').map(i => i.trim()).filter(i => i);
-  //     await register(
-  //       formData.name,
-  //       formData.email,
-  //       formData.password,
-  //       parseInt(formData.age),
-  //       interests
-  //     );
-  //     navigate('/login');
-  //   } catch (err: any) {
-  //     setError(err.message);
-  //     setShowEmailVerification(false);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
+    try {
+      const pendingData = (window as any).pendingRegistration;
+      if (!pendingData) {
+        throw new Error('Registration data not found');
+      }
+      
+      await register(
+        pendingData.name,
+        pendingData.email,
+        pendingData.password,
+        pendingData.age,
+        pendingData.interests
+      );
+      delete (window as any).pendingRegistration;
+      navigate('/login');
+    } catch (err: any) {
+      // Display validation errors if available
+      const errorMessage = err.response?.data?.errors 
+        ? err.response.data.errors.map((e: any) => e.message || e).join(', ')
+        : err.response?.data?.message || err.message || 'Registration failed';
+      setError(errorMessage);
+      setShowEmailVerification(false);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // const handleBackToRegistration = () => {
-  //   setShowEmailVerification(false);
-  //   setError('');
-  // };
+  const handleBackToRegistration = () => {
+    setShowEmailVerification(false);
+    setError('');
+    delete (window as any).pendingRegistration;
+  };
 
-  // if (showEmailVerification) {
-  //   return (
-  //     <EmailVerification
-  //       email={formData.email}
-  //       onVerificationComplete={handleVerificationComplete}
-  //       onBack={handleBackToRegistration}
-  //     />
-  //   );
-  // }
+  if (showEmailVerification) {
+    return (
+      <EmailVerification
+        email={formData.email}
+        onVerificationComplete={handleVerificationComplete}
+        onBack={handleBackToRegistration}
+      />
+    );
+  }
 
   return (
     <div style={{
@@ -137,8 +171,17 @@ const Register: React.FC = () => {
         </div>
         
         {error && (
-          <div className="alert alert-error">
-            {error}
+          <div className="alert alert-error" style={{ 
+            marginBottom: '1rem',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            backgroundColor: '#fed7d7',
+            border: '1px solid #feb2b2',
+            color: '#742a2a',
+            fontSize: '14px',
+            lineHeight: '1.5'
+          }}>
+            <strong>Error:</strong> {error}
           </div>
         )}
 
@@ -266,6 +309,27 @@ const Register: React.FC = () => {
               >
                 {showPassword ? "🙈" : "👁️"}
               </button>
+            </div>
+            <div style={{ 
+              fontSize: '0.85rem', 
+              color: '#6b7280', 
+              marginTop: '0.5rem',
+              marginBottom: 0,
+              padding: '8px 12px',
+              backgroundColor: '#f7fafc',
+              borderRadius: '6px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <strong>Password Requirements:</strong>
+              <ul style={{ margin: '4px 0 0 20px', padding: 0 }}>
+                <li>At least 8 characters long</li>
+                <li>Contains at least one uppercase letter (A-Z)</li>
+                <li>Contains at least one lowercase letter (a-z)</li>
+                <li>Contains at least one number (0-9)</li>
+              </ul>
+              <p style={{ margin: '4px 0 0 0', fontStyle: 'italic' }}>
+                Example: Test1234
+              </p>
             </div>
           </div>
 

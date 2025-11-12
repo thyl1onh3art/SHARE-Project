@@ -84,15 +84,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const register = async (name: string, email: string, password: string, age: number, interests: string[]) => {
     try {
-      await axios.post('/users/register', {
+      const response = await axios.post('/users/register', {
         name,
         email,
         password,
         age,
         interests
       });
+      return response.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Registration failed');
+      // Log the full error for debugging
+      console.error('Registration error:', error.response?.data || error.message);
+      
+      // Return detailed error information
+      const errorMessage = error.response?.data?.errors 
+        ? error.response.data.errors.map((e: any) => e.message || e).join(', ')
+        : error.response?.data?.message || error.message || 'Registration failed';
+      
+      throw new Error(errorMessage);
     }
   };
 

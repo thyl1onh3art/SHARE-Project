@@ -19,25 +19,50 @@ const handleValidationErrors = (req, res, next) => {
 // User registration validation
 const validateUserRegistration = [
   body('name')
+    .optional()
     .trim()
     .isLength({ min: 2, max: 50 })
     .withMessage('Name must be between 2 and 50 characters'),
+  body('firstName')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('First name must be between 2 and 50 characters'),
+  body('lastName')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Last name must be between 2 and 50 characters'),
   body('email')
     .isEmail()
     .normalizeEmail()
     .withMessage('Must be a valid email address'),
   body('password')
-    .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters long')
+    .isLength({ min: 8 })
+    .withMessage('Password must be at least 8 characters long')
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
     .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
   body('age')
+    .optional()
     .isInt({ min: 13, max: 120 })
     .withMessage('Age must be between 13 and 120'),
+  body('ageGroup')
+    .optional()
+    .isIn(['16-20', '21-25', '26-30', '31-35', '36-40', '40+'])
+    .withMessage('Age group must be one of the valid options'),
   body('interests')
     .optional()
     .isArray()
     .withMessage('Interests must be an array'),
+  // Custom validation: ensure either name or firstName/lastName is provided
+  body('name')
+    .custom((value, { req }) => {
+      // If name is not provided, check if firstName and lastName are provided
+      if (!value && (!req.body.firstName || !req.body.lastName)) {
+        throw new Error('Either name or both firstName and lastName must be provided');
+      }
+      return true;
+    }),
   handleValidationErrors
 ];
 
@@ -94,6 +119,28 @@ const validateSharedAccount = [
   handleValidationErrors
 ];
 
+// Update shared account validation
+const validateUpdateSharedAccount = [
+  body('name')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Account name must be between 2 and 100 characters'),
+  body('memberIds')
+    .optional()
+    .isArray()
+    .withMessage('Member IDs must be an array'),
+  body('memberIds.*')
+    .optional()
+    .isMongoId()
+    .withMessage('Each member ID must be a valid MongoDB ObjectId'),
+  body('action')
+    .optional()
+    .isIn(['add', 'remove'])
+    .withMessage('Action must be either "add" or "remove"'),
+  handleValidationErrors
+];
+
 // Invite validation
 const validateInvite = [
   body('sharedAccountId')
@@ -142,6 +189,7 @@ module.exports = {
   validateUserLogin,
   validateFinanceRecord,
   validateSharedAccount,
+  validateUpdateSharedAccount,
   validateInvite,
   validateAcceptInvite,
   validateRemoveMember,
