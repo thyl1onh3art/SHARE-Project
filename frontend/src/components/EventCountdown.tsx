@@ -98,6 +98,7 @@ const EventCountdown: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events]);
 
   const fetchEvents = async () => {

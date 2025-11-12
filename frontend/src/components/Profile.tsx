@@ -12,7 +12,7 @@ interface UserProfile {
 }
 
 const Profile: React.FC = () => {
-  const { } = useAuth();
+  const { user } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
