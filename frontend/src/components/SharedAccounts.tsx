@@ -28,6 +28,15 @@ const SharedAccounts: React.FC = () => {
     recipientPhone: ''
   });
   const [inviteSubmitting, setInviteSubmitting] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    memberIdsToRemove: [] as string[]
+  });
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [accountDetails, setAccountDetails] = useState<any>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -105,10 +114,82 @@ const SharedAccounts: React.FC = () => {
     }
 
     try {
-      // Note: You might need to implement a DELETE endpoint in your backend
-      setError('Delete functionality not implemented in backend yet');
+      setError('');
+      await axios.delete(`/shared-accounts/${id}`);
+      // Refresh the accounts list after successful deletion
+      fetchAccounts();
     } catch (err: any) {
-      setError('Failed to delete shared account');
+      const errorMessage = err.response?.data?.message || 'Failed to delete shared account';
+      setError(errorMessage);
+    }
+  };
+
+  const handleEditClick = (account: SharedAccount) => {
+    setSelectedAccount(account);
+    setEditFormData({
+      name: account.name,
+      memberIdsToRemove: []
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAccount) return;
+
+    try {
+      setEditSubmitting(true);
+      setError('');
+
+      const updateData: any = {};
+      
+      // Update name if changed
+      if (editFormData.name !== selectedAccount.name) {
+        updateData.name = editFormData.name;
+      }
+
+      // Remove members if any selected
+      if (editFormData.memberIdsToRemove.length > 0) {
+        updateData.memberIds = editFormData.memberIdsToRemove;
+        updateData.action = 'remove';
+      }
+
+      // Only send update if there are changes
+      if (Object.keys(updateData).length > 0) {
+        await axios.put(`/shared-accounts/${selectedAccount._id}`, updateData);
+        setShowEditModal(false);
+        fetchAccounts();
+      } else {
+        setShowEditModal(false);
+      }
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to update shared account';
+      setError(errorMessage);
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  const handleRemoveMember = (memberId: string) => {
+    setEditFormData(prev => ({
+      ...prev,
+      memberIdsToRemove: prev.memberIdsToRemove.includes(memberId)
+        ? prev.memberIdsToRemove.filter(id => id !== memberId)
+        : [...prev.memberIdsToRemove, memberId]
+    }));
+  };
+
+  const handleViewDetails = async (accountId: string) => {
+    try {
+      setLoadingDetails(true);
+      setError('');
+      const response = await axios.get(`/shared-accounts/${accountId}`);
+      setAccountDetails(response.data);
+      setShowDetailsModal(true);
+    } catch (err: any) {
+      setError('Failed to load account details');
+    } finally {
+      setLoadingDetails(false);
     }
   };
 
@@ -277,8 +358,19 @@ const SharedAccounts: React.FC = () => {
                 </div>
 
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  <button className="btn btn-secondary" style={{ flex: 1, fontSize: '12px', padding: '6px 12px', minWidth: '80px' }}>
+                  <button 
+                    className="btn btn-secondary" 
+                    style={{ flex: 1, fontSize: '12px', padding: '6px 12px', minWidth: '80px' }}
+                    onClick={() => handleViewDetails(account._id)}
+                  >
                     View Details
+                  </button>
+                  <button 
+                    className="btn btn-outline" 
+                    style={{ flex: 1, fontSize: '12px', padding: '6px 12px', minWidth: '80px' }}
+                    onClick={() => handleEditClick(account)}
+                  >
+                    Edit
                   </button>
                   <button 
                     className="btn btn-primary" 
@@ -442,6 +534,317 @@ const SharedAccounts: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Account Modal */}
+      {showEditModal && selectedAccount && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div className="card" style={{ 
+            width: '90%', 
+            maxWidth: '600px', 
+            maxHeight: '90vh', 
+            overflow: 'auto',
+            position: 'relative'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              marginBottom: '1rem' 
+            }}>
+              <h2 style={{ margin: 0 }}>Edit Shared Account</h2>
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setSelectedAccount(null);
+                  setEditFormData({ name: '', memberIdsToRemove: [] });
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#4a5568'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit}>
+              <div className="form-group">
+                <label className="form-label">Account Name</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                  required
+                  placeholder="Account name"
+                />
+              </div>
+
+              {selectedAccount.members && selectedAccount.members.length > 0 && (
+                <div className="form-group">
+                  <label className="form-label">Members (select to remove)</label>
+                  <div style={{
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '6px',
+                    padding: '0.75rem',
+                    maxHeight: '200px',
+                    overflowY: 'auto'
+                  }}>
+                    {selectedAccount.members.map((memberId: string) => {
+                      const isOwner = memberId === selectedAccount.owner;
+                      const isSelected = editFormData.memberIdsToRemove.includes(memberId);
+                      return (
+                        <div
+                          key={memberId}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '0.5rem',
+                            marginBottom: '0.25rem',
+                            backgroundColor: isSelected ? '#fee2e2' : isOwner ? '#dbeafe' : 'transparent',
+                            borderRadius: '4px',
+                            cursor: isOwner ? 'not-allowed' : 'pointer'
+                          }}
+                          onClick={() => !isOwner && handleRemoveMember(memberId)}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={isOwner}
+                            onChange={() => !isOwner && handleRemoveMember(memberId)}
+                            style={{ marginRight: '0.5rem' }}
+                          />
+                          <span style={{ 
+                            color: isOwner ? '#1e40af' : '#4a5568',
+                            fontWeight: isOwner ? 'bold' : 'normal'
+                          }}>
+                            {memberId} {isOwner && '(Owner)'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p style={{ color: '#6b7280', fontSize: '0.85rem', marginTop: '0.5rem' }}>
+                    💡 Note: The owner cannot be removed. Use invitations to add new members.
+                  </p>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setSelectedAccount(null);
+                    setEditFormData({ name: '', memberIdsToRemove: [] });
+                  }}
+                  className="btn btn-outline"
+                  style={{ flex: 1 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={editSubmitting}
+                  style={{ flex: 1 }}
+                >
+                  {editSubmitting ? <span className="spinner"></span> : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Account Details Modal */}
+      {showDetailsModal && accountDetails && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div className="card" style={{ 
+            width: '90%', 
+            maxWidth: '700px', 
+            maxHeight: '90vh', 
+            overflow: 'auto',
+            position: 'relative'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              marginBottom: '1rem' 
+            }}>
+              <h2 style={{ margin: 0 }}>Account Details: {accountDetails.name}</h2>
+              <button
+                onClick={() => {
+                  setShowDetailsModal(false);
+                  setAccountDetails(null);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#4a5568'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {loadingDetails ? (
+              <div style={{ textAlign: 'center', padding: '2rem' }}>
+                <div className="spinner"></div>
+                <p>Loading details...</p>
+              </div>
+            ) : (
+              <>
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <h3 style={{ color: '#2b6cb0', marginBottom: '0.5rem' }}>Account Information</h3>
+                  <div style={{
+                    background: '#f7fafc',
+                    padding: '1rem',
+                    borderRadius: '6px',
+                    marginBottom: '1rem'
+                  }}>
+                    <p style={{ margin: '0.5rem 0' }}>
+                      <strong>Name:</strong> {accountDetails.name}
+                    </p>
+                    <p style={{ margin: '0.5rem 0' }}>
+                      <strong>Created:</strong> {new Date(accountDetails.createdAt).toLocaleString()}
+                    </p>
+                    <p style={{ margin: '0.5rem 0' }}>
+                      <strong>Finance Records:</strong> {accountDetails.financeRecords?.length || 0}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <h3 style={{ color: '#2b6cb0', marginBottom: '0.5rem' }}>Members ({accountDetails.members?.length || 0})</h3>
+                  {accountDetails.members && accountDetails.members.length > 0 ? (
+                    <div style={{
+                      background: '#f7fafc',
+                      padding: '1rem',
+                      borderRadius: '6px'
+                    }}>
+                      {accountDetails.members.map((member: any, index: number) => {
+                        const isOwner = member._id === accountDetails.owner || member === accountDetails.owner;
+                        return (
+                          <div
+                            key={member._id || member || index}
+                            style={{
+                              padding: '0.75rem',
+                              marginBottom: '0.5rem',
+                              backgroundColor: isOwner ? '#dbeafe' : 'white',
+                              borderRadius: '4px',
+                              border: '1px solid #e2e8f0'
+                            }}
+                          >
+                            <p style={{ margin: 0, fontWeight: isOwner ? 'bold' : 'normal' }}>
+                              {member.email || member.firstName || member || 'Unknown'} {isOwner && '(Owner)'}
+                            </p>
+                            {member.firstName && (
+                              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem', color: '#6b7280' }}>
+                                {member.firstName} {member.lastName}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p style={{ color: '#6b7280' }}>No members yet</p>
+                  )}
+                </div>
+
+                {accountDetails.financeRecords && accountDetails.financeRecords.length > 0 && (
+                  <div>
+                    <h3 style={{ color: '#2b6cb0', marginBottom: '0.5rem' }}>Finance Records ({accountDetails.financeRecords.length})</h3>
+                    <div style={{
+                      background: '#f7fafc',
+                      padding: '1rem',
+                      borderRadius: '6px',
+                      maxHeight: '300px',
+                      overflowY: 'auto'
+                    }}>
+                      {accountDetails.financeRecords.map((record: any, index: number) => (
+                        <div
+                          key={record._id || index}
+                          style={{
+                            padding: '0.75rem',
+                            marginBottom: '0.5rem',
+                            backgroundColor: 'white',
+                            borderRadius: '4px',
+                            border: '1px solid #e2e8f0'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                              <p style={{ margin: 0, fontWeight: 'bold' }}>
+                                {record.type === 'input' ? '💰 Income' : '💸 Expense'}
+                              </p>
+                              <p style={{ margin: '0.25rem 0', fontSize: '0.9rem' }}>
+                                {record.description || 'No description'}
+                              </p>
+                              <p style={{ margin: '0.25rem 0', fontSize: '0.85rem', color: '#6b7280' }}>
+                                {new Date(record.date).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <div style={{
+                              fontSize: '1.25rem',
+                              fontWeight: 'bold',
+                              color: record.type === 'input' ? '#38a169' : '#e53e3e'
+                            }}>
+                              {record.type === 'input' ? '+' : '-'}£{record.amount?.toFixed(2) || '0.00'}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    onClick={() => {
+                      setShowDetailsModal(false);
+                      setAccountDetails(null);
+                    }}
+                    className="btn btn-primary"
+                    style={{ flex: 1 }}
+                  >
+                    Close
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -56,7 +56,7 @@ const EventCountdown: React.FC = () => {
     recurringType: 'yearly',
     budget: {
       totalAmount: 0,
-      currency: 'USD',
+      currency: 'GBP',
       savingsGoal: 0,
       savingsFrequency: 'monthly',
       amountPerPeriod: 0,
@@ -208,7 +208,7 @@ const EventCountdown: React.FC = () => {
         recurringType: 'yearly',
         budget: {
           totalAmount: 0,
-          currency: 'USD',
+          currency: 'GBP',
           savingsGoal: 0,
           savingsFrequency: 'monthly',
           amountPerPeriod: 0,
@@ -439,7 +439,7 @@ const EventCountdown: React.FC = () => {
                         <select
                           className="form-input"
                           style={{ width: '80px' }}
-                          value={formData.budget?.currency || 'USD'}
+                          value={formData.budget?.currency || 'GBP'}
                           onChange={(e) => setFormData({ 
                             ...formData, 
                             budget: { 
@@ -448,9 +448,9 @@ const EventCountdown: React.FC = () => {
                             } 
                           })}
                         >
+                          <option value="GBP">GBP</option>
                           <option value="USD">USD</option>
                           <option value="EUR">EUR</option>
-                          <option value="GBP">GBP</option>
                           <option value="CAD">CAD</option>
                           <option value="AUD">AUD</option>
                         </select>
@@ -708,7 +708,7 @@ const EventCountdown: React.FC = () => {
                         </p>
                         {event.accommodation.price > 0 && (
                           <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#e65100' }}>
-                            <strong>Price:</strong> {event.budget?.currency || 'USD'} {event.accommodation.price}/night
+                            <strong>Price:</strong> {event.budget?.currency || 'GBP'} {event.accommodation.price}/night
                           </p>
                         )}
                         {event.accommodation.bookingLink && (
