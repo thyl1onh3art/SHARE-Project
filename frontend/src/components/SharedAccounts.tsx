@@ -1002,7 +1002,7 @@ const SharedAccounts: React.FC = () => {
                   onClick={() => {
                     setShowEditModal(false);
                     setSelectedAccount(null);
-                    setEditFormData({ name: '', memberIdsToRemove: [] });
+                    setEditFormData({ name: '', description: '', targetAmount: '', targetDate: '', memberIdsToRemove: [] });
                   }}
                   className="btn btn-outline"
                   style={{ flex: 1 }}
