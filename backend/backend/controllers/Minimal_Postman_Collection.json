@@ -1,0 +1,51 @@
+{
+  "info": {
+    "name": "SHARE Project Minimal",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": "http://localhost:5000/health"
+      }
+    },
+    {
+      "name": "Register User",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\":\"John Doe\",\"email\":\"john@example.com\",\"password\":\"SecurePass123\",\"age\":25,\"interests\":[\"finance\",\"technology\"]}"
+        },
+        "url": "http://localhost:5000/api/users/register"
+      }
+    },
+    {
+      "name": "Login User",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\":\"john@example.com\",\"password\":\"SecurePass123\"}"
+        },
+        "url": "http://localhost:5000/api/users/login"
+      }
+    }
+  ]
+}
+
+

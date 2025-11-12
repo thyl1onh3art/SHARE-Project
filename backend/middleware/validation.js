@@ -108,6 +108,23 @@ const validateSharedAccount = [
     .trim()
     .isLength({ min: 2, max: 100 })
     .withMessage('Account name must be between 2 and 100 characters'),
+  body('description')
+    .trim()
+    .isLength({ min: 3, max: 500 })
+    .withMessage('Description must be between 3 and 500 characters'),
+  body('targetAmount')
+    .isFloat({ min: 0.01 })
+    .withMessage('Target amount must be a positive number greater than 0'),
+  body('targetDate')
+    .isISO8601()
+    .withMessage('Target date must be a valid ISO date')
+    .custom((value) => {
+      const targetDate = new Date(value);
+      if (targetDate <= new Date()) {
+        throw new Error('Target date must be in the future');
+      }
+      return true;
+    }),
   body('memberIds')
     .optional()
     .isArray()
@@ -126,6 +143,28 @@ const validateUpdateSharedAccount = [
     .trim()
     .isLength({ min: 2, max: 100 })
     .withMessage('Account name must be between 2 and 100 characters'),
+  body('description')
+    .optional()
+    .trim()
+    .isLength({ min: 3, max: 500 })
+    .withMessage('Description must be between 3 and 500 characters'),
+  body('targetAmount')
+    .optional()
+    .isFloat({ min: 0.01 })
+    .withMessage('Target amount must be a positive number greater than 0'),
+  body('targetDate')
+    .optional()
+    .isISO8601()
+    .withMessage('Target date must be a valid ISO date')
+    .custom((value) => {
+      if (value) {
+        const targetDate = new Date(value);
+        if (targetDate <= new Date()) {
+          throw new Error('Target date must be in the future');
+        }
+      }
+      return true;
+    }),
   body('memberIds')
     .optional()
     .isArray()

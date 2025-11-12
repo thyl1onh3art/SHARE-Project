@@ -5,6 +5,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 interface SharedAccount {
   _id: string;
   name: string;
+  description?: string;
+  targetAmount?: number;
+  targetDate?: string;
+  perPersonAmount?: number;
   owner: string;
   members: string[];
   financeRecords: any[];
@@ -15,9 +19,57 @@ const SharedAccounts: React.FC = () => {
   const [accounts, setAccounts] = useState<SharedAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [countdowns, setCountdowns] = useState<{ [key: string]: { days: number; hours: number; minutes: number; seconds: number } }>({});
+
+  // Calculate countdown timer
+  const calculateCountdown = (targetDate: string | undefined): { days: number; hours: number; minutes: number; seconds: number } | null => {
+    if (!targetDate) return null;
+    const target = new Date(targetDate).getTime();
+    const now = new Date().getTime();
+    const difference = target - now;
+
+    if (difference <= 0) {
+      return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+    }
+
+    return {
+      days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+      hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+      minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
+      seconds: Math.floor((difference % (1000 * 60)) / 1000)
+    };
+  };
+
+  // Initialize and update countdowns every second
+  useEffect(() => {
+    // Initialize countdowns immediately
+    const initializeCountdowns = () => {
+      const newCountdowns: { [key: string]: { days: number; hours: number; minutes: number; seconds: number } } = {};
+      accounts.forEach(account => {
+        if (account.targetDate) {
+          const countdown = calculateCountdown(account.targetDate);
+          if (countdown) {
+            newCountdowns[account._id] = countdown;
+          }
+        }
+      });
+      setCountdowns(newCountdowns);
+    };
+
+    // Initialize immediately
+    initializeCountdowns();
+
+    // Update every second
+    const timer = setInterval(initializeCountdowns, 1000);
+
+    return () => clearInterval(timer);
+  }, [accounts]);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
+    description: '',
+    targetAmount: '',
+    targetDate: '',
     memberIds: ''
   });
   const [submitting, setSubmitting] = useState(false);
@@ -31,6 +83,9 @@ const SharedAccounts: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState({
     name: '',
+    description: '',
+    targetAmount: '',
+    targetDate: '',
     memberIdsToRemove: [] as string[]
   });
   const [editSubmitting, setEditSubmitting] = useState(false);
@@ -106,14 +161,18 @@ const SharedAccounts: React.FC = () => {
 
       await axios.post('/shared-accounts', {
         name: formData.name,
+        description: formData.description,
+        targetAmount: parseFloat(formData.targetAmount),
+        targetDate: formData.targetDate,
         memberIds
       });
       
-      setFormData({ name: '', memberIds: '' });
+      setFormData({ name: '', description: '', targetAmount: '', targetDate: '', memberIds: '' });
       setShowForm(false);
       fetchAccounts();
     } catch (err: any) {
-      setError('Failed to create shared account');
+      const errorMessage = err.response?.data?.message || err.response?.data?.errors?.[0]?.message || 'Failed to create shared account';
+      setError(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -139,6 +198,9 @@ const SharedAccounts: React.FC = () => {
     setSelectedAccount(account);
     setEditFormData({
       name: account.name,
+      description: account.description || '',
+      targetAmount: account.targetAmount?.toString() || '',
+      targetDate: account.targetDate ? new Date(account.targetDate).toISOString().slice(0, 16) : '',
       memberIdsToRemove: []
     });
     setShowEditModal(true);
@@ -157,6 +219,25 @@ const SharedAccounts: React.FC = () => {
       // Update name if changed
       if (editFormData.name !== selectedAccount.name) {
         updateData.name = editFormData.name;
+      }
+
+      // Update description if changed
+      if (editFormData.description !== (selectedAccount.description || '')) {
+        updateData.description = editFormData.description;
+      }
+
+      // Update target amount if changed
+      if (editFormData.targetAmount && parseFloat(editFormData.targetAmount) !== (selectedAccount.targetAmount || 0)) {
+        updateData.targetAmount = parseFloat(editFormData.targetAmount);
+      }
+
+      // Update target date if changed
+      if (editFormData.targetDate) {
+        const newDate = new Date(editFormData.targetDate).toISOString();
+        const oldDate = selectedAccount.targetDate ? new Date(selectedAccount.targetDate).toISOString() : '';
+        if (newDate !== oldDate) {
+          updateData.targetDate = editFormData.targetDate;
+        }
       }
 
       // Remove members if any selected
@@ -425,6 +506,43 @@ const SharedAccounts: React.FC = () => {
             </div>
 
             <div className="form-group">
+              <label className="form-label">What is this account for? *</label>
+              <textarea
+                className="form-input"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                required
+                placeholder="e.g., Event tickets, Group vacation, Shared expenses"
+                rows={3}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Total Amount Needed (£) *</label>
+              <input
+                type="number"
+                className="form-input"
+                value={formData.targetAmount}
+                onChange={(e) => setFormData({ ...formData, targetAmount: e.target.value })}
+                required
+                min="0.01"
+                step="0.01"
+                placeholder="e.g., 100.00"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Target Date (when payment is needed) *</label>
+              <input
+                type="datetime-local"
+                className="form-input"
+                value={formData.targetDate}
+                onChange={(e) => setFormData({ ...formData, targetDate: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="form-group">
               <label className="form-label">Member IDs (comma separated)</label>
               <input
                 type="text"
@@ -482,8 +600,59 @@ const SharedAccounts: React.FC = () => {
                 </div>
                 
                 <div style={{ marginBottom: '1rem' }}>
+                  {account.description && (
+                    <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
+                      <strong>Purpose:</strong> {account.description}
+                    </p>
+                  )}
+                  {account.targetAmount !== undefined && (
+                    <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
+                      <strong>Target Amount:</strong> £{account.targetAmount.toFixed(2)}
+                    </p>
+                  )}
+                  {account.perPersonAmount !== undefined && account.perPersonAmount > 0 && (
+                    <p style={{ color: '#2b6cb0', fontSize: '0.9rem', margin: '0.25rem 0', fontWeight: 'bold' }}>
+                      <strong>Per Person:</strong> £{account.perPersonAmount.toFixed(2)} ({(account.members.length + 1)} participants)
+                    </p>
+                  )}
+                  {account.targetDate && (
+                    <div style={{ 
+                      background: countdowns[account._id]?.days === 0 && countdowns[account._id]?.hours === 0 ? '#fee2e2' : '#f0f9ff',
+                      border: `1px solid ${countdowns[account._id]?.days === 0 && countdowns[account._id]?.hours === 0 ? '#fca5a5' : '#bae6fd'}`,
+                      borderRadius: '6px',
+                      padding: '0.75rem',
+                      marginTop: '0.5rem'
+                    }}>
+                      <p style={{ color: '#0369a1', fontSize: '0.85rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
+                        ⏰ Time Remaining:
+                      </p>
+                      {countdowns[account._id] ? (
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          {countdowns[account._id].days > 0 && (
+                            <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>
+                              {countdowns[account._id].days}d
+                            </span>
+                          )}
+                          <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>
+                            {countdowns[account._id].hours}h
+                          </span>
+                          <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>
+                            {countdowns[account._id].minutes}m
+                          </span>
+                          <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>
+                            {countdowns[account._id].seconds}s
+                          </span>
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>Calculating...</span>
+                      )}
+                      <p style={{ color: '#0369a1', fontSize: '0.75rem', margin: '0.5rem 0 0 0' }}>
+                        Target: {new Date(account.targetDate).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
                   <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
-                    <strong>Members:</strong> {account.members.length}
+                    <strong>Members:</strong> {account.members.length + 1} (including you)
                   </p>
                   <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
                     <strong>Records:</strong> {account.financeRecords.length}
@@ -713,7 +882,7 @@ const SharedAccounts: React.FC = () => {
                 onClick={() => {
                   setShowEditModal(false);
                   setSelectedAccount(null);
-                  setEditFormData({ name: '', memberIdsToRemove: [] });
+                  setEditFormData({ name: '', description: '', targetAmount: '', targetDate: '', memberIdsToRemove: [] });
                 }}
                 style={{
                   background: 'none',
@@ -737,6 +906,43 @@ const SharedAccounts: React.FC = () => {
                   onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
                   required
                   placeholder="Account name"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">What is this account for?</label>
+                <textarea
+                  className="form-input"
+                  value={editFormData.description}
+                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                  placeholder="e.g., Event tickets, Group vacation, Shared expenses"
+                  rows={3}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Total Amount Needed (£)</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={editFormData.targetAmount}
+                  onChange={(e) => setEditFormData({ ...editFormData, targetAmount: e.target.value })}
+                  min="0.01"
+                  step="0.01"
+                  placeholder="e.g., 100.00"
+                />
+                <p style={{ fontSize: '0.85rem', color: '#4a5568', marginTop: '0.25rem' }}>
+                  Changing this will recalculate the per-person amount based on current members.
+                </p>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Target Date (when payment is needed)</label>
+                <input
+                  type="datetime-local"
+                  className="form-input"
+                  value={editFormData.targetDate}
+                  onChange={(e) => setEditFormData({ ...editFormData, targetDate: e.target.value })}
                 />
               </div>
 

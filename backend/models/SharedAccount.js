@@ -4,6 +4,10 @@ const sharedAccountSchema = new mongoose.Schema({
   owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   name: { type: String, required: true },
+  description: { type: String, required: true }, // What the account is for
+  targetAmount: { type: Number, required: true, min: 0.01 }, // Total amount needed
+  targetDate: { type: Date, required: true }, // Date when payment is needed
+  perPersonAmount: { type: Number, default: 0 }, // Calculated: targetAmount / (members.length + 1)
   financeRecords: [{ type: mongoose.Schema.Types.ObjectId, ref: 'FinanceRecord' }],
   // Group payment feature - tracks commitments (virtual), not actual money holding
   groupPayment: {
