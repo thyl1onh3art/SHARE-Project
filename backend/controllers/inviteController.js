@@ -85,6 +85,120 @@ exports.sendInvite = async (req, res) => {
   }
 };
 
+// Send invites to multiple recipients at once
+exports.sendBulkInvites = async (req, res) => {
+  try {
+    const { sharedAccountId, recipients } = req.body; // recipients is an array of { recipientEmail?, recipientPhone? }
+    const senderId = req.user.userId;
+    
+    if (!Array.isArray(recipients) || recipients.length === 0) {
+      return res.status(400).json({ message: 'Recipients must be a non-empty array' });
+    }
+
+    const sharedAccount = await SharedAccount.findById(sharedAccountId);
+    if (!sharedAccount) return res.status(404).json({ message: 'Shared account not found' });
+    if (!sharedAccount.members.includes(senderId)) return res.status(403).json({ message: 'Not authorized' });
+
+    const results = {
+      success: [],
+      failed: []
+    };
+
+    // Process each recipient
+    for (const recipient of recipients) {
+      const { recipientEmail, recipientPhone } = recipient;
+      
+      // Validate that at least one contact method is provided
+      if (!recipientEmail && !recipientPhone) {
+        results.failed.push({
+          recipient: { recipientEmail, recipientPhone },
+          error: 'Either email or phone must be provided'
+        });
+        continue;
+      }
+
+      try {
+        // Check for existing invite
+        const existingInvite = await Invite.findOne({
+          sharedAccount: sharedAccountId,
+          $or: [
+            recipientEmail ? { recipientEmail } : {},
+            recipientPhone ? { recipientPhone } : {}
+          ],
+          status: 'pending'
+        });
+
+        if (existingInvite) {
+          results.failed.push({
+            recipient: { recipientEmail, recipientPhone },
+            error: 'Invite already sent to this recipient'
+          });
+          continue;
+        }
+
+        // Create invite
+        const invite = new Invite({
+          sender: senderId,
+          recipientEmail: recipientEmail || undefined,
+          recipientPhone: recipientPhone || undefined,
+          sharedAccount: sharedAccountId
+        });
+        await invite.save();
+
+        // Send email notification if email provided
+        if (recipientEmail) {
+          const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+              user: process.env.EMAIL_USER,
+              pass: process.env.EMAIL_PASS,
+            },
+          });
+          const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: recipientEmail,
+            subject: 'You have been invited to a shared account',
+            text: `You have been invited to join the shared account "${sharedAccount.name}". Please log in to accept the invite.`
+          };
+          transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+              console.error('Error sending email:', error);
+            } else {
+              console.log('Email sent:', info.response);
+            }
+          });
+        }
+
+        // Send SMS notification if phone provided
+        if (recipientPhone) {
+          sendSMS(recipientPhone, `You have been invited to join the shared account '${sharedAccount.name}'. Please log in to accept the invite.`)
+            .then(message => console.log('SMS sent:', message.sid))
+            .catch(error => console.error('Error sending SMS:', error));
+        }
+
+        results.success.push({
+          recipient: { recipientEmail, recipientPhone },
+          inviteId: invite._id
+        });
+      } catch (err) {
+        results.failed.push({
+          recipient: { recipientEmail, recipientPhone },
+          error: err.message
+        });
+      }
+    }
+
+    res.status(201).json({
+      message: `Processed ${recipients.length} recipients`,
+      successCount: results.success.length,
+      failedCount: results.failed.length,
+      results
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
 // Accept an invite (prevent accepting expired invites)
 exports.acceptInvite = async (req, res) => {
   try {
