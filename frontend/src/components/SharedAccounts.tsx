@@ -2,6 +2,14 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
+interface User {
+  _id: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  email: string;
+}
+
 interface SharedAccount {
   _id: string;
   name: string;
@@ -9,8 +17,8 @@ interface SharedAccount {
   targetAmount?: number;
   targetDate?: string;
   perPersonAmount?: number;
-  owner: string;
-  members: string[];
+  owner: string | User;
+  members: string[] | User[];
   financeRecords: any[];
   createdAt: string;
 }
@@ -20,6 +28,7 @@ const SharedAccounts: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [countdowns, setCountdowns] = useState<{ [key: string]: { days: number; hours: number; minutes: number; seconds: number } }>({});
+  const [hoveredAccountId, setHoveredAccountId] = useState<string | null>(null);
 
   // Calculate countdown timer
   const calculateCountdown = (targetDate: string | undefined): { days: number; hours: number; minutes: number; seconds: number } | null => {
@@ -611,9 +620,65 @@ const SharedAccounts: React.FC = () => {
                     </p>
                   )}
                   {account.perPersonAmount !== undefined && account.perPersonAmount > 0 && (
-                    <p style={{ color: '#2b6cb0', fontSize: '0.9rem', margin: '0.25rem 0', fontWeight: 'bold' }}>
-                      <strong>Per Person:</strong> £{account.perPersonAmount.toFixed(2)} ({(account.members.length + 1)} participants)
-                    </p>
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      <p 
+                        style={{ 
+                          color: '#2b6cb0', 
+                          fontSize: '0.9rem', 
+                          margin: '0.25rem 0', 
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                          textDecorationStyle: 'dotted'
+                        }}
+                        onMouseEnter={() => setHoveredAccountId(account._id)}
+                        onMouseLeave={() => setHoveredAccountId(null)}
+                      >
+                        <strong>Per Person:</strong> £{account.perPersonAmount.toFixed(2)} ({(Array.isArray(account.members) ? account.members.length : 0) + 1} participants)
+                      </p>
+                      {hoveredAccountId === account._id && (
+                        <div style={{
+                          position: 'absolute',
+                          bottom: '100%',
+                          left: '0',
+                          marginBottom: '5px',
+                          padding: '0.75rem',
+                          background: '#1a202c',
+                          color: '#fff',
+                          borderRadius: '6px',
+                          fontSize: '0.85rem',
+                          zIndex: 1000,
+                          minWidth: '200px',
+                          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                        }}>
+                          <div style={{ marginBottom: '0.5rem', fontWeight: 'bold', borderBottom: '1px solid #4a5568', paddingBottom: '0.5rem' }}>
+                            Participants:
+                          </div>
+                          <div style={{ marginBottom: '0.25rem' }}>
+                            <span style={{ color: '#fbbf24' }}>👤 Owner:</span>{' '}
+                            {typeof account.owner === 'object' && account.owner ? (
+                              <span>{account.owner.name || `${account.owner.firstName || ''} ${account.owner.lastName || ''}`.trim() || account.owner.email}</span>
+                            ) : (
+                              <span>You</span>
+                            )}
+                          </div>
+                          {Array.isArray(account.members) && account.members.length > 0 && (
+                            <div>
+                              {account.members.map((member, idx) => (
+                                <div key={idx} style={{ marginBottom: '0.25rem' }}>
+                                  <span style={{ color: '#60a5fa' }}>👥 Member {idx + 1}:</span>{' '}
+                                  {typeof member === 'object' && member ? (
+                                    <span>{member.name || `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.email}</span>
+                                  ) : (
+                                    <span>Member {idx + 1}</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )}
                   {account.targetDate && (
                     <div style={{ 
