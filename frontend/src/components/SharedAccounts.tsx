@@ -1021,8 +1021,13 @@ const SharedAccounts: React.FC = () => {
                     maxHeight: '200px',
                     overflowY: 'auto'
                   }}>
-                    {selectedAccount.members.map((memberId: string) => {
-                      const isOwner = memberId === selectedAccount.owner;
+                    {Array.isArray(selectedAccount.members) && selectedAccount.members.map((member, index) => {
+                      const memberId = typeof member === 'string' ? member : member._id;
+                      const memberName = typeof member === 'object' && member 
+                        ? (member.name || `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.email)
+                        : `Member ${index + 1}`;
+                      const ownerId = typeof selectedAccount.owner === 'string' ? selectedAccount.owner : selectedAccount.owner._id;
+                      const isOwner = memberId === ownerId;
                       const isSelected = editFormData.memberIdsToRemove.includes(memberId);
                       return (
                         <div
@@ -1049,7 +1054,7 @@ const SharedAccounts: React.FC = () => {
                             color: isOwner ? '#1e40af' : '#4a5568',
                             fontWeight: isOwner ? 'bold' : 'normal'
                           }}>
-                            {memberId} {isOwner && '(Owner)'}
+                            {isOwner ? 'You (Owner)' : `Member: ${memberName}`}
                           </span>
                         </div>
                       );
