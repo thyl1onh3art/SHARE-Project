@@ -100,7 +100,10 @@ exports.sendBulkInvites = async (req, res) => {
 
     const sharedAccount = await SharedAccount.findById(sharedAccountId);
     if (!sharedAccount) return res.status(404).json({ message: 'Shared account not found' });
-    if (!sharedAccount.members.includes(senderId)) return res.status(403).json({ message: 'Not authorized' });
+    // Check if user is owner or a member
+    const isOwner = sharedAccount.owner.toString() === senderId.toString();
+    const isMember = sharedAccount.members.some(member => member.toString() === senderId.toString());
+    if (!isOwner && !isMember) return res.status(403).json({ message: 'Not authorized' });
 
     const results = {
       success: [],
