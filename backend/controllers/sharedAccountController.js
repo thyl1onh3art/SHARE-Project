@@ -66,6 +66,17 @@ exports.getUserSharedAccounts = async (req, res) => {
         { members: userId }
       ]
     });
+    
+    // Recalculate perPersonAmount for each account to ensure it's always accurate
+    for (const account of accounts) {
+      if (account.targetAmount && account.targetAmount > 0) {
+        const currentMemberCount = Array.isArray(account.members) ? account.members.length : 0;
+        account.perPersonAmount = Math.round(calculatePerPersonAmount(account.targetAmount, currentMemberCount) * 100) / 100;
+        // Save the updated perPersonAmount
+        await account.save();
+      }
+    }
+    
     res.json(accounts);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -89,6 +100,15 @@ exports.getSharedAccountDetails = async (req, res) => {
     if (!account.members.some(m => m._id.equals(req.user.userId)) && !account.owner.equals(req.user.userId)) {
       return res.status(403).json({ message: 'Access denied' });
     }
+    
+    // Recalculate perPersonAmount to ensure it's always accurate
+    if (account.targetAmount && account.targetAmount > 0) {
+      const currentMemberCount = Array.isArray(account.members) ? account.members.length : 0;
+      account.perPersonAmount = Math.round(calculatePerPersonAmount(account.targetAmount, currentMemberCount) * 100) / 100;
+      // Save the updated perPersonAmount
+      await account.save();
+    }
+    
     res.json(account);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
