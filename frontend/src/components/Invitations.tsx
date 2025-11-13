@@ -173,13 +173,16 @@ const Invitations: React.FC = () => {
       return 'Unknown Account';
     }
     // If it's already a populated object with name, use it directly
-    if (typeof accountIdOrObject === 'object' && 'name' in accountIdOrObject) {
+    if (typeof accountIdOrObject === 'object' && accountIdOrObject !== null && 'name' in accountIdOrObject) {
       return accountIdOrObject.name;
     }
     // Otherwise, it's an ID string - look it up in the accounts list
-    const accountId = typeof accountIdOrObject === 'string' ? accountIdOrObject : accountIdOrObject._id;
-    const account = accounts.find(acc => acc._id === accountId);
-    return account ? account.name : 'Unknown Account';
+    if (typeof accountIdOrObject === 'string') {
+      const account = accounts.find(acc => acc._id === accountIdOrObject);
+      return account ? account.name : 'Unknown Account';
+    }
+    // Fallback for any other case
+    return 'Unknown Account';
   };
 
   const isExpired = (expiresAt: string) => {
