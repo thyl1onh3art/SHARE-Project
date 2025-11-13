@@ -173,7 +173,7 @@ const Invitations: React.FC = () => {
       return accountIdOrObject.name;
     }
     // Otherwise, it's an ID string - look it up in the accounts list
-    const accountId = typeof accountIdOrObject === 'string' ? accountIdOrObject : accountIdOrObject._id;
+    const accountId = typeof accountIdOrObject === 'string' ? accountIdOrObject : (accountIdOrObject as SharedAccountRef)._id;
     const account = accounts.find(acc => acc._id === accountId);
     return account ? account.name : 'Unknown Account';
   };
