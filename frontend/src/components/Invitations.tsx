@@ -2,12 +2,17 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useSearchParams } from 'react-router-dom';
 
+interface SharedAccountRef {
+  _id: string;
+  name: string;
+}
+
 interface Invitation {
   _id: string;
   sender: string;
   recipientEmail?: string;
   recipientPhone?: string;
-  sharedAccount: string;
+  sharedAccount: string | SharedAccountRef; // Can be ID string or populated object
   status: 'pending' | 'accepted' | 'cancelled';
   expiresAt: string;
   createdAt: string;
@@ -162,7 +167,13 @@ const Invitations: React.FC = () => {
     }
   };
 
-  const getAccountName = (accountId: string) => {
+  const getAccountName = (accountIdOrObject: string | SharedAccountRef) => {
+    // If it's already a populated object with name, use it directly
+    if (typeof accountIdOrObject === 'object' && accountIdOrObject !== null && 'name' in accountIdOrObject) {
+      return accountIdOrObject.name;
+    }
+    // Otherwise, it's an ID string - look it up in the accounts list
+    const accountId = typeof accountIdOrObject === 'string' ? accountIdOrObject : accountIdOrObject._id;
     const account = accounts.find(acc => acc._id === accountId);
     return account ? account.name : 'Unknown Account';
   };
