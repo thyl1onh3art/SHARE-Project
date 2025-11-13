@@ -12,7 +12,7 @@ interface Invitation {
   sender: string;
   recipientEmail?: string;
   recipientPhone?: string;
-  sharedAccount: string | SharedAccountRef; // Can be ID string or populated object
+  sharedAccount: string | SharedAccountRef | null; // Can be ID string, populated object, or null
   status: 'pending' | 'accepted' | 'cancelled';
   expiresAt: string;
   createdAt: string;
@@ -167,13 +167,17 @@ const Invitations: React.FC = () => {
     }
   };
 
-  const getAccountName = (accountIdOrObject: string | SharedAccountRef) => {
+  const getAccountName = (accountIdOrObject: string | SharedAccountRef | null) => {
+    // Handle null case
+    if (accountIdOrObject === null || accountIdOrObject === undefined) {
+      return 'Unknown Account';
+    }
     // If it's already a populated object with name, use it directly
-    if (typeof accountIdOrObject === 'object' && accountIdOrObject !== null && 'name' in accountIdOrObject) {
+    if (typeof accountIdOrObject === 'object' && 'name' in accountIdOrObject) {
       return accountIdOrObject.name;
     }
     // Otherwise, it's an ID string - look it up in the accounts list
-    const accountId = typeof accountIdOrObject === 'string' ? accountIdOrObject : (accountIdOrObject as SharedAccountRef)._id;
+    const accountId = typeof accountIdOrObject === 'string' ? accountIdOrObject : accountIdOrObject._id;
     const account = accounts.find(acc => acc._id === accountId);
     return account ? account.name : 'Unknown Account';
   };
