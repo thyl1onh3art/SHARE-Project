@@ -1,7 +1,6 @@
 const express = require('express');
 const https = require('https');
 const fs = require('fs');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -16,9 +15,11 @@ const sharedAccountRoutes = require('./routes/sharedAccountRoutes');
 const financeRoutes = require('./routes/financeRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 const galleryRoutes = require('./routes/galleryRoutes');
-// const emailVerificationRoutes = require('./routes/emailVerificationRoutes');
+// const emailVerificationRoutes = require('./routes/emailVerificationRoutes'); // Temporarily disabled
 const twoFactorRoutes = require('./routes/twoFactorRoutes');
 const backupRoutes = require('./routes/backupRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
+const groupPaymentRoutes = require('./routes/groupPaymentRoutes');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -34,6 +35,7 @@ const {
 
 // Import services
 const backupService = require('./services/backupService');
+const mongodbService = require('./services/mongodb');
 
 const app = express();
 
@@ -52,7 +54,29 @@ app.use(speedLimiter);
 
 // CORS configuration
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'https://localhost:3000',
+      'https://localhost:3001',
+      'https://share-project-production.up.railway.app',
+      'https://share-project-frontend-production.up.railway.app',
+      process.env.CORS_ORIGIN
+    ].filter(Boolean);
+    
+    console.log('CORS check - Request origin:', origin);
+    console.log('CORS check - Allowed origins:', allowedOrigins);
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      console.log('CORS check - ALLOWED');
+      callback(null, true);
+    } else {
+      console.log('CORS check - BLOCKED');
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   optionsSuccessStatus: 200
 };
@@ -64,19 +88,34 @@ app.use(compression());
 // Logging middleware
 app.use(morgan('combined'));
 
+// PayPal webhook endpoint (if needed - PayPal uses IPN for webhooks)
+// Note: PayPal webhooks are handled differently than Stripe
+
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'OK',
-    message: 'SHARE Project API is running',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    version: '1.0.3' // Updated for User model fix deployment
-  });
+app.get('/health', async (req, res) => {
+  try {
+    const dbHealth = await mongodbService.healthCheck();
+    
+    res.status(200).json({
+      status: 'OK',
+      message: 'SHARE Project API is running',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      version: '1.0.7', // FORCE CORS FIX - Allow localhost:3001
+      database: dbHealth
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: 'ERROR',
+      message: 'Service temporarily unavailable',
+      timestamp: new Date().toISOString(),
+      error: error.message
+    });
+  }
 });
 
 // Root endpoint (for Vercel dashboard)
@@ -86,7 +125,7 @@ app.get('/', (req, res) => {
     message: 'SHARE Project API is running',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    version: '1.0.3',
+    version: '1.0.6',
     endpoints: {
       health: '/health',
       users: '/api/users',
@@ -112,7 +151,9 @@ app.use('/api/shared-accounts', sharedAccountRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/gallery', galleryRoutes);
-// app.use('/api/email-verification', emailVerificationRoutes);
+// app.use('/api/email-verification', emailVerificationRoutes); // Temporarily disabled
+app.use('/api/payments', paymentRoutes);
+app.use('/api/group-payments', groupPaymentRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -125,22 +166,20 @@ app.use('*', (req, res) => {
 // Global error handler
 app.use(errorHandler);
 
-// MongoDB connection
-const connectDB = async () => {
+// Data store initialization
+const initializeDataStore = async () => {
   try {
-    const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/share_project';
-    console.log('🔗 Connecting to MongoDB...');
-    console.log('📍 MongoDB URI:', mongoURI);
-    
-    await mongoose.connect(mongoURI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-    
-    console.log('✅ MongoDB connected successfully');
+    console.log('🔗 Initializing MongoDB connection...');
+    console.log('🔍 DEBUG: Environment variables:');
+    console.log('🔍 MONGO_PUBLIC_URL:', process.env.MONGO_PUBLIC_URL);
+    console.log('🔍 MONGO_URL:', process.env.MONGO_URL);
+    console.log('🔍 MONGODB_URI:', process.env.MONGODB_URI);
+    await mongodbService.connect();
+    const healthCheck = await mongodbService.healthCheck();
+    console.log('📊 MongoDB health check:', healthCheck);
+    console.log('✅ MongoDB initialized successfully');
   } catch (error) {
-    console.error('❌ MongoDB connection error:', error.message);
-    // Don't exit in serverless environment - let Vercel handle it
+    console.error('❌ MongoDB initialization error:', error.message);
     if (!process.env.VERCEL) {
       process.exit(1);
     }
@@ -153,15 +192,18 @@ const HTTPS_PORT = process.env.HTTPS_PORT || 5443;
 
 const startServer = async () => {
   try {
-    await connectDB();
+    console.log('🚀 Starting server initialization...');
+    await initializeDataStore();
     
-    // Only start HTTP server if not in Vercel environment
+    // Start HTTP server (for Railway, local dev, etc.)
     if (!process.env.VERCEL) {
       // Start HTTP server
       app.listen(PORT, () => {
         console.log(`🚀 SHARE Project API server running on port ${PORT}`);
         console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
         console.log(`📊 Health check: http://localhost:${PORT}/health`);
+        console.log(`💾 Database: MongoDB with Mongoose ODM`);
+        console.log(`✅ Server successfully started and listening on port ${PORT}`);
       });
 
       // Start HTTPS server
@@ -184,8 +226,10 @@ const startServer = async () => {
     }
   } catch (error) {
     console.error('❌ Failed to start server:', error.message);
+    console.error('❌ Error stack:', error.stack);
     // Don't exit in serverless environment - let Vercel handle it
     if (!process.env.VERCEL) {
+      console.error('❌ Exiting process...');
       process.exit(1);
     }
   }
@@ -194,15 +238,15 @@ const startServer = async () => {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('🛑 SIGTERM received, shutting down gracefully');
-  await mongoose.connection.close();
-  console.log('📦 MongoDB connection closed');
+  await mongodbService.disconnect();
+  console.log('🔌 MongoDB disconnected');
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   console.log('🛑 SIGINT received, shutting down gracefully');
-  await mongoose.connection.close();
-  console.log('📦 MongoDB connection closed');
+  await mongodbService.disconnect();
+  console.log('🔌 MongoDB disconnected');
   process.exit(0);
 });
 

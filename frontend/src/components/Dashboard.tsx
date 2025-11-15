@@ -88,14 +88,14 @@ const Dashboard: React.FC = () => {
         <div className="card">
           <h3 style={{ color: '#38a169', marginBottom: '1rem' }}>💰 Total Income</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#38a169' }}>
-            ${totalIncome.toFixed(2)}
+            £{totalIncome.toFixed(2)}
           </p>
         </div>
         
         <div className="card">
           <h3 style={{ color: '#e53e3e', marginBottom: '1rem' }}>💸 Total Expenses</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#e53e3e' }}>
-            ${totalExpenses.toFixed(2)}
+            £{totalExpenses.toFixed(2)}
           </p>
         </div>
         
@@ -108,7 +108,7 @@ const Dashboard: React.FC = () => {
             fontWeight: 'bold', 
             color: netBalance >= 0 ? '#38a169' : '#e53e3e' 
           }}>
-            ${netBalance.toFixed(2)}
+            £{netBalance.toFixed(2)}
           </p>
         </div>
       </div>
@@ -140,7 +140,7 @@ const Dashboard: React.FC = () => {
                   color: record.type === 'input' ? '#38a169' : '#e53e3e',
                   fontWeight: 'bold'
                 }}>
-                  {record.type === 'input' ? '+' : '-'}${record.amount.toFixed(2)}
+                  {record.type === 'input' ? '+' : '-'}£{record.amount.toFixed(2)}
                 </span>
               </div>
             ))}

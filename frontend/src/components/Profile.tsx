@@ -12,7 +12,8 @@ interface UserProfile {
 }
 
 const Profile: React.FC = () => {
-  const { } = useAuth();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { user } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);

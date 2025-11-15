@@ -119,14 +119,14 @@ const FinancialRecords: React.FC = () => {
         <div className="card">
           <h3 style={{ color: '#38a169', marginBottom: '1rem' }}>💰 Total Income</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#38a169' }}>
-            ${totalIncome.toFixed(2)}
+            £{totalIncome.toFixed(2)}
           </p>
         </div>
         
         <div className="card">
           <h3 style={{ color: '#e53e3e', marginBottom: '1rem' }}>💸 Total Expenses</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#e53e3e' }}>
-            ${totalExpenses.toFixed(2)}
+            £{totalExpenses.toFixed(2)}
           </p>
         </div>
         
@@ -229,7 +229,7 @@ const FinancialRecords: React.FC = () => {
                     fontWeight: 'bold',
                     fontSize: '1.1rem'
                   }}>
-                    {record.type === 'input' ? '+' : '-'}${record.amount.toFixed(2)}
+                    {record.type === 'input' ? '+' : '-'}£{record.amount.toFixed(2)}
                   </span>
                   <button
                     onClick={() => handleDelete(record._id)}
