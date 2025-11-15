@@ -174,7 +174,7 @@ const SharedAccounts: React.FC = () => {
         invite => invite.recipientEmail.trim()
       );
 
-      const response = await axios.post('/shared-accounts', {
+      await axios.post('/shared-accounts', {
         name: formData.name,
         description: formData.description,
         targetAmount: parseFloat(formData.targetAmount),
