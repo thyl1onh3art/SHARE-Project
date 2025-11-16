@@ -50,9 +50,6 @@ const Navbar: React.FC = () => {
       {user ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <Link to="/dashboard" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
-              Dashboard
-            </Link>
             <Link to="/financial-records" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
               Finance
             </Link>
