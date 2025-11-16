@@ -142,12 +142,6 @@ const FinancialRecords: React.FC = () => {
       <div className="card">
         <div className="card-header">
           <h1 className="card-title">My Accounts</h1>
-          <button 
-            onClick={() => setShowForm(!showForm)}
-            className="btn btn-primary"
-          >
-            {showForm ? 'Cancel' : 'Add Transaction'}
-          </button>
         </div>
       </div>
 
@@ -164,7 +158,7 @@ const FinancialRecords: React.FC = () => {
         marginBottom: '1.5rem'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
+          <div style={{ flex: 1 }}>
             <h2 style={{ margin: 0, marginBottom: '0.5rem', fontSize: '1.25rem', opacity: 0.9 }}>Total Balance</h2>
             <p style={{ 
               fontSize: '3rem', 
@@ -174,12 +168,39 @@ const FinancialRecords: React.FC = () => {
             }}>
               £{totalBalance.toFixed(2)}
             </p>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', fontSize: '0.9rem', opacity: 0.9, flexWrap: 'wrap' }}>
+              <span>📈 Income: £{totalIncome.toFixed(2)} ({incomeCount} transaction{incomeCount !== 1 ? 's' : ''})</span>
+              <span>📉 Expenses: £{totalExpenses.toFixed(2)} ({expenseCount} transaction{expenseCount !== 1 ? 's' : ''})</span>
+            </div>
           </div>
-          <div style={{ fontSize: '4rem', opacity: 0.9 }}>💰</div>
-        </div>
-        <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', fontSize: '0.9rem', opacity: 0.9, flexWrap: 'wrap' }}>
-          <span>📈 Income: £{totalIncome.toFixed(2)} ({incomeCount} transaction{incomeCount !== 1 ? 's' : ''})</span>
-          <span>📉 Expenses: £{totalExpenses.toFixed(2)} ({expenseCount} transaction{expenseCount !== 1 ? 's' : ''})</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', marginLeft: '2rem' }}>
+            <div style={{ fontSize: '4rem', opacity: 0.9 }}>💰</div>
+            <button 
+              onClick={() => setShowForm(!showForm)}
+              style={{
+                padding: '0.75rem 1.5rem',
+                fontSize: '1rem',
+                fontWeight: 'bold',
+                background: 'white',
+                color: '#667eea',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                transition: 'transform 0.2s, box-shadow 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+              }}
+            >
+              {showForm ? 'Cancel' : '➕ Add Money'}
+            </button>
+          </div>
         </div>
       </div>
 
