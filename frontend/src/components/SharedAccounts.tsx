@@ -81,6 +81,7 @@ const SharedAccounts: React.FC = () => {
     targetDate: '',
     memberIds: ''
   });
+  const [invites, setInvites] = useState<Array<{ recipientEmail: string; recipientPhone: string }>>([]);
   const [submitting, setSubmitting] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<SharedAccount | null>(null);
@@ -168,17 +169,28 @@ const SharedAccounts: React.FC = () => {
         .map(id => id.trim())
         .filter(id => id);
 
+      // Filter out invites with no email (email is required for acceptance)
+      const validInvites = invites.filter(
+        invite => invite.recipientEmail.trim()
+      );
+
       await axios.post('/shared-accounts', {
         name: formData.name,
         description: formData.description,
         targetAmount: parseFloat(formData.targetAmount),
         targetDate: formData.targetDate,
-        memberIds
+        memberIds,
+        invites: validInvites.length > 0 ? validInvites : undefined
       });
       
       setFormData({ name: '', description: '', targetAmount: '', targetDate: '', memberIds: '' });
+      setInvites([]);
       setShowForm(false);
       fetchAccounts();
+      
+      if (validInvites.length > 0) {
+        alert(`Shared account created and ${validInvites.length} invitation(s) sent!`);
+      }
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || err.response?.data?.errors?.[0]?.message || 'Failed to create shared account';
       setError(errorMessage);
@@ -560,18 +572,95 @@ const SharedAccounts: React.FC = () => {
                 onChange={(e) => setFormData({ ...formData, memberIds: e.target.value })}
                 placeholder="Leave empty for now - you can invite members later"
               />
+            </div>
+
+            {/* Invitations Section */}
+            <div className="form-group">
+              <label className="form-label" style={{ marginBottom: '0.5rem', display: 'block' }}>
+                Invite People (Optional)
+              </label>
               <div style={{
                 background: '#f0f9ff',
                 border: '1px solid #bae6fd',
                 borderRadius: '6px',
                 padding: '0.75rem',
-                marginTop: '0.5rem'
+                marginBottom: '0.75rem'
               }}>
                 <p style={{ color: '#0369a1', fontSize: '0.9rem', margin: 0 }}>
-                  <strong>💡 Tip:</strong> You can create the account now and invite members later using the Invitations page. 
-                  This makes it easier to share the account with friends and family.
+                  <strong>💡 Tip:</strong> You can invite people now or later. Email is required for each invite (phone is optional).
                 </p>
               </div>
+              
+              {invites.map((invite, index) => (
+                <div key={index} style={{
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '6px',
+                  padding: '1rem',
+                  marginBottom: '0.75rem',
+                  background: '#f7fafc'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <strong style={{ color: '#2d3748' }}>Invite #{index + 1}</strong>
+                    <button
+                      type="button"
+                      onClick={() => setInvites(invites.filter((_, i) => i !== index))}
+                      style={{
+                        background: '#e53e3e',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        padding: '4px 8px',
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.85rem' }}>Email *</label>
+                      <input
+                        type="email"
+                        className="form-input"
+                        value={invite.recipientEmail}
+                        onChange={(e) => {
+                          const newInvites = [...invites];
+                          newInvites[index].recipientEmail = e.target.value;
+                          setInvites(newInvites);
+                        }}
+                        placeholder="friend@example.com"
+                        style={{ fontSize: '0.9rem' }}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.85rem' }}>Phone (optional)</label>
+                      <input
+                        type="tel"
+                        className="form-input"
+                        value={invite.recipientPhone}
+                        onChange={(e) => {
+                          const newInvites = [...invites];
+                          newInvites[index].recipientPhone = e.target.value;
+                          setInvites(newInvites);
+                        }}
+                        placeholder="+1234567890"
+                        style={{ fontSize: '0.9rem' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              <button
+                type="button"
+                onClick={() => setInvites([...invites, { recipientEmail: '', recipientPhone: '' }])}
+                className="btn btn-secondary"
+                style={{ width: '100%', marginTop: '0.5rem' }}
+              >
+                + Add Another Invite
+              </button>
             </div>
 
             <button
