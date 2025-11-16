@@ -111,16 +111,22 @@ const FinancialRecords: React.FC = () => {
     return income - expenses;
   };
 
-  // Calculate totals
-  const totalIncome = records
+  // Calculate totals - only count personal transactions (not shared account transactions)
+  const personalRecords = records.filter(record => !record.sharedAccount);
+  
+  const totalIncome = personalRecords
     .filter(record => record.type === 'input')
     .reduce((sum, record) => sum + record.amount, 0);
 
-  const totalExpenses = records
+  const totalExpenses = personalRecords
     .filter(record => record.type === 'output')
     .reduce((sum, record) => sum + record.amount, 0);
 
   const totalBalance = totalIncome - totalExpenses;
+  
+  // Count transactions
+  const incomeCount = personalRecords.filter(record => record.type === 'input').length;
+  const expenseCount = personalRecords.filter(record => record.type === 'output').length;
 
   if (loading) {
     return (
@@ -171,9 +177,9 @@ const FinancialRecords: React.FC = () => {
           </div>
           <div style={{ fontSize: '4rem', opacity: 0.9 }}>💰</div>
         </div>
-        <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', fontSize: '0.9rem', opacity: 0.9 }}>
-          <span>📈 Income: £{totalIncome.toFixed(2)}</span>
-          <span>📉 Expenses: £{totalExpenses.toFixed(2)}</span>
+        <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', fontSize: '0.9rem', opacity: 0.9, flexWrap: 'wrap' }}>
+          <span>📈 Income: £{totalIncome.toFixed(2)} ({incomeCount} transaction{incomeCount !== 1 ? 's' : ''})</span>
+          <span>📉 Expenses: £{totalExpenses.toFixed(2)} ({expenseCount} transaction{expenseCount !== 1 ? 's' : ''})</span>
         </div>
       </div>
 
@@ -386,20 +392,24 @@ const FinancialRecords: React.FC = () => {
 
       {/* Records List */}
       <div className="card">
-        <h2 style={{ marginBottom: '1rem' }}>All Financial Records</h2>
+        <h2 style={{ marginBottom: '1rem' }}>Personal Financial Records</h2>
+        <p style={{ color: '#4a5568', fontSize: '0.85rem', marginBottom: '1rem' }}>
+          Showing {personalRecords.length} personal transaction{personalRecords.length !== 1 ? 's' : ''}. 
+          {records.length > personalRecords.length && ` (${records.length - personalRecords.length} transaction${records.length - personalRecords.length !== 1 ? 's' : ''} in shared accounts)`}
+        </p>
         
-        {records.length === 0 ? (
+        {personalRecords.length === 0 ? (
           <p style={{ color: '#4a5568', textAlign: 'center', padding: '2rem' }}>
-            No financial records yet. Add your first record above!
+            No personal financial records yet. Add your first record above!
           </p>
         ) : (
           <div className="list">
-            {records.map((record) => (
+            {personalRecords.map((record) => (
               <div key={record._id} className="list-item">
                 <div>
                   <strong>{record.description}</strong>
                   <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
-                    {new Date(record.date).toLocaleDateString()} • {record.type === 'input' ? 'Income' : 'Expense'}
+                    {new Date(record.date).toLocaleDateString()} • {record.type === 'input' ? '💰 Income' : '💸 Expense'}
                   </p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
