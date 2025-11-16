@@ -55,15 +55,6 @@ const FinancialRecords: React.FC = () => {
     }
   };
 
-  const fetchRecords = async () => {
-    try {
-      const response = await axios.get('/finance');
-      setRecords(response.data);
-    } catch (err: any) {
-      setError('Failed to load financial records');
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
