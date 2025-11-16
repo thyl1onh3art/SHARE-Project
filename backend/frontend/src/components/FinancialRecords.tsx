@@ -26,12 +26,20 @@ const FinancialRecords: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [showCardModal, setShowCardModal] = useState(false);
   const [formData, setFormData] = useState({
     type: 'input' as 'input' | 'output',
     amount: '',
     description: '',
     date: new Date().toISOString().split('T')[0],
-    sharedAccount: ''
+    sharedAccount: '',
+    fromAccount: 'personal' as 'personal' | 'card'
+  });
+  const [cardData, setCardData] = useState({
+    cardNumber: '',
+    cardName: '',
+    expiryDate: '',
+    cvv: ''
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -73,9 +81,17 @@ const FinancialRecords: React.FC = () => {
         amount: '',
         description: '',
         date: new Date().toISOString().split('T')[0],
-        sharedAccount: ''
+        sharedAccount: '',
+        fromAccount: 'personal'
+      });
+      setCardData({
+        cardNumber: '',
+        cardName: '',
+        expiryDate: '',
+        cvv: ''
       });
       setShowForm(false);
+      setShowCardModal(false);
       fetchData();
     } catch (err: any) {
       setError('Failed to create financial record');

@@ -26,12 +26,20 @@ const FinancialRecords: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [showCardModal, setShowCardModal] = useState(false);
   const [formData, setFormData] = useState({
     type: 'input' as 'input' | 'output',
     amount: '',
     description: '',
     date: new Date().toISOString().split('T')[0],
-    sharedAccount: ''
+    sharedAccount: '',
+    fromAccount: 'personal' as 'personal' | 'card'
+  });
+  const [cardData, setCardData] = useState({
+    cardNumber: '',
+    cardName: '',
+    expiryDate: '',
+    cvv: ''
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -73,9 +81,17 @@ const FinancialRecords: React.FC = () => {
         amount: '',
         description: '',
         date: new Date().toISOString().split('T')[0],
-        sharedAccount: ''
+        sharedAccount: '',
+        fromAccount: 'personal'
+      });
+      setCardData({
+        cardNumber: '',
+        cardName: '',
+        expiryDate: '',
+        cvv: ''
       });
       setShowForm(false);
+      setShowCardModal(false);
       fetchData();
     } catch (err: any) {
       setError('Failed to create financial record');
@@ -329,11 +345,30 @@ const FinancialRecords: React.FC = () => {
       {/* Add Record Form */}
       {showForm && (
         <div className="card">
-          <h2 style={{ marginBottom: '1rem' }}>Add Money Transaction</h2>
+          <h2 style={{ marginBottom: '1rem' }}>Add Money</h2>
           <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label className="form-label">From</label>
+              <select
+                className="form-select"
+                value={formData.fromAccount}
+                onChange={(e) => {
+                  const fromAccount = e.target.value as 'personal' | 'card';
+                  setFormData({ ...formData, fromAccount });
+                  if (fromAccount === 'card') {
+                    setShowCardModal(true);
+                  }
+                }}
+                required
+              >
+                <option value="personal">💰 Personal Account</option>
+                <option value="card">💳 Debit/Credit Card</option>
+              </select>
+            </div>
+
             {sharedAccounts.length > 0 && (
               <div className="form-group">
-                <label className="form-label">💼 Where should this money go?</label>
+                <label className="form-label">To (Optional)</label>
                 <select
                   className="form-select"
                   value={formData.sharedAccount}
@@ -346,40 +381,20 @@ const FinancialRecords: React.FC = () => {
                     </option>
                   ))}
                 </select>
-                <small style={{ color: '#718096', fontSize: '0.85rem', display: 'block', marginTop: '0.5rem' }}>
-                  {formData.sharedAccount 
-                    ? `Money will be added to the selected shared account`
-                    : `Money will be added to your personal balance`}
-                </small>
               </div>
             )}
 
-            <div className="grid grid-2">
-              <div className="form-group">
-                <label className="form-label">Amount</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="form-input"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  required
-                  placeholder="0.00"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Type</label>
-                <select
-                  className="form-select"
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value as 'input' | 'output' })}
-                  required
-                >
-                  <option value="input">💰 Money In (Add Money)</option>
-                  <option value="output">💸 Money Out (Expense)</option>
-                </select>
-              </div>
+            <div className="form-group">
+              <label className="form-label">Amount</label>
+              <input
+                type="number"
+                step="0.01"
+                className="form-input"
+                value={formData.amount}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                required
+                placeholder="0.00"
+              />
             </div>
 
             <div className="form-group">
@@ -390,7 +405,7 @@ const FinancialRecords: React.FC = () => {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 required
-                placeholder={formData.type === 'input' ? 'Where did this money come from?' : 'What was this expense for?'}
+                placeholder="What is this for?"
               />
             </div>
 
@@ -408,11 +423,140 @@ const FinancialRecords: React.FC = () => {
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={submitting}
+              disabled={submitting || (formData.fromAccount === 'card' && !cardData.cardNumber)}
             >
-              {submitting ? <span className="spinner"></span> : 'Add Record'}
+              {submitting ? <span className="spinner"></span> : 'Add Money'}
             </button>
           </form>
+        </div>
+      )}
+
+      {/* Card Details Modal */}
+      {showCardModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}
+        onClick={() => {
+          setShowCardModal(false);
+          setFormData({ ...formData, fromAccount: 'personal' });
+        }}
+        >
+          <div className="card" style={{
+            maxWidth: '500px',
+            width: '90%',
+            maxHeight: '90vh',
+            overflow: 'auto'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2 style={{ margin: 0 }}>💳 Card Details</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCardModal(false);
+                  setFormData({ ...formData, fromAccount: 'personal' });
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  color: '#4a5568'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Cardholder Name</label>
+              <input
+                type="text"
+                className="form-input"
+                value={cardData.cardName}
+                onChange={(e) => setCardData({ ...cardData, cardName: e.target.value })}
+                required
+                placeholder="John Doe"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Card Number</label>
+              <input
+                type="text"
+                className="form-input"
+                value={cardData.cardNumber}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\s/g, '').replace(/\D/g, '').slice(0, 16);
+                  const formatted = value.match(/.{1,4}/g)?.join(' ') || value;
+                  setCardData({ ...cardData, cardNumber: formatted });
+                }}
+                required
+                placeholder="1234 5678 9012 3456"
+                maxLength={19}
+              />
+            </div>
+
+            <div className="grid grid-2">
+              <div className="form-group">
+                <label className="form-label">Expiry Date</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={cardData.expiryDate}
+                  onChange={(e) => {
+                    let value = e.target.value.replace(/\D/g, '');
+                    if (value.length >= 2) {
+                      value = value.slice(0, 2) + '/' + value.slice(2, 4);
+                    }
+                    setCardData({ ...cardData, expiryDate: value.slice(0, 5) });
+                  }}
+                  required
+                  placeholder="MM/YY"
+                  maxLength={5}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">CVV</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={cardData.cvv}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+                    setCardData({ ...cardData, cvv: value });
+                  }}
+                  required
+                  placeholder="123"
+                  maxLength={4}
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                if (cardData.cardNumber && cardData.cardName && cardData.expiryDate && cardData.cvv) {
+                  setShowCardModal(false);
+                }
+              }}
+              style={{ width: '100%', marginTop: '1rem' }}
+            >
+              Save Card Details
+            </button>
+          </div>
         </div>
       )}
 
