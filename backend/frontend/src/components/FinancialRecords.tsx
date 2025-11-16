@@ -27,7 +27,7 @@ const FinancialRecords: React.FC = () => {
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
-    type: 'output' as 'input' | 'output',
+    type: 'input' as 'input' | 'output',
     amount: '',
     description: '',
     date: new Date().toISOString().split('T')[0],
@@ -69,7 +69,7 @@ const FinancialRecords: React.FC = () => {
       });
       
       setFormData({
-        type: 'output',
+        type: 'input',
         amount: '',
         description: '',
         date: new Date().toISOString().split('T')[0],
@@ -329,22 +329,32 @@ const FinancialRecords: React.FC = () => {
       {/* Add Record Form */}
       {showForm && (
         <div className="card">
-          <h2 style={{ marginBottom: '1rem' }}>Add New Financial Record</h2>
+          <h2 style={{ marginBottom: '1rem' }}>Add Money Transaction</h2>
           <form onSubmit={handleSubmit}>
-            <div className="grid grid-2">
+            {sharedAccounts.length > 0 && (
               <div className="form-group">
-                <label className="form-label">Type</label>
+                <label className="form-label">💼 Where should this money go?</label>
                 <select
                   className="form-select"
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value as 'input' | 'output' })}
-                  required
+                  value={formData.sharedAccount}
+                  onChange={(e) => setFormData({ ...formData, sharedAccount: e.target.value })}
                 >
-                  <option value="input">💰 Money In (Income)</option>
-                  <option value="output">💸 Money Out (Expense)</option>
+                  <option value="">💰 Personal Account</option>
+                  {sharedAccounts.map((account) => (
+                    <option key={account._id} value={account._id}>
+                      🏦 {account.name}
+                    </option>
+                  ))}
                 </select>
+                <small style={{ color: '#718096', fontSize: '0.85rem', display: 'block', marginTop: '0.5rem' }}>
+                  {formData.sharedAccount 
+                    ? `Money will be added to the selected shared account`
+                    : `Money will be added to your personal balance`}
+                </small>
               </div>
+            )}
 
+            <div className="grid grid-2">
               <div className="form-group">
                 <label className="form-label">Amount</label>
                 <input
@@ -357,25 +367,20 @@ const FinancialRecords: React.FC = () => {
                   placeholder="0.00"
                 />
               </div>
-            </div>
 
-            {sharedAccounts.length > 0 && (
               <div className="form-group">
-                <label className="form-label">Shared Account (Optional)</label>
+                <label className="form-label">Type</label>
                 <select
                   className="form-select"
-                  value={formData.sharedAccount}
-                  onChange={(e) => setFormData({ ...formData, sharedAccount: e.target.value })}
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value as 'input' | 'output' })}
+                  required
                 >
-                  <option value="">Personal Account</option>
-                  {sharedAccounts.map((account) => (
-                    <option key={account._id} value={account._id}>
-                      {account.name}
-                    </option>
-                  ))}
+                  <option value="input">💰 Money In (Add Money)</option>
+                  <option value="output">💸 Money Out (Expense)</option>
                 </select>
               </div>
-            )}
+            </div>
 
             <div className="form-group">
               <label className="form-label">Description</label>
@@ -385,7 +390,7 @@ const FinancialRecords: React.FC = () => {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 required
-                placeholder="What was this for?"
+                placeholder={formData.type === 'input' ? 'Where did this money come from?' : 'What was this expense for?'}
               />
             </div>
 
