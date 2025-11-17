@@ -172,12 +172,19 @@ const SharedAccounts: React.FC = () => {
       console.log('SharedAccounts: Successfully fetched accounts:', response.data);
       
       // Log details about finance records for each account
+      console.log('SharedAccounts: Raw response data:', JSON.stringify(response.data, null, 2));
       response.data.forEach((account: SharedAccount) => {
-        console.log(`Account: ${account.name}`);
+        console.log(`Account: ${account.name} (ID: ${account._id})`);
         console.log(`  Finance Records Count: ${account.financeRecords?.length || 0}`);
+        console.log(`  Finance Records Type: ${typeof account.financeRecords}`);
+        console.log(`  Finance Records Is Array: ${Array.isArray(account.financeRecords)}`);
+        console.log(`  Finance Records Value:`, account.financeRecords);
+        
         if (account.financeRecords && account.financeRecords.length > 0) {
           account.financeRecords.forEach((record: any, index: number) => {
-            if (typeof record === 'object' && record !== null) {
+            console.log(`  Record ${index + 1} Type: ${typeof record}`);
+            console.log(`  Record ${index + 1} Value:`, record);
+            if (typeof record === 'object' && record !== null && record._id) {
               console.log(`  Record ${index + 1}:`, {
                 type: record.type,
                 amount: record.amount,
@@ -187,10 +194,12 @@ const SharedAccounts: React.FC = () => {
               });
             } else {
               console.warn(`  Record ${index + 1}: NOT POPULATED (ID only):`, record);
+              console.warn(`  Record ${index + 1}: Type is ${typeof record}, value is ${record}`);
             }
           });
         } else {
           console.warn(`  Account ${account.name} has NO finance records!`);
+          console.warn(`  Account ${account.name} financeRecords value:`, account.financeRecords);
         }
         
         // Calculate and log balance

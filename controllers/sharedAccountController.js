@@ -214,11 +214,29 @@ exports.getUserSharedAccounts = async (req, res) => {
     // This also ensures populated data is properly included
     const accountsToReturn = accounts.map(account => {
       const accountObj = account.toObject ? account.toObject() : account;
+      
+      // Log detailed information about each account being returned
+      console.log(`SharedAccountController: Returning account "${accountObj.name}"`);
+      console.log(`  Finance Records Array Length: ${accountObj.financeRecords?.length || 0}`);
+      if (accountObj.financeRecords && accountObj.financeRecords.length > 0) {
+        accountObj.financeRecords.forEach((record, idx) => {
+          if (record && typeof record === 'object') {
+            console.log(`  Record ${idx + 1}: type=${record.type}, amount=£${record.amount}, id=${record._id}`);
+          } else {
+            console.warn(`  Record ${idx + 1}: NOT POPULATED - ${typeof record}: ${record}`);
+          }
+        });
+      }
+      
       return accountObj;
     });
     
     console.log('SharedAccountController: Returning', accountsToReturn.length, 'accounts to frontend');
-    console.log('SharedAccountController: Sample account finance records count:', accountsToReturn[0]?.financeRecords?.length || 0);
+    if (accountsToReturn.length > 0) {
+      console.log('SharedAccountController: First account finance records:', accountsToReturn[0].financeRecords?.length || 0);
+      console.log('SharedAccountController: First account finance records type:', typeof accountsToReturn[0].financeRecords);
+      console.log('SharedAccountController: First account finance records is array:', Array.isArray(accountsToReturn[0].financeRecords));
+    }
     res.json(accountsToReturn);
   } catch (err) {
     console.error('SharedAccountController: Error fetching shared accounts:', err);
