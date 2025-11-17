@@ -283,12 +283,26 @@ const SharedAccounts: React.FC = () => {
     navigate(`/invitations?account=${account._id}`);
   };
 
+  // Calculate balance for a shared account
+  const calculateAccountBalance = (account: SharedAccount): number => {
+    if (!account.financeRecords || account.financeRecords.length === 0) {
+      return 0;
+    }
+    const income = account.financeRecords
+      .filter((record: any) => record.type === 'input')
+      .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
+    const expenses = account.financeRecords
+      .filter((record: any) => record.type === 'output')
+      .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
+    return income - expenses;
+  };
+
   // Group Payment Handlers - Simplified to single payment
   const handleGroupPaymentClick = (account: SharedAccount) => {
     setSelectedAccount(account);
     setShowGroupPaymentModal(true);
     setGroupPaymentForm({
-      amount: '',
+      amount: '', // Amount will be read-only and set to balance
       description: '',
       merchantEmail: '',
       merchantName: ''
@@ -302,9 +316,20 @@ const SharedAccounts: React.FC = () => {
     setGroupPaymentSubmitting(true);
     setError('');
 
+    // Calculate current balance - payment must exactly match this
+    const currentBalance = calculateAccountBalance(selectedAccount);
+    const paymentAmount = currentBalance; // Always use the exact balance
+
+    // Check if account has any balance
+    if (currentBalance <= 0) {
+      setError('Account has no balance available for payment.');
+      setGroupPaymentSubmitting(false);
+      return;
+    }
+
     try {
       const response = await axios.post('/payments/create', {
-        amount: parseFloat(groupPaymentForm.amount),
+        amount: paymentAmount,
         currency: 'GBP',
         description: groupPaymentForm.description || `Payment for ${selectedAccount.name}`,
         sharedAccountId: selectedAccount._id,
@@ -962,22 +987,45 @@ const SharedAccounts: React.FC = () => {
               marginBottom: '1rem'
             }}>
               <p style={{ color: '#92400e', fontSize: '0.9rem', margin: 0 }}>
-                <strong>How it works:</strong> Enter the amount you need to pay and a description. You will be redirected to PayPal to complete the payment.
+                <strong>How it works:</strong> The payment amount is set to the exact account balance of £{selectedAccount ? calculateAccountBalance(selectedAccount).toFixed(2) : '0.00'}. You must pay this exact amount - no more, no less. You will be redirected to PayPal to complete the payment.
               </p>
             </div>
 
+            {selectedAccount && calculateAccountBalance(selectedAccount) <= 0 && (
+              <div style={{
+                background: '#fee2e2',
+                border: '1px solid #f87171',
+                borderRadius: '6px',
+                padding: '0.75rem',
+                marginBottom: '1rem'
+              }}>
+                <p style={{ color: '#991b1b', fontSize: '0.9rem', margin: 0 }}>
+                  <strong>No Balance Available:</strong> This account has no balance available for payment.
+                </p>
+              </div>
+            )}
+
             <form onSubmit={handleCreatePayment}>
               <div className="form-group">
-                <label className="form-label">Amount (£)</label>
+                <label className="form-label">Amount (£) - Fixed to Account Balance</label>
                 <input
                   type="number"
                   step="0.01"
                   className="form-input"
-                  value={groupPaymentForm.amount}
-                  onChange={(e) => setGroupPaymentForm({ ...groupPaymentForm, amount: e.target.value })}
+                  value={selectedAccount ? calculateAccountBalance(selectedAccount).toFixed(2) : '0.00'}
+                  readOnly
                   required
-                  placeholder="25.00"
+                  disabled={!selectedAccount || calculateAccountBalance(selectedAccount) <= 0}
+                  style={{
+                    backgroundColor: '#f7fafc',
+                    cursor: 'not-allowed',
+                    fontWeight: 'bold',
+                    color: '#2d3748'
+                  }}
                 />
+                <p style={{ fontSize: '0.85rem', color: '#4a5568', marginTop: '0.25rem' }}>
+                  Account Balance: £{selectedAccount ? calculateAccountBalance(selectedAccount).toFixed(2) : '0.00'}
+                </p>
               </div>
 
               <div className="form-group">
@@ -1034,10 +1082,10 @@ const SharedAccounts: React.FC = () => {
                 <button
                   type="submit"
                   className="btn btn-success"
-                  disabled={groupPaymentSubmitting}
+                  disabled={groupPaymentSubmitting || !selectedAccount || (selectedAccount && calculateAccountBalance(selectedAccount) <= 0)}
                   style={{ flex: 1 }}
                 >
-                  {groupPaymentSubmitting ? <span className="spinner"></span> : `Pay £${groupPaymentForm.amount || '0.00'}`}
+                  {groupPaymentSubmitting ? <span className="spinner"></span> : `Pay £${selectedAccount ? calculateAccountBalance(selectedAccount).toFixed(2) : '0.00'}`}
                 </button>
               </div>
             </form>
