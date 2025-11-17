@@ -150,13 +150,20 @@ const SharedAccounts: React.FC = () => {
                 type: record.type,
                 amount: record.amount,
                 description: record.description,
-                _id: record._id
+                _id: record._id,
+                sharedAccount: record.sharedAccount
               });
             } else {
-              console.log(`  Record ${index + 1}: Not populated (ID only):`, record);
+              console.warn(`  Record ${index + 1}: NOT POPULATED (ID only):`, record);
             }
           });
+        } else {
+          console.warn(`  Account ${account.name} has NO finance records!`);
         }
+        
+        // Calculate and log balance
+        const balance = calculateAccountBalance(account);
+        console.log(`  Calculated Balance: £${balance.toFixed(2)}`);
       });
       
       setAccounts(response.data);
@@ -515,13 +522,35 @@ const SharedAccounts: React.FC = () => {
       });
       console.log('Transfer: Input record created:', inputRecord.data);
       console.log('Transfer: Shared account ID:', selectedAccount._id);
+      console.log('Transfer: Input record ID:', inputRecord.data._id);
 
-      // Wait a moment for the backend to process and update the shared account
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Wait longer for the backend to process and update the shared account
+      console.log('Transfer: Waiting for backend to process...');
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       // Refresh accounts to show updated balances
       console.log('Transfer: Refreshing accounts...');
-      await fetchAccounts();
+      const accountsResponse = await axios.get('/shared-accounts');
+      
+      // Log the fetched accounts to verify records are populated
+      console.log('Transfer: Accounts after refresh:');
+      accountsResponse.data.forEach((acc: SharedAccount) => {
+        console.log(`  Account: ${acc.name}`);
+        console.log(`    Finance Records Count: ${acc.financeRecords?.length || 0}`);
+        if (acc.financeRecords && acc.financeRecords.length > 0) {
+          acc.financeRecords.forEach((r: any, idx: number) => {
+            if (typeof r === 'object' && r !== null) {
+              console.log(`    Record ${idx + 1}: type=${r.type}, amount=£${r.amount}, id=${r._id}`);
+            } else {
+              console.warn(`    Record ${idx + 1}: NOT POPULATED (ID only): ${r}`);
+            }
+          });
+        }
+        const balance = calculateAccountBalance(acc);
+        console.log(`    Calculated Balance: £${balance.toFixed(2)}`);
+      });
+      
+      setAccounts(accountsResponse.data);
       await fetchPersonalBalance(); // Refresh personal balance after transfer
       
       console.log('Transfer: Successfully completed');
