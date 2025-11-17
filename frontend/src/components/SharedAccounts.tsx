@@ -168,13 +168,7 @@ const SharedAccounts: React.FC = () => {
       
       // Add cache-busting timestamp to ensure fresh data
       const timestamp = new Date().getTime();
-      const response = await axios.get(`/shared-accounts?t=${timestamp}`, {
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      });
+      const response = await axios.get(`/shared-accounts?t=${timestamp}`);
       console.log('SharedAccounts: Successfully fetched accounts:', response.data);
       
       // Log details about finance records for each account
