@@ -55,7 +55,13 @@ const FinancialRecords: React.FC = () => {
         axios.get('/shared-accounts')
       ]);
       setRecords(financeResponse.data);
-      setSharedAccounts(accountsResponse.data);
+      // Sort shared accounts by creation date (most recent first)
+      const sortedAccounts = accountsResponse.data.sort((a: SharedAccount, b: SharedAccount) => {
+        const dateA = new Date((a as any).createdAt || 0).getTime();
+        const dateB = new Date((b as any).createdAt || 0).getTime();
+        return dateB - dateA;
+      });
+      setSharedAccounts(sortedAccounts);
     } catch (err: any) {
       setError('Failed to load financial records');
     } finally {
@@ -219,12 +225,17 @@ const FinancialRecords: React.FC = () => {
         </div>
       </div>
 
-      {/* Shared Accounts Grid */}
+      {/* Shared Accounts Grid - Show only 2 most recent */}
       {sharedAccounts.length > 0 && (
         <div style={{ marginBottom: '2rem' }}>
-          <h2 style={{ marginBottom: '1rem', fontSize: '1.5rem' }}>Shared Accounts</h2>
-          <div className="grid grid-3" style={{ gap: '1rem' }}>
-            {sharedAccounts.map((account) => {
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Shared Accounts</h2>
+            <Link to="/shared-accounts" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
+              View All Shared Accounts
+            </Link>
+          </div>
+          <div className="grid grid-2" style={{ gap: '1rem' }}>
+            {sharedAccounts.slice(0, 2).map((account) => {
               const balance = calculateAccountBalance(account);
               const memberCount = Array.isArray(account.members) ? account.members.length : 0;
               
@@ -338,11 +349,67 @@ const FinancialRecords: React.FC = () => {
         </div>
       )}
 
-      {/* Add Record Form */}
+      {/* Add Record Form Modal */}
       {showForm && (
-        <div className="card">
-          <h2 style={{ marginBottom: '1rem' }}>Add Money</h2>
-          <form onSubmit={handleSubmit}>
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}
+        onClick={() => {
+          setShowForm(false);
+          setFormData({
+            type: 'input',
+            amount: '',
+            description: '',
+            date: new Date().toISOString().split('T')[0],
+            sharedAccount: '',
+            fromAccount: 'personal'
+          });
+        }}
+        >
+          <div className="card" style={{
+            maxWidth: '600px',
+            width: '90%',
+            maxHeight: '90vh',
+            overflow: 'auto'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2 style={{ margin: 0 }}>Add Money Transaction</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForm(false);
+                  setFormData({
+                    type: 'input',
+                    amount: '',
+                    description: '',
+                    date: new Date().toISOString().split('T')[0],
+                    sharedAccount: '',
+                    fromAccount: 'personal'
+                  });
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  color: '#4a5568'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label className="form-label">From</label>
               <select
@@ -416,14 +483,36 @@ const FinancialRecords: React.FC = () => {
               />
             </div>
 
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={submitting || (formData.fromAccount === 'card' && !cardData.cardNumber)}
-            >
-              {submitting ? <span className="spinner"></span> : 'Add Money'}
-            </button>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  setShowForm(false);
+                  setFormData({
+                    type: 'input',
+                    amount: '',
+                    description: '',
+                    date: new Date().toISOString().split('T')[0],
+                    sharedAccount: '',
+                    fromAccount: 'personal'
+                  });
+                }}
+                style={{ flex: 1 }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={submitting || (formData.fromAccount === 'card' && !cardData.cardNumber)}
+                style={{ flex: 1 }}
+              >
+                {submitting ? <span className="spinner"></span> : 'Add Money'}
+              </button>
+            </div>
           </form>
+        </div>
         </div>
       )}
 
@@ -556,64 +645,6 @@ const FinancialRecords: React.FC = () => {
         </div>
       )}
 
-      {/* Records List */}
-      <div className="card">
-        <h2 style={{ marginBottom: '1rem' }}>Personal Financial Records</h2>
-        <p style={{ color: '#4a5568', fontSize: '0.85rem', marginBottom: '1rem' }}>
-          Showing {personalRecords.length} personal transaction{personalRecords.length !== 1 ? 's' : ''}. 
-          {records.length > personalRecords.length && ` (${records.length - personalRecords.length} transaction${records.length - personalRecords.length !== 1 ? 's' : ''} in shared accounts)`}
-        </p>
-        
-        {personalRecords.length === 0 ? (
-          <p style={{ color: '#4a5568', textAlign: 'center', padding: '2rem' }}>
-            No personal financial records yet. Add your first record above!
-          </p>
-        ) : (
-          <div className="list">
-            {personalRecords.map((record) => (
-              <div key={record._id} className="list-item">
-                <div>
-                  <strong>{record.description}</strong>
-                  <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
-                    {new Date(record.date).toLocaleDateString()} • {record.type === 'input' ? 'Income' : 'Expense'}
-                  </p>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem'
-                    }}>
-                      <span style={{ 
-                        color: record.type === 'input' ? '#38a169' : '#e53e3e',
-                        fontWeight: 'bold',
-                        fontSize: '1.1rem'
-                      }}>
-                        {record.type === 'input' ? '+' : '-'}£{record.amount.toFixed(2)}
-                      </span>
-                    </div>
-                    <span style={{
-                      fontSize: '0.75rem',
-                      color: '#718096',
-                      marginTop: '0.25rem'
-                    }}>
-                      {record.type === 'input' ? 'Money In' : 'Money Out'}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => handleDelete(record._id)}
-                    className="btn btn-danger"
-                    style={{ padding: '4px 8px', fontSize: '12px' }}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 };
