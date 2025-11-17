@@ -138,6 +138,27 @@ const SharedAccounts: React.FC = () => {
       setError(''); // Clear previous errors
       const response = await axios.get('/shared-accounts');
       console.log('SharedAccounts: Successfully fetched accounts:', response.data);
+      
+      // Log details about finance records for each account
+      response.data.forEach((account: SharedAccount) => {
+        console.log(`Account: ${account.name}`);
+        console.log(`  Finance Records Count: ${account.financeRecords?.length || 0}`);
+        if (account.financeRecords && account.financeRecords.length > 0) {
+          account.financeRecords.forEach((record: any, index: number) => {
+            if (typeof record === 'object' && record !== null) {
+              console.log(`  Record ${index + 1}:`, {
+                type: record.type,
+                amount: record.amount,
+                description: record.description,
+                _id: record._id
+              });
+            } else {
+              console.log(`  Record ${index + 1}: Not populated (ID only):`, record);
+            }
+          });
+        }
+      });
+      
       setAccounts(response.data);
     } catch (err: any) {
       console.error('SharedAccounts: Error fetching shared accounts:', err);
@@ -294,15 +315,46 @@ const SharedAccounts: React.FC = () => {
   // Calculate balance for a shared account
   const calculateAccountBalance = (account: SharedAccount): number => {
     if (!account.financeRecords || account.financeRecords.length === 0) {
+      console.log(`Balance calculation for ${account.name}: No finance records found`);
       return 0;
     }
-    const income = account.financeRecords
-      .filter((record: any) => record.type === 'input')
-      .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
-    const expenses = account.financeRecords
-      .filter((record: any) => record.type === 'output')
-      .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
-    return income - expenses;
+    
+    // Check if records are populated (objects) or just IDs (strings)
+    const records = account.financeRecords.map((record: any) => {
+      // If it's a string/ID, it wasn't populated - return null
+      if (typeof record === 'string' || record instanceof String) {
+        console.warn(`Balance calculation for ${account.name}: Record not populated, found ID:`, record);
+        return null;
+      }
+      return record;
+    }).filter((record: any) => record !== null);
+    
+    if (records.length === 0) {
+      console.log(`Balance calculation for ${account.name}: No valid records after filtering`);
+      return 0;
+    }
+    
+    console.log(`Balance calculation for ${account.name}: Processing ${records.length} records`);
+    
+    const income = records
+      .filter((record: any) => record && record.type === 'input')
+      .reduce((sum: number, record: any) => {
+        const amount = record.amount || 0;
+        console.log(`  Income record: £${amount} - ${record.description}`);
+        return sum + amount;
+      }, 0);
+    
+    const expenses = records
+      .filter((record: any) => record && record.type === 'output')
+      .reduce((sum: number, record: any) => {
+        const amount = record.amount || 0;
+        console.log(`  Expense record: £${amount} - ${record.description}`);
+        return sum + amount;
+      }, 0);
+    
+    const balance = income - expenses;
+    console.log(`Balance calculation for ${account.name}: Income £${income.toFixed(2)}, Expenses £${expenses.toFixed(2)}, Balance £${balance.toFixed(2)}`);
+    return balance;
   };
 
   // Group Payment Handlers - Simplified to single payment
