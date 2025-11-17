@@ -15,11 +15,9 @@ const sharedAccountRoutes = require('./routes/sharedAccountRoutes');
 const financeRoutes = require('./routes/financeRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 const galleryRoutes = require('./routes/galleryRoutes');
-// const emailVerificationRoutes = require('./routes/emailVerificationRoutes'); // Temporarily disabled
+// const emailVerificationRoutes = require('./routes/emailVerificationRoutes');
 const twoFactorRoutes = require('./routes/twoFactorRoutes');
 const backupRoutes = require('./routes/backupRoutes');
-const paymentRoutes = require('./routes/paymentRoutes');
-const groupPaymentRoutes = require('./routes/groupPaymentRoutes');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -55,30 +53,29 @@ app.use(speedLimiter);
 // CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {
-    const allowedOrigins = [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'https://localhost:3000',
-      'https://localhost:3001',
-      'https://share-project-production.up.railway.app',
-      'https://share-project-frontend-production.up.railway.app',
-      process.env.CORS_ORIGIN
-    ].filter(Boolean);
-    
-    console.log('CORS check - Request origin:', origin);
-    console.log('CORS check - Allowed origins:', allowedOrigins);
-    
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      console.log('CORS check - ALLOWED');
+    if (!origin) return callback(null, true);
+    
+    // Get allowed origins from environment variable or use defaults
+    const allowedOrigins = process.env.CORS_ORIGIN 
+      ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+      : ['http://localhost:3000', 'http://localhost:3001'];
+    
+    // Also allow Railway domains if not explicitly set
+    if (!process.env.CORS_ORIGIN) {
+      allowedOrigins.push('https://share-project-frontend-production.up.railway.app');
+    }
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.up.railway.app')) {
       callback(null, true);
     } else {
-      console.log('CORS check - BLOCKED');
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 };
 app.use(cors(corsOptions));
 
@@ -87,9 +84,6 @@ app.use(compression());
 
 // Logging middleware
 app.use(morgan('combined'));
-
-// PayPal webhook endpoint (if needed - PayPal uses IPN for webhooks)
-// Note: PayPal webhooks are handled differently than Stripe
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -105,7 +99,7 @@ app.get('/health', async (req, res) => {
       message: 'SHARE Project API is running',
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || 'development',
-      version: '1.0.7', // FORCE CORS FIX - Allow localhost:3001
+      version: '1.0.6', // FORCE REBUILD - MongoDB connection fix
       database: dbHealth
     });
   } catch (error) {
@@ -151,9 +145,7 @@ app.use('/api/shared-accounts', sharedAccountRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/gallery', galleryRoutes);
-// app.use('/api/email-verification', emailVerificationRoutes); // Temporarily disabled
-app.use('/api/payments', paymentRoutes);
-app.use('/api/group-payments', groupPaymentRoutes);
+// app.use('/api/email-verification', emailVerificationRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -192,10 +184,9 @@ const HTTPS_PORT = process.env.HTTPS_PORT || 5443;
 
 const startServer = async () => {
   try {
-    console.log('🚀 Starting server initialization...');
     await initializeDataStore();
     
-    // Start HTTP server (for Railway, local dev, etc.)
+    // Only start HTTP server if not in Vercel environment
     if (!process.env.VERCEL) {
       // Start HTTP server
       app.listen(PORT, () => {
@@ -203,7 +194,6 @@ const startServer = async () => {
         console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
         console.log(`📊 Health check: http://localhost:${PORT}/health`);
         console.log(`💾 Database: MongoDB with Mongoose ODM`);
-        console.log(`✅ Server successfully started and listening on port ${PORT}`);
       });
 
       // Start HTTPS server
@@ -226,10 +216,8 @@ const startServer = async () => {
     }
   } catch (error) {
     console.error('❌ Failed to start server:', error.message);
-    console.error('❌ Error stack:', error.stack);
     // Don't exit in serverless environment - let Vercel handle it
     if (!process.env.VERCEL) {
-      console.error('❌ Exiting process...');
       process.exit(1);
     }
   }
