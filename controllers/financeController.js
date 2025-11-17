@@ -31,10 +31,16 @@ exports.createRecord = async (req, res) => {
         
         if (isOwner || isMember) {
           // Add the record to the shared account's financeRecords array if not already present
-          if (!account.financeRecords.includes(record._id)) {
+          // Convert to strings for comparison since ObjectIds need to be compared as strings
+          const recordIdString = record._id.toString();
+          const existingIds = account.financeRecords.map((id: any) => id.toString());
+          
+          if (!existingIds.includes(recordIdString)) {
             account.financeRecords.push(record._id);
             await account.save();
             console.log('FinanceController: Record added to shared account financeRecords. Total records:', account.financeRecords.length);
+            console.log('FinanceController: Record ID added:', recordIdString);
+            console.log('FinanceController: All record IDs in account:', account.financeRecords.map((id: any) => id.toString()));
           } else {
             console.log('FinanceController: Record already in shared account financeRecords');
           }
