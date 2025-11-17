@@ -524,34 +524,40 @@ const SharedAccounts: React.FC = () => {
       console.log('Transfer: Shared account ID:', selectedAccount._id);
       console.log('Transfer: Input record ID:', inputRecord.data._id);
 
-      // Wait longer for the backend to process and update the shared account
+      // Wait for the backend to process and update the shared account
       console.log('Transfer: Waiting for backend to process...');
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Refresh accounts to show updated balances
+      // Refresh accounts with retry logic to ensure records are populated
       console.log('Transfer: Refreshing accounts...');
-      const accountsResponse = await axios.get('/shared-accounts');
+      let retryCount = 0;
+      const maxRetries = 3;
+      let accountsRefreshed = false;
       
-      // Log the fetched accounts to verify records are populated
-      console.log('Transfer: Accounts after refresh:');
-      accountsResponse.data.forEach((acc: SharedAccount) => {
-        console.log(`  Account: ${acc.name}`);
-        console.log(`    Finance Records Count: ${acc.financeRecords?.length || 0}`);
-        if (acc.financeRecords && acc.financeRecords.length > 0) {
-          acc.financeRecords.forEach((r: any, idx: number) => {
-            if (typeof r === 'object' && r !== null) {
-              console.log(`    Record ${idx + 1}: type=${r.type}, amount=£${r.amount}, id=${r._id}`);
-            } else {
-              console.warn(`    Record ${idx + 1}: NOT POPULATED (ID only): ${r}`);
-            }
-          });
+      while (retryCount < maxRetries && !accountsRefreshed) {
+        try {
+          // Use fetchAccounts which has proper error handling and logging
+          await fetchAccounts();
+          
+          // Wait a moment for state to update
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Verify the record was added by checking the accounts state
+          // We'll check this in the next render cycle, but for now just refresh
+          console.log(`Transfer: Refresh attempt ${retryCount + 1} completed`);
+          accountsRefreshed = true;
+        } catch (err) {
+          console.error(`Transfer: Refresh attempt ${retryCount + 1} failed:`, err);
+          retryCount++;
+          if (retryCount < maxRetries) {
+            console.log(`Transfer: Retrying in 1 second...`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
         }
-        const balance = calculateAccountBalance(acc);
-        console.log(`    Calculated Balance: £${balance.toFixed(2)}`);
-      });
+      }
       
-      setAccounts(accountsResponse.data);
-      await fetchPersonalBalance(); // Refresh personal balance after transfer
+      // Also fetch personal balance
+      await fetchPersonalBalance();
       
       console.log('Transfer: Successfully completed');
       setShowTransferModal(false);

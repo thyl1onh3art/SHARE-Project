@@ -41,25 +41,31 @@ exports.createRecord = async (req, res) => {
           
           if (!existingIds.includes(recordIdString)) {
             console.log('FinanceController: Record not found in account, adding it...');
-            account.financeRecords.push(record._id);
-            const savedAccount = await account.save();
-            console.log('FinanceController: Account saved successfully');
+            
+            // Use MongoDB $push operator for more reliable array update
+            const updateResult = await SharedAccount.updateOne(
+              { _id: sharedAccount },
+              { $push: { financeRecords: record._id } }
+            );
+            console.log('FinanceController: Update result:', updateResult);
             
             // Verify the record was actually added by re-fetching the account
             const verifiedAccount = await SharedAccount.findById(sharedAccount);
-            const verifiedIds = verifiedAccount.financeRecords.map((id) => id.toString());
-            console.log('FinanceController: Verified account after save - Total records:', verifiedAccount.financeRecords.length);
-            console.log('FinanceController: Verified record IDs:', verifiedIds);
-            
-            if (verifiedIds.includes(recordIdString)) {
-              console.log('FinanceController: SUCCESS - Record confirmed in account financeRecords');
+            if (!verifiedAccount) {
+              console.error('FinanceController: ERROR - Account not found after update!');
             } else {
-              console.error('FinanceController: ERROR - Record was NOT found in account after save!');
+              const verifiedIds = verifiedAccount.financeRecords.map((id) => id.toString());
+              console.log('FinanceController: Verified account after save - Total records:', verifiedAccount.financeRecords.length);
+              console.log('FinanceController: Verified record IDs:', verifiedIds);
+              
+              if (verifiedIds.includes(recordIdString)) {
+                console.log('FinanceController: SUCCESS - Record confirmed in account financeRecords');
+              } else {
+                console.error('FinanceController: ERROR - Record was NOT found in account after save!');
+                console.error('FinanceController: Expected record ID:', recordIdString);
+                console.error('FinanceController: Found record IDs:', verifiedIds);
+              }
             }
-            
-            console.log('FinanceController: Record added to shared account financeRecords. Total records:', savedAccount.financeRecords.length);
-            console.log('FinanceController: Record ID added:', recordIdString);
-            console.log('FinanceController: All record IDs in account:', savedAccount.financeRecords.map((id) => id.toString()));
           } else {
             console.log('FinanceController: Record already in shared account financeRecords');
           }
