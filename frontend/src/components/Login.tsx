@@ -18,7 +18,7 @@ const Login: React.FC = () => {
 
     try {
       await login(email, password);
-      navigate('/dashboard');
+      navigate('/financial-records');
     } catch (err: any) {
       setError(err.message);
     } finally {
