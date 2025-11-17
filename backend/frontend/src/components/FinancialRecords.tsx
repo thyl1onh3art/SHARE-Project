@@ -106,19 +106,6 @@ const FinancialRecords: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this record?')) {
-      return;
-    }
-
-    try {
-      await axios.delete(`/finance/${id}`);
-      fetchData();
-    } catch (err: any) {
-      setError('Failed to delete financial record');
-    }
-  };
-
   // Calculate balance for a shared account
   const calculateAccountBalance = (account: SharedAccount): number => {
     if (!account.financeRecords || account.financeRecords.length === 0) {
