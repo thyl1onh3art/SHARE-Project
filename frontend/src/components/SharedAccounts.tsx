@@ -83,13 +83,7 @@ const SharedAccounts: React.FC = () => {
   });
   const [invites, setInvites] = useState<Array<{ recipientEmail: string; recipientPhone: string }>>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<SharedAccount | null>(null);
-  const [inviteFormData, setInviteFormData] = useState({
-    recipientEmail: '',
-    recipientPhone: ''
-  });
-  const [inviteSubmitting, setInviteSubmitting] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState({
     name: '',
@@ -99,20 +93,20 @@ const SharedAccounts: React.FC = () => {
     memberIdsToRemove: [] as string[]
   });
   const [editSubmitting, setEditSubmitting] = useState(false);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [accountDetails, setAccountDetails] = useState<any>(null);
-  const [loadingDetails, setLoadingDetails] = useState(false);
   const [showGroupPaymentModal, setShowGroupPaymentModal] = useState(false);
-  const [groupPaymentData, setGroupPaymentData] = useState<any>(null);
-  const [loadingGroupPayment, setLoadingGroupPayment] = useState(false);
   const [groupPaymentForm, setGroupPaymentForm] = useState({
-    targetAmount: '',
+    amount: '',
     description: '',
-    contributionAmount: '',
     merchantEmail: '',
     merchantName: ''
   });
   const [groupPaymentSubmitting, setGroupPaymentSubmitting] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferForm, setTransferForm] = useState({
+    amount: '',
+    description: ''
+  });
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -128,7 +122,6 @@ const SharedAccounts: React.FC = () => {
       const account = accounts.find(acc => acc._id === accountId);
       if (account) {
         setSelectedAccount(account);
-        setShowInviteModal(true);
       }
     }
   }, [accounts, searchParams]);
@@ -292,140 +285,64 @@ const SharedAccounts: React.FC = () => {
     }));
   };
 
-  const handleViewDetails = async (accountId: string) => {
-    try {
-      setLoadingDetails(true);
-      setError('');
-      const response = await axios.get(`/shared-accounts/${accountId}`);
-      setAccountDetails(response.data);
-      setShowDetailsModal(true);
-    } catch (err: any) {
-      setError('Failed to load account details');
-    } finally {
-      setLoadingDetails(false);
-    }
-  };
-
-  const handleInviteClick = (account: SharedAccount) => {
-    setSelectedAccount(account);
-    setShowInviteModal(true);
-  };
-
-  const handleInviteSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedAccount) return;
-    
-    setInviteSubmitting(true);
-    setError('');
-
-    try {
-      await axios.post('/invites/send', {
-        sharedAccountId: selectedAccount._id,
-        recipientEmail: inviteFormData.recipientEmail || undefined,
-        recipientPhone: inviteFormData.recipientPhone || undefined
-      });
-      
-      setInviteFormData({ recipientEmail: '', recipientPhone: '' });
-      setShowInviteModal(false);
-      setSelectedAccount(null);
-      
-      // Show success message
-      setError(''); // Clear any previous errors
-      alert('Invitation sent successfully!');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to send invitation');
-    } finally {
-      setInviteSubmitting(false);
-    }
-  };
-
   const handleNavigateToInvitations = (account: SharedAccount) => {
     navigate(`/invitations?account=${account._id}`);
   };
 
-  // Group Payment Handlers
-  const handleGroupPaymentClick = async (account: SharedAccount) => {
+  // Calculate balance for a shared account
+  const calculateAccountBalance = (account: SharedAccount): number => {
+    if (!account.financeRecords || account.financeRecords.length === 0) {
+      return 0;
+    }
+    const income = account.financeRecords
+      .filter((record: any) => record.type === 'input')
+      .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
+    const expenses = account.financeRecords
+      .filter((record: any) => record.type === 'output')
+      .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
+    return income - expenses;
+  };
+
+  // Group Payment Handlers - Simplified to single payment
+  const handleGroupPaymentClick = (account: SharedAccount) => {
     setSelectedAccount(account);
     setShowGroupPaymentModal(true);
-    setLoadingGroupPayment(true);
-    setError('');
-
-    try {
-      const response = await axios.get(`/group-payments/status/${account._id}`);
-      if (response.data.hasGroupPayment) {
-        setGroupPaymentData(response.data.groupPayment);
-      } else {
-        setGroupPaymentData(null);
-      }
-    } catch (err: any) {
-      setError('Failed to load group payment status');
-    } finally {
-      setLoadingGroupPayment(false);
-    }
+    setGroupPaymentForm({
+      amount: '', // Amount will be read-only and set to balance
+      description: '',
+      merchantEmail: '',
+      merchantName: ''
+    });
   };
 
-  const handleSetTarget = async (e: React.FormEvent) => {
+  const handleCreatePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedAccount) return;
 
     setGroupPaymentSubmitting(true);
     setError('');
 
-    try {
-      await axios.post('/group-payments/set-target', {
-        sharedAccountId: selectedAccount._id,
-        targetAmount: parseFloat(groupPaymentForm.targetAmount),
-        description: groupPaymentForm.description || `Group payment for ${selectedAccount.name}`
-      });
+    // Calculate current balance - payment must exactly match this
+    const currentBalance = calculateAccountBalance(selectedAccount);
+    const paymentAmount = currentBalance; // Always use the exact balance
 
-      // Refresh group payment data
-      const response = await axios.get(`/group-payments/status/${selectedAccount._id}`);
-      setGroupPaymentData(response.data.groupPayment);
-      setGroupPaymentForm({ ...groupPaymentForm, targetAmount: '', description: '' });
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to set payment target');
-    } finally {
+    // Check if account has any balance
+    if (currentBalance <= 0) {
+      setError('Account has no balance available for payment.');
       setGroupPaymentSubmitting(false);
+      return;
     }
-  };
-
-  const handleCommitContribution = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedAccount) return;
-
-    setGroupPaymentSubmitting(true);
-    setError('');
 
     try {
-      await axios.post('/group-payments/commit', {
-        sharedAccountId: selectedAccount._id,
-        amount: parseFloat(groupPaymentForm.contributionAmount),
-        description: 'My contribution'
-      });
-
-      // Refresh group payment data
-      const response = await axios.get(`/group-payments/status/${selectedAccount._id}`);
-      setGroupPaymentData(response.data.groupPayment);
-      setGroupPaymentForm({ ...groupPaymentForm, contributionAmount: '' });
-      alert('Contribution committed successfully!');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to commit contribution');
-    } finally {
-      setGroupPaymentSubmitting(false);
-    }
-  };
-
-  const handleCreatePayment = async () => {
-    if (!selectedAccount) return;
-
-    setGroupPaymentSubmitting(true);
-    setError('');
-
-    try {
-      const response = await axios.post('/group-payments/create-payment', {
+      const response = await axios.post('/payments/create', {
+        amount: paymentAmount,
+        currency: 'GBP',
+        description: groupPaymentForm.description || `Payment for ${selectedAccount.name}`,
         sharedAccountId: selectedAccount._id,
         merchantEmail: groupPaymentForm.merchantEmail || undefined,
-        merchantName: groupPaymentForm.merchantName || undefined
+        merchantName: groupPaymentForm.merchantName || undefined,
+        returnUrl: `${window.location.origin}/payment/success`,
+        cancelUrl: `${window.location.origin}/payment/cancel`
       });
 
       // Redirect to PayPal
@@ -438,33 +355,77 @@ const SharedAccounts: React.FC = () => {
     }
   };
 
-  const handleCancelGroupPayment = async () => {
+  // Transfer Funds Handlers
+  const handleTransferClick = (account: SharedAccount) => {
+    setSelectedAccount(account);
+    setShowTransferModal(true);
+    setTransferForm({
+      amount: '',
+      description: `Transfer to ${account.name}`
+    });
+  };
+
+  const handleTransferSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!selectedAccount) return;
-    if (!window.confirm('Are you sure you want to cancel this group payment? All commitments will be cleared.')) {
+
+    const amount = parseFloat(transferForm.amount);
+    if (isNaN(amount) || amount <= 0) {
+      setError('Please enter a valid amount greater than 0');
       return;
     }
 
-    setGroupPaymentSubmitting(true);
+    setTransferSubmitting(true);
     setError('');
 
     try {
-      await axios.post('/group-payments/cancel', {
-        sharedAccountId: selectedAccount._id
+      // First, check personal balance
+      const personalRecordsResponse = await axios.get('/finance');
+      const personalRecords = personalRecordsResponse.data.filter((record: any) => !record.sharedAccount);
+      const personalIncome = personalRecords
+        .filter((record: any) => record.type === 'input')
+        .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
+      const personalExpenses = personalRecords
+        .filter((record: any) => record.type === 'output')
+        .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
+      const personalBalance = personalIncome - personalExpenses;
+
+      if (amount > personalBalance) {
+        setError(`Insufficient balance. Your current balance is £${personalBalance.toFixed(2)}`);
+        setTransferSubmitting(false);
+        return;
+      }
+
+      const date = new Date().toISOString();
+      const description = transferForm.description || `Transfer to ${selectedAccount.name}`;
+
+      // Create output record in personal account (deduct from personal)
+      await axios.post('/finance', {
+        type: 'output',
+        amount: amount,
+        date: date,
+        description: description,
+        sharedAccount: undefined // No shared account - this is personal
       });
 
-      setGroupPaymentData(null);
-      setGroupPaymentForm({
-        targetAmount: '',
-        description: '',
-        contributionAmount: '',
-        merchantEmail: '',
-        merchantName: ''
+      // Create input record in shared account (add to shared account)
+      await axios.post('/finance', {
+        type: 'input',
+        amount: amount,
+        date: date,
+        description: description,
+        sharedAccount: selectedAccount._id
       });
-      alert('Group payment cancelled successfully');
+
+      // Refresh accounts to show updated balances
+      fetchAccounts();
+      setShowTransferModal(false);
+      setTransferForm({ amount: '', description: '' });
+      setSelectedAccount(null);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to cancel group payment');
+      setError(err.response?.data?.message || 'Failed to transfer funds');
     } finally {
-      setGroupPaymentSubmitting(false);
+      setTransferSubmitting(false);
     }
   };
 
@@ -744,7 +705,7 @@ const SharedAccounts: React.FC = () => {
                             Participants:
                           </div>
                           <div style={{ marginBottom: '0.25rem' }}>
-                            <span style={{ color: '#fbbf24' }}>👤 Owner:</span>{' '}
+                            <span style={{ color: '#fbbf24' }}>Owner:</span>{' '}
                             {typeof account.owner === 'object' && account.owner ? (
                               <span>{account.owner.name || `${account.owner.firstName || ''} ${account.owner.lastName || ''}`.trim() || account.owner.email}</span>
                             ) : (
@@ -755,7 +716,7 @@ const SharedAccounts: React.FC = () => {
                             <div>
                               {account.members.map((member, idx) => (
                                 <div key={idx} style={{ marginBottom: '0.25rem' }}>
-                                  <span style={{ color: '#60a5fa' }}>👥 Member {idx + 1}:</span>{' '}
+                                  <span style={{ color: '#60a5fa' }}>Member {idx + 1}:</span>{' '}
                                   {typeof member === 'object' && member ? (
                                     <span>{member.name || `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.email}</span>
                                   ) : (
@@ -778,7 +739,7 @@ const SharedAccounts: React.FC = () => {
                       marginTop: '0.5rem'
                     }}>
                       <p style={{ color: '#0369a1', fontSize: '0.85rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
-                        ⏰ Time Remaining:
+                        Time Remaining:
                       </p>
                       {countdowns[account._id] ? (
                         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -820,23 +781,9 @@ const SharedAccounts: React.FC = () => {
                   <button 
                     className="btn btn-secondary" 
                     style={{ flex: 1, fontSize: '12px', padding: '6px 12px', minWidth: '80px' }}
-                    onClick={() => handleViewDetails(account._id)}
-                  >
-                    View Details
-                  </button>
-                  <button 
-                    className="btn btn-outline" 
-                    style={{ flex: 1, fontSize: '12px', padding: '6px 12px', minWidth: '80px' }}
                     onClick={() => handleEditClick(account)}
                   >
-                    Edit
-                  </button>
-                  <button 
-                    className="btn btn-primary" 
-                    style={{ flex: 1, fontSize: '12px', padding: '6px 12px', minWidth: '80px' }}
-                    onClick={() => handleInviteClick(account)}
-                  >
-                    Quick Invite
+                    View/Edit Details
                   </button>
                   <button 
                     className="btn btn-outline" 
@@ -846,11 +793,18 @@ const SharedAccounts: React.FC = () => {
                     Manage Invites
                   </button>
                   <button 
+                    className="btn btn-primary" 
+                    style={{ flex: 1, fontSize: '12px', padding: '6px 12px', minWidth: '80px' }}
+                    onClick={() => handleTransferClick(account)}
+                  >
+                    Transfer Funds
+                  </button>
+                  <button 
                     className="btn btn-success" 
                     style={{ flex: 1, fontSize: '12px', padding: '6px 12px', minWidth: '80px' }}
                     onClick={() => handleGroupPaymentClick(account)}
                   >
-                    💰 Group Payment
+                    Pay
                   </button>
                 </div>
               </div>
@@ -869,140 +823,19 @@ const SharedAccounts: React.FC = () => {
         </div>
         
         <div className="card">
-          <h3 style={{ color: '#38a169', marginBottom: '1rem' }}>👥 Total Members</h3>
+          <h3 style={{ color: '#38a169', marginBottom: '1rem' }}>Total Members</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#38a169' }}>
             {accounts.reduce((sum, account) => sum + account.members.length, 0)}
           </p>
         </div>
         
         <div className="card">
-          <h3 style={{ color: '#e53e3e', marginBottom: '1rem' }}>📝 Total Records</h3>
+          <h3 style={{ color: '#e53e3e', marginBottom: '1rem' }}>Total Records</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#e53e3e' }}>
             {accounts.reduce((sum, account) => sum + account.financeRecords.length, 0)}
           </p>
         </div>
       </div>
-
-      {/* Quick Invite Modal */}
-      {showInviteModal && selectedAccount && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 1000
-        }}>
-          <div className="card" style={{ 
-            width: '90%', 
-            maxWidth: '500px', 
-            maxHeight: '90vh', 
-            overflow: 'auto',
-            position: 'relative'
-          }}>
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              marginBottom: '1rem' 
-            }}>
-              <h2 style={{ margin: 0 }}>Quick Invite</h2>
-              <button
-                onClick={() => {
-                  setShowInviteModal(false);
-                  setSelectedAccount(null);
-                  setInviteFormData({ recipientEmail: '', recipientPhone: '' });
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  color: '#4a5568'
-                }}
-              >
-                ×
-              </button>
-            </div>
-
-            <div style={{
-              background: '#f0f9ff',
-              border: '1px solid #bae6fd',
-              borderRadius: '6px',
-              padding: '1rem',
-              marginBottom: '1rem'
-            }}>
-              <p style={{ color: '#0369a1', margin: 0, fontSize: '0.9rem' }}>
-                <strong>Inviting to:</strong> {selectedAccount.name}
-              </p>
-            </div>
-
-            <form onSubmit={handleInviteSubmit}>
-              <div className="form-group">
-                <label className="form-label">Recipient Email</label>
-                <input
-                  type="email"
-                  className="form-input"
-                  value={inviteFormData.recipientEmail}
-                  onChange={(e) => setInviteFormData({ ...inviteFormData, recipientEmail: e.target.value })}
-                  placeholder="friend@example.com"
-                  required={!inviteFormData.recipientPhone}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Recipient Phone (optional)</label>
-                <input
-                  type="tel"
-                  className="form-input"
-                  value={inviteFormData.recipientPhone}
-                  onChange={(e) => setInviteFormData({ ...inviteFormData, recipientPhone: e.target.value })}
-                  placeholder="+1234567890"
-                />
-              </div>
-
-              <div style={{
-                background: '#fef3c7',
-                border: '1px solid #f59e0b',
-                borderRadius: '6px',
-                padding: '0.75rem',
-                marginBottom: '1rem'
-              }}>
-                <p style={{ color: '#92400e', fontSize: '0.9rem', margin: 0 }}>
-                  <strong>💡 Note:</strong> At least one contact method (email or phone) is required to send an invitation.
-                </p>
-              </div>
-
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowInviteModal(false);
-                    setSelectedAccount(null);
-                    setInviteFormData({ recipientEmail: '', recipientPhone: '' });
-                  }}
-                  className="btn btn-secondary"
-                  style={{ flex: 1 }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={inviteSubmitting || (!inviteFormData.recipientEmail && !inviteFormData.recipientPhone)}
-                  style={{ flex: 1 }}
-                >
-                  {inviteSubmitting ? <span className="spinner"></span> : 'Send Invitation'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Edit Account Modal */}
       {showEditModal && selectedAccount && (
@@ -1182,181 +1015,6 @@ const SharedAccounts: React.FC = () => {
         </div>
       )}
 
-      {/* Account Details Modal */}
-      {showDetailsModal && accountDetails && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 1000
-        }}>
-          <div className="card" style={{ 
-            width: '90%', 
-            maxWidth: '700px', 
-            maxHeight: '90vh', 
-            overflow: 'auto',
-            position: 'relative'
-          }}>
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              marginBottom: '1rem' 
-            }}>
-              <h2 style={{ margin: 0 }}>Account Details: {accountDetails.name}</h2>
-              <button
-                onClick={() => {
-                  setShowDetailsModal(false);
-                  setAccountDetails(null);
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  color: '#4a5568'
-                }}
-              >
-                ×
-              </button>
-            </div>
-
-            {loadingDetails ? (
-              <div style={{ textAlign: 'center', padding: '2rem' }}>
-                <div className="spinner"></div>
-                <p>Loading details...</p>
-              </div>
-            ) : (
-              <>
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <h3 style={{ color: '#2b6cb0', marginBottom: '0.5rem' }}>Account Information</h3>
-                  <div style={{
-                    background: '#f7fafc',
-                    padding: '1rem',
-                    borderRadius: '6px',
-                    marginBottom: '1rem'
-                  }}>
-                    <p style={{ margin: '0.5rem 0' }}>
-                      <strong>Name:</strong> {accountDetails.name}
-                    </p>
-                    <p style={{ margin: '0.5rem 0' }}>
-                      <strong>Created:</strong> {new Date(accountDetails.createdAt).toLocaleString()}
-                    </p>
-                    <p style={{ margin: '0.5rem 0' }}>
-                      <strong>Finance Records:</strong> {accountDetails.financeRecords?.length || 0}
-                    </p>
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <h3 style={{ color: '#2b6cb0', marginBottom: '0.5rem' }}>Members ({accountDetails.members?.length || 0})</h3>
-                  {accountDetails.members && accountDetails.members.length > 0 ? (
-                    <div style={{
-                      background: '#f7fafc',
-                      padding: '1rem',
-                      borderRadius: '6px'
-                    }}>
-                      {accountDetails.members.map((member: any, index: number) => {
-                        const isOwner = member._id === accountDetails.owner || member === accountDetails.owner;
-                        return (
-                          <div
-                            key={member._id || member || index}
-                            style={{
-                              padding: '0.75rem',
-                              marginBottom: '0.5rem',
-                              backgroundColor: isOwner ? '#dbeafe' : 'white',
-                              borderRadius: '4px',
-                              border: '1px solid #e2e8f0'
-                            }}
-                          >
-                            <p style={{ margin: 0, fontWeight: isOwner ? 'bold' : 'normal' }}>
-                              {member.email || member.firstName || member || 'Unknown'} {isOwner && '(Owner)'}
-                            </p>
-                            {member.firstName && (
-                              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem', color: '#6b7280' }}>
-                                {member.firstName} {member.lastName}
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p style={{ color: '#6b7280' }}>No members yet</p>
-                  )}
-                </div>
-
-                {accountDetails.financeRecords && accountDetails.financeRecords.length > 0 && (
-                  <div>
-                    <h3 style={{ color: '#2b6cb0', marginBottom: '0.5rem' }}>Finance Records ({accountDetails.financeRecords.length})</h3>
-                    <div style={{
-                      background: '#f7fafc',
-                      padding: '1rem',
-                      borderRadius: '6px',
-                      maxHeight: '300px',
-                      overflowY: 'auto'
-                    }}>
-                      {accountDetails.financeRecords.map((record: any, index: number) => (
-                        <div
-                          key={record._id || index}
-                          style={{
-                            padding: '0.75rem',
-                            marginBottom: '0.5rem',
-                            backgroundColor: 'white',
-                            borderRadius: '4px',
-                            border: '1px solid #e2e8f0'
-                          }}
-                        >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                              <p style={{ margin: 0, fontWeight: 'bold' }}>
-                                {record.type === 'input' ? '💰 Income' : '💸 Expense'}
-                              </p>
-                              <p style={{ margin: '0.25rem 0', fontSize: '0.9rem' }}>
-                                {record.description || 'No description'}
-                              </p>
-                              <p style={{ margin: '0.25rem 0', fontSize: '0.85rem', color: '#6b7280' }}>
-                                {new Date(record.date).toLocaleDateString()}
-                              </p>
-                            </div>
-                            <div style={{
-                              fontSize: '1.25rem',
-                              fontWeight: 'bold',
-                              color: record.type === 'input' ? '#38a169' : '#e53e3e'
-                            }}>
-                              {record.type === 'input' ? '+' : '-'}£{record.amount?.toFixed(2) || '0.00'}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.5rem' }}>
-                  <button
-                    onClick={() => {
-                      setShowDetailsModal(false);
-                      setAccountDetails(null);
-                    }}
-                    className="btn btn-primary"
-                    style={{ flex: 1 }}
-                  >
-                    Close
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Group Payment Modal */}
       {showGroupPaymentModal && selectedAccount && (
         <div style={{
@@ -1384,16 +1042,14 @@ const SharedAccounts: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>Group Payment: {selectedAccount.name}</h2>
+              <h2 style={{ margin: 0 }}>Payment: {selectedAccount.name}</h2>
               <button
                 onClick={() => {
                   setShowGroupPaymentModal(false);
                   setSelectedAccount(null);
-                  setGroupPaymentData(null);
                   setGroupPaymentForm({
-                    targetAmount: '',
+                    amount: '',
                     description: '',
-                    contributionAmount: '',
                     merchantEmail: '',
                     merchantName: ''
                   });
@@ -1410,276 +1066,230 @@ const SharedAccounts: React.FC = () => {
               </button>
             </div>
 
-            {loadingGroupPayment ? (
-              <div style={{ textAlign: 'center', padding: '2rem' }}>
-                <div className="spinner"></div>
-                <p>Loading payment status...</p>
+            <div style={{
+              background: '#fef3c7',
+              border: '1px solid #f59e0b',
+              borderRadius: '6px',
+              padding: '0.75rem',
+              marginBottom: '1rem'
+            }}>
+              <p style={{ color: '#92400e', fontSize: '0.9rem', margin: 0 }}>
+                <strong>How it works:</strong> The payment amount is set to the exact account balance of £{selectedAccount ? calculateAccountBalance(selectedAccount).toFixed(2) : '0.00'}. You must pay this exact amount - no more, no less. You will be redirected to PayPal to complete the payment.
+              </p>
+            </div>
+
+            {selectedAccount && calculateAccountBalance(selectedAccount) <= 0 && (
+              <div style={{
+                background: '#fee2e2',
+                border: '1px solid #f87171',
+                borderRadius: '6px',
+                padding: '0.75rem',
+                marginBottom: '1rem'
+              }}>
+                <p style={{ color: '#991b1b', fontSize: '0.9rem', margin: 0 }}>
+                  <strong>No Balance Available:</strong> This account has no balance available for payment.
+                </p>
               </div>
-            ) : (
-              <>
-                {!groupPaymentData ? (
-                  // Set Target Form (Owner Only)
-                  <div>
-                    <div style={{
-                      background: '#fef3c7',
-                      border: '1px solid #f59e0b',
-                      borderRadius: '6px',
-                      padding: '0.75rem',
-                      marginBottom: '1rem'
-                    }}>
-                      <p style={{ color: '#92400e', fontSize: '0.9rem', margin: 0 }}>
-                        <strong>💡 How it works:</strong> Set a target amount (e.g., £100 for event tickets). 
-                        Each member commits their share. When all committed, create a single PayPal payment.
-                      </p>
-                    </div>
-
-                    <form onSubmit={handleSetTarget}>
-                      <div className="form-group">
-                        <label className="form-label">Target Amount (£)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          className="form-input"
-                          value={groupPaymentForm.targetAmount}
-                          onChange={(e) => setGroupPaymentForm({ ...groupPaymentForm, targetAmount: e.target.value })}
-                          required
-                          placeholder="100.00"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label className="form-label">Description</label>
-                        <input
-                          type="text"
-                          className="form-input"
-                          value={groupPaymentForm.description}
-                          onChange={(e) => setGroupPaymentForm({ ...groupPaymentForm, description: e.target.value })}
-                          placeholder="e.g., Event tickets, Group dinner"
-                        />
-                      </div>
-
-                      <button
-                        type="submit"
-                        className="btn btn-primary"
-                        disabled={groupPaymentSubmitting}
-                        style={{ width: '100%' }}
-                      >
-                        {groupPaymentSubmitting ? <span className="spinner"></span> : 'Set Payment Target'}
-                      </button>
-                    </form>
-                  </div>
-                ) : (
-                  // Group Payment Status
-                  <div>
-                    <div style={{
-                      background: '#f0f9ff',
-                      border: '1px solid #0ea5e9',
-                      borderRadius: '6px',
-                      padding: '1rem',
-                      marginBottom: '1.5rem'
-                    }}>
-                      <h3 style={{ marginTop: 0, color: '#0369a1' }}>Payment Progress</h3>
-                      <div style={{ marginBottom: '0.5rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                          <span>Target:</span>
-                          <strong>£{groupPaymentData.targetAmount.toFixed(2)}</strong>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                          <span>Committed:</span>
-                          <strong style={{ color: groupPaymentData.totalCommitted >= groupPaymentData.targetAmount ? '#38a169' : '#e53e3e' }}>
-                            £{groupPaymentData.totalCommitted.toFixed(2)}
-                          </strong>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>Remaining:</span>
-                          <strong>£{groupPaymentData.remaining.toFixed(2)}</strong>
-                        </div>
-                      </div>
-                      <div style={{
-                        width: '100%',
-                        height: '20px',
-                        backgroundColor: '#e2e8f0',
-                        borderRadius: '10px',
-                        overflow: 'hidden',
-                        marginTop: '0.5rem'
-                      }}>
-                        <div style={{
-                          width: `${groupPaymentData.progress}%`,
-                          height: '100%',
-                          backgroundColor: groupPaymentData.totalCommitted >= groupPaymentData.targetAmount ? '#38a169' : '#0ea5e9',
-                          transition: 'width 0.3s ease'
-                        }}></div>
-                      </div>
-                      <p style={{ margin: '0.5rem 0 0 0', textAlign: 'center', fontSize: '0.9rem', color: '#6b7280' }}>
-                        {groupPaymentData.progress}% Complete
-                      </p>
-                    </div>
-
-                    {groupPaymentData.description && (
-                      <div style={{ marginBottom: '1rem' }}>
-                        <strong>Description:</strong> {groupPaymentData.description}
-                      </div>
-                    )}
-
-                    <div style={{ marginBottom: '1.5rem' }}>
-                      <h4 style={{ marginBottom: '0.5rem' }}>Contributions</h4>
-                      {groupPaymentData.contributions && groupPaymentData.contributions.length > 0 ? (
-                        <div style={{
-                          background: '#f7fafc',
-                          padding: '1rem',
-                          borderRadius: '6px',
-                          maxHeight: '200px',
-                          overflowY: 'auto'
-                        }}>
-                          {groupPaymentData.contributions.map((contrib: any, idx: number) => (
-                            <div key={idx} style={{
-                              padding: '0.75rem',
-                              marginBottom: '0.5rem',
-                              backgroundColor: 'white',
-                              borderRadius: '4px',
-                              border: '1px solid #e2e8f0',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center'
-                            }}>
-                              <div>
-                                <strong>{contrib.userName || 'Unknown User'}</strong>
-                                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: '#6b7280' }}>
-                                  Committed {new Date(contrib.committedAt).toLocaleString()}
-                                </p>
-                              </div>
-                              <strong style={{ color: '#38a169', fontSize: '1.1rem' }}>
-                                £{contrib.amount.toFixed(2)}
-                              </strong>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p style={{ color: '#6b7280' }}>No contributions yet</p>
-                      )}
-                    </div>
-
-                    {/* Commit Contribution Form */}
-                    <form onSubmit={handleCommitContribution} style={{ marginBottom: '1.5rem' }}>
-                      <div className="form-group">
-                        <label className="form-label">Your Contribution (£)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          className="form-input"
-                          value={groupPaymentForm.contributionAmount}
-                          onChange={(e) => setGroupPaymentForm({ ...groupPaymentForm, contributionAmount: e.target.value })}
-                          required
-                          placeholder="25.00"
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        className="btn btn-primary"
-                        disabled={groupPaymentSubmitting}
-                        style={{ width: '100%' }}
-                      >
-                        {groupPaymentSubmitting ? <span className="spinner"></span> : 'Commit Contribution'}
-                      </button>
-                    </form>
-
-                    {/* Create Payment (Owner Only) */}
-                    {groupPaymentData.totalCommitted >= groupPaymentData.targetAmount && (
-                      <div style={{
-                        background: '#f0fdf4',
-                        border: '1px solid #86efac',
-                        borderRadius: '6px',
-                        padding: '1rem',
-                        marginBottom: '1rem'
-                      }}>
-                        <h4 style={{ marginTop: 0, color: '#166534' }}>✅ Ready to Pay!</h4>
-                        <p style={{ color: '#166534', fontSize: '0.9rem', margin: '0.5rem 0' }}>
-                          All contributions are committed. You can now create the PayPal payment.
-                        </p>
-
-                        <div className="form-group" style={{ marginTop: '1rem' }}>
-                          <label className="form-label">Merchant Email (Optional)</label>
-                          <input
-                            type="email"
-                            className="form-input"
-                            value={groupPaymentForm.merchantEmail}
-                            onChange={(e) => setGroupPaymentForm({ ...groupPaymentForm, merchantEmail: e.target.value })}
-                            placeholder="merchant@example.com"
-                          />
-                        </div>
-
-                        <div className="form-group">
-                          <label className="form-label">Merchant Name (Optional)</label>
-                          <input
-                            type="text"
-                            className="form-input"
-                            value={groupPaymentForm.merchantName}
-                            onChange={(e) => setGroupPaymentForm({ ...groupPaymentForm, merchantName: e.target.value })}
-                            placeholder="Event Ticket Seller"
-                          />
-                        </div>
-
-                        <button
-                          onClick={handleCreatePayment}
-                          className="btn btn-success"
-                          disabled={groupPaymentSubmitting}
-                          style={{ width: '100%', marginTop: '0.5rem' }}
-                        >
-                          {groupPaymentSubmitting ? <span className="spinner"></span> : `Create Payment (£${groupPaymentData.targetAmount.toFixed(2)})`}
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Cancel Payment (Owner Only) */}
-                    {groupPaymentData.status === 'pending' && (
-                      <button
-                        onClick={handleCancelGroupPayment}
-                        className="btn btn-danger"
-                        disabled={groupPaymentSubmitting}
-                        style={{ width: '100%' }}
-                      >
-                        {groupPaymentSubmitting ? <span className="spinner"></span> : 'Cancel Group Payment'}
-                      </button>
-                    )}
-
-                    <div style={{
-                      background: '#fef3c7',
-                      border: '1px solid #f59e0b',
-                      borderRadius: '6px',
-                      padding: '0.75rem',
-                      marginTop: '1rem'
-                    }}>
-                      <p style={{ color: '#92400e', fontSize: '0.85rem', margin: 0 }}>
-                        <strong>⚠️ Legal Note:</strong> This system tracks commitments (virtual), not actual money holding. 
-                        When payment is created, the account owner will pay the full amount via PayPal. 
-                        Money flows directly: Owner → PayPal → Merchant. We never hold funds.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </>
             )}
 
-            <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
+            <form onSubmit={handleCreatePayment}>
+              <div className="form-group">
+                <label className="form-label">Amount (£) - Fixed to Account Balance</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="form-input"
+                  value={selectedAccount ? calculateAccountBalance(selectedAccount).toFixed(2) : '0.00'}
+                  readOnly
+                  required
+                  disabled={!selectedAccount || calculateAccountBalance(selectedAccount) <= 0}
+                  style={{
+                    backgroundColor: '#f7fafc',
+                    cursor: 'not-allowed',
+                    fontWeight: 'bold',
+                    color: '#2d3748'
+                  }}
+                />
+                <p style={{ fontSize: '0.85rem', color: '#4a5568', marginTop: '0.25rem' }}>
+                  Account Balance: £{selectedAccount ? calculateAccountBalance(selectedAccount).toFixed(2) : '0.00'}
+                </p>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Description</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={groupPaymentForm.description}
+                  onChange={(e) => setGroupPaymentForm({ ...groupPaymentForm, description: e.target.value })}
+                  placeholder="e.g., Event tickets, Group dinner"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Merchant Email (Optional)</label>
+                <input
+                  type="email"
+                  className="form-input"
+                  value={groupPaymentForm.merchantEmail}
+                  onChange={(e) => setGroupPaymentForm({ ...groupPaymentForm, merchantEmail: e.target.value })}
+                  placeholder="merchant@example.com"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Merchant Name (Optional)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={groupPaymentForm.merchantName}
+                  onChange={(e) => setGroupPaymentForm({ ...groupPaymentForm, merchantName: e.target.value })}
+                  placeholder="Event Ticket Seller"
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowGroupPaymentModal(false);
+                    setSelectedAccount(null);
+                    setGroupPaymentForm({
+                      amount: '',
+                      description: '',
+                      merchantEmail: '',
+                      merchantName: ''
+                    });
+                  }}
+                  className="btn btn-secondary"
+                  style={{ flex: 1 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-success"
+                  disabled={groupPaymentSubmitting || !selectedAccount || calculateAccountBalance(selectedAccount) <= 0}
+                  style={{ flex: 1 }}
+                >
+                  {groupPaymentSubmitting ? <span className="spinner"></span> : `Pay £${selectedAccount ? calculateAccountBalance(selectedAccount).toFixed(2) : '0.00'}`}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer Funds Modal */}
+      {showTransferModal && selectedAccount && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div className="card" style={{ 
+            width: '90%', 
+            maxWidth: '600px', 
+            maxHeight: '90vh', 
+            overflow: 'auto',
+            position: 'relative'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              marginBottom: '1rem' 
+            }}>
+              <h2 style={{ margin: 0 }}>Transfer Funds to {selectedAccount.name}</h2>
               <button
                 onClick={() => {
-                  setShowGroupPaymentModal(false);
+                  setShowTransferModal(false);
                   setSelectedAccount(null);
-                  setGroupPaymentData(null);
-                  setGroupPaymentForm({
-                    targetAmount: '',
-                    description: '',
-                    contributionAmount: '',
-                    merchantEmail: '',
-                    merchantName: ''
-                  });
+                  setTransferForm({ amount: '', description: '' });
                 }}
-                className="btn btn-secondary"
-                style={{ flex: 1 }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#4a5568'
+                }}
               >
-                Close
+                ×
               </button>
             </div>
+
+            <div style={{
+              background: '#fef3c7',
+              border: '1px solid #f59e0b',
+              borderRadius: '6px',
+              padding: '0.75rem',
+              marginBottom: '1rem'
+            }}>
+              <p style={{ color: '#92400e', fontSize: '0.9rem', margin: 0 }}>
+                <strong>How it works:</strong> This will transfer funds from your personal account balance to this shared account. The amount will be deducted from your personal balance and added to the shared account balance.
+              </p>
+            </div>
+
+            <form onSubmit={handleTransferSubmit}>
+              <div className="form-group">
+                <label className="form-label">Amount (£)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  className="form-input"
+                  value={transferForm.amount}
+                  onChange={(e) => setTransferForm({ ...transferForm, amount: e.target.value })}
+                  required
+                  placeholder="0.00"
+                />
+                <p style={{ fontSize: '0.85rem', color: '#4a5568', marginTop: '0.25rem' }}>
+                  Enter the amount you want to transfer from your personal account to this shared account.
+                </p>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Description</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={transferForm.description}
+                  onChange={(e) => setTransferForm({ ...transferForm, description: e.target.value })}
+                  placeholder="e.g., Transfer to shared account"
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTransferModal(false);
+                    setSelectedAccount(null);
+                    setTransferForm({ amount: '', description: '' });
+                  }}
+                  className="btn btn-secondary"
+                  style={{ flex: 1 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={transferSubmitting}
+                  style={{ flex: 1 }}
+                >
+                  {transferSubmitting ? <span className="spinner"></span> : 'Transfer Funds'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
