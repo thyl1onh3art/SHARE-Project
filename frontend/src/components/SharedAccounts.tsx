@@ -107,6 +107,8 @@ const SharedAccounts: React.FC = () => {
     description: ''
   });
   const [transferSubmitting, setTransferSubmitting] = useState(false);
+  const [personalBalance, setPersonalBalance] = useState<number | null>(null);
+  const [loadingPersonalBalance, setLoadingPersonalBalance] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -355,14 +357,38 @@ const SharedAccounts: React.FC = () => {
     }
   };
 
+  // Fetch personal balance (total balance from personal account)
+  const fetchPersonalBalance = async () => {
+    try {
+      setLoadingPersonalBalance(true);
+      const personalRecordsResponse = await axios.get('/finance');
+      const personalRecords = personalRecordsResponse.data.filter((record: any) => !record.sharedAccount);
+      const personalIncome = personalRecords
+        .filter((record: any) => record.type === 'input')
+        .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
+      const personalExpenses = personalRecords
+        .filter((record: any) => record.type === 'output')
+        .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
+      const balance = personalIncome - personalExpenses;
+      setPersonalBalance(balance);
+    } catch (err: any) {
+      console.error('Failed to fetch personal balance:', err);
+      setPersonalBalance(null);
+    } finally {
+      setLoadingPersonalBalance(false);
+    }
+  };
+
   // Transfer Funds Handlers
-  const handleTransferClick = (account: SharedAccount) => {
+  const handleTransferClick = async (account: SharedAccount) => {
     setSelectedAccount(account);
     setShowTransferModal(true);
     setTransferForm({
       amount: '',
       description: `Transfer to ${account.name}`
     });
+    // Fetch personal balance when opening modal
+    await fetchPersonalBalance();
   };
 
   const handleTransferSubmit = async (e: React.FormEvent) => {
@@ -379,19 +405,24 @@ const SharedAccounts: React.FC = () => {
     setError('');
 
     try {
-      // First, check personal balance
-      const personalRecordsResponse = await axios.get('/finance');
-      const personalRecords = personalRecordsResponse.data.filter((record: any) => !record.sharedAccount);
-      const personalIncome = personalRecords
-        .filter((record: any) => record.type === 'input')
-        .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
-      const personalExpenses = personalRecords
-        .filter((record: any) => record.type === 'output')
-        .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
-      const personalBalance = personalIncome - personalExpenses;
+      // Use the fetched personal balance, or fetch it if not available
+      let currentBalance = personalBalance;
+      if (currentBalance === null) {
+        await fetchPersonalBalance();
+        // Wait a moment for state to update, then check again
+        const personalRecordsResponse = await axios.get('/finance');
+        const personalRecords = personalRecordsResponse.data.filter((record: any) => !record.sharedAccount);
+        const personalIncome = personalRecords
+          .filter((record: any) => record.type === 'input')
+          .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
+        const personalExpenses = personalRecords
+          .filter((record: any) => record.type === 'output')
+          .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
+        currentBalance = personalIncome - personalExpenses;
+      }
 
-      if (amount > personalBalance) {
-        setError(`Insufficient balance. Your current balance is £${personalBalance.toFixed(2)}`);
+      if (currentBalance !== null && amount > currentBalance) {
+        setError(`Insufficient balance. Your current Personal Account balance is £${currentBalance.toFixed(2)}`);
         setTransferSubmitting(false);
         return;
       }
@@ -419,9 +450,11 @@ const SharedAccounts: React.FC = () => {
 
       // Refresh accounts to show updated balances
       fetchAccounts();
+      await fetchPersonalBalance(); // Refresh personal balance after transfer
       setShowTransferModal(false);
       setTransferForm({ amount: '', description: '' });
       setSelectedAccount(null);
+      setPersonalBalance(null);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to transfer funds');
     } finally {
@@ -1213,6 +1246,7 @@ const SharedAccounts: React.FC = () => {
                   setShowTransferModal(false);
                   setSelectedAccount(null);
                   setTransferForm({ amount: '', description: '' });
+                  setPersonalBalance(null);
                 }}
                 style={{
                   background: 'none',
@@ -1226,6 +1260,42 @@ const SharedAccounts: React.FC = () => {
               </button>
             </div>
 
+            {/* Personal Account Balance Display */}
+            <div style={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              borderRadius: '8px',
+              padding: '1rem',
+              marginBottom: '1rem',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <h3 style={{ margin: 0, fontSize: '0.9rem', opacity: 0.9, fontWeight: 'normal' }}>
+                  Personal Account (Total Balance)
+                </h3>
+                {loadingPersonalBalance && (
+                  <span className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px' }}></span>
+                )}
+              </div>
+              {personalBalance !== null ? (
+                <p style={{ 
+                  fontSize: '2rem', 
+                  fontWeight: 'bold', 
+                  margin: 0,
+                  textShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }}>
+                  £{personalBalance.toFixed(2)}
+                </p>
+              ) : (
+                <p style={{ fontSize: '1rem', margin: 0, opacity: 0.8 }}>
+                  Unable to load balance
+                </p>
+              )}
+              <p style={{ fontSize: '0.75rem', margin: '0.5rem 0 0 0', opacity: 0.8 }}>
+                This is your total balance from your personal account
+              </p>
+            </div>
+
             <div style={{
               background: '#fef3c7',
               border: '1px solid #f59e0b',
@@ -1234,17 +1304,18 @@ const SharedAccounts: React.FC = () => {
               marginBottom: '1rem'
             }}>
               <p style={{ color: '#92400e', fontSize: '0.9rem', margin: 0 }}>
-                <strong>How it works:</strong> This will transfer funds from your personal account balance to this shared account. The amount will be deducted from your personal balance and added to the shared account balance.
+                <strong>How it works:</strong> This will transfer funds from your <strong>Personal Account (Total Balance)</strong> to this shared account. The amount will be deducted from your personal balance and added to the shared account balance.
               </p>
             </div>
 
             <form onSubmit={handleTransferSubmit}>
               <div className="form-group">
-                <label className="form-label">Amount (£)</label>
+                <label className="form-label">Amount to Transfer (£)</label>
                 <input
                   type="number"
                   step="0.01"
                   min="0.01"
+                  max={personalBalance !== null ? personalBalance : undefined}
                   className="form-input"
                   value={transferForm.amount}
                   onChange={(e) => setTransferForm({ ...transferForm, amount: e.target.value })}
@@ -1252,7 +1323,12 @@ const SharedAccounts: React.FC = () => {
                   placeholder="0.00"
                 />
                 <p style={{ fontSize: '0.85rem', color: '#4a5568', marginTop: '0.25rem' }}>
-                  Enter the amount you want to transfer from your personal account to this shared account.
+                  Enter the amount you want to transfer from your <strong>Personal Account</strong> to this shared account.
+                  {personalBalance !== null && personalBalance > 0 && (
+                    <span style={{ display: 'block', marginTop: '0.25rem', color: '#667eea', fontWeight: 'bold' }}>
+                      Available: £{personalBalance.toFixed(2)}
+                    </span>
+                  )}
                 </p>
               </div>
 
@@ -1274,6 +1350,7 @@ const SharedAccounts: React.FC = () => {
                     setShowTransferModal(false);
                     setSelectedAccount(null);
                     setTransferForm({ amount: '', description: '' });
+                    setPersonalBalance(null);
                   }}
                   className="btn btn-secondary"
                   style={{ flex: 1 }}
