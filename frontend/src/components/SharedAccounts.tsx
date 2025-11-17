@@ -755,7 +755,9 @@ const SharedAccounts: React.FC = () => {
           </p>
         ) : (
           <div className="grid grid-2">
-            {accounts.map((account) => (
+            {accounts.map((account) => {
+              const accountBalance = calculateAccountBalance(account);
+              return (
               <div key={account._id} className="card" style={{ margin: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                   <h3 style={{ margin: 0 }}>{account.name}</h3>
@@ -766,6 +768,40 @@ const SharedAccounts: React.FC = () => {
                   >
                     Delete
                   </button>
+                </div>
+                
+                {/* Prominent Balance Display */}
+                <div style={{
+                  background: accountBalance >= 0 
+                    ? 'linear-gradient(135deg, #38a169 0%, #48bb78 100%)' 
+                    : 'linear-gradient(135deg, #e53e3e 0%, #fc8181 100%)',
+                  color: 'white',
+                  borderRadius: '8px',
+                  padding: '1rem',
+                  marginBottom: '1rem',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.9, fontWeight: 'normal' }}>
+                        Account Balance
+                      </p>
+                      <p style={{ 
+                        fontSize: '2rem', 
+                        fontWeight: 'bold', 
+                        margin: '0.25rem 0 0 0',
+                        textShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                      }}>
+                        {accountBalance >= 0 ? '+' : ''}£{accountBalance.toFixed(2)}
+                      </p>
+                    </div>
+                    <div style={{
+                      fontSize: '2.5rem',
+                      opacity: 0.8
+                    }}>
+                      {accountBalance >= 0 ? '💰' : '💸'}
+                    </div>
+                  </div>
                 </div>
                 
                 <div style={{ marginBottom: '1rem' }}>
@@ -918,7 +954,8 @@ const SharedAccounts: React.FC = () => {
                   </button>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
       </div>
