@@ -154,6 +154,8 @@ exports.createSharedAccount = async (req, res) => {
 exports.getUserSharedAccounts = async (req, res) => {
   try {
     const userId = req.user.userId;
+    console.log('SharedAccountController: Fetching shared accounts for user:', userId);
+    
     // Fetch accounts and populate owner, members, and financeRecords with user details
     const accounts = await SharedAccount.find({
       $or: [
@@ -168,6 +170,26 @@ exports.getUserSharedAccounts = async (req, res) => {
         populate: { path: 'user', select: 'name email' }
       });
     
+    console.log('SharedAccountController: Found', accounts.length, 'accounts');
+    
+    // Log details about each account and its finance records
+    for (const account of accounts) {
+      console.log(`SharedAccountController: Account "${account.name}" (ID: ${account._id})`);
+      console.log(`  Finance Records Count (before processing): ${account.financeRecords?.length || 0}`);
+      
+      if (account.financeRecords && account.financeRecords.length > 0) {
+        account.financeRecords.forEach((record, index) => {
+          if (typeof record === 'object' && record !== null && record._id) {
+            console.log(`  Record ${index + 1}: type=${record.type}, amount=£${record.amount}, id=${record._id}, populated=${!!record.type}`);
+          } else {
+            console.warn(`  Record ${index + 1}: NOT POPULATED (ID only): ${record}`);
+          }
+        });
+      } else {
+        console.warn(`  Account "${account.name}" has NO finance records!`);
+      }
+    }
+    
     // Recalculate perPersonAmount for each account to ensure it's always accurate
     for (const account of accounts) {
       if (account.targetAmount && account.targetAmount > 0) {
@@ -178,8 +200,10 @@ exports.getUserSharedAccounts = async (req, res) => {
       }
     }
     
+    console.log('SharedAccountController: Returning', accounts.length, 'accounts to frontend');
     res.json(accounts);
   } catch (err) {
+    console.error('SharedAccountController: Error fetching shared accounts:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };

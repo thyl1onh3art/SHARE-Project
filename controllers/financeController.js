@@ -33,14 +33,33 @@ exports.createRecord = async (req, res) => {
           // Add the record to the shared account's financeRecords array if not already present
           // Convert to strings for comparison since ObjectIds need to be compared as strings
           const recordIdString = record._id.toString();
-          const existingIds = account.financeRecords.map((id: any) => id.toString());
+          const existingIds = account.financeRecords.map((id) => id.toString());
+          
+          console.log('FinanceController: Checking if record already exists in account');
+          console.log('FinanceController: Record ID to add:', recordIdString);
+          console.log('FinanceController: Existing record IDs:', existingIds);
           
           if (!existingIds.includes(recordIdString)) {
+            console.log('FinanceController: Record not found in account, adding it...');
             account.financeRecords.push(record._id);
-            await account.save();
-            console.log('FinanceController: Record added to shared account financeRecords. Total records:', account.financeRecords.length);
+            const savedAccount = await account.save();
+            console.log('FinanceController: Account saved successfully');
+            
+            // Verify the record was actually added by re-fetching the account
+            const verifiedAccount = await SharedAccount.findById(sharedAccount);
+            const verifiedIds = verifiedAccount.financeRecords.map((id) => id.toString());
+            console.log('FinanceController: Verified account after save - Total records:', verifiedAccount.financeRecords.length);
+            console.log('FinanceController: Verified record IDs:', verifiedIds);
+            
+            if (verifiedIds.includes(recordIdString)) {
+              console.log('FinanceController: SUCCESS - Record confirmed in account financeRecords');
+            } else {
+              console.error('FinanceController: ERROR - Record was NOT found in account after save!');
+            }
+            
+            console.log('FinanceController: Record added to shared account financeRecords. Total records:', savedAccount.financeRecords.length);
             console.log('FinanceController: Record ID added:', recordIdString);
-            console.log('FinanceController: All record IDs in account:', account.financeRecords.map((id: any) => id.toString()));
+            console.log('FinanceController: All record IDs in account:', savedAccount.financeRecords.map((id) => id.toString()));
           } else {
             console.log('FinanceController: Record already in shared account financeRecords');
           }
