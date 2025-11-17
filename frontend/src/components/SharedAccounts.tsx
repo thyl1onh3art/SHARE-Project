@@ -449,7 +449,112 @@ const SharedAccounts: React.FC = () => {
     }
   };
 
-  // Transfer Funds Handlers
+  /**
+   * Transfer Funds Function
+   * 
+   * This function handles transferring money from the user's Personal Account (Total Balance)
+   * to any shared account. It creates two financial records:
+   * 1. An 'output' record in the personal account (deducts from personal balance)
+   * 2. An 'input' record in the shared account (adds to shared account balance)
+   * 
+   * @param account - The shared account to transfer funds to
+   * @param amount - The amount to transfer (must be positive and <= personal balance)
+   * @param description - Optional description for the transfer
+   * @returns Promise that resolves when transfer is complete
+   */
+  const transferFundsToSharedAccount = async (
+    account: SharedAccount,
+    amount: number,
+    description?: string
+  ): Promise<void> => {
+    if (!account || !account._id) {
+      throw new Error('Invalid shared account');
+    }
+
+    if (amount <= 0) {
+      throw new Error('Transfer amount must be greater than 0');
+    }
+
+    // Fetch current personal balance to verify sufficient funds
+    const personalRecordsResponse = await axios.get('/finance');
+    const personalRecords = personalRecordsResponse.data.filter((record: any) => !record.sharedAccount);
+    const personalIncome = personalRecords
+      .filter((record: any) => record.type === 'input')
+      .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
+    const personalExpenses = personalRecords
+      .filter((record: any) => record.type === 'output')
+      .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
+    const currentPersonalBalance = personalIncome - personalExpenses;
+
+    if (amount > currentPersonalBalance) {
+      throw new Error(`Insufficient balance. Your current Personal Account balance is £${currentPersonalBalance.toFixed(2)}`);
+    }
+
+    const date = new Date().toISOString();
+    const transferDescription = description || `Transfer to ${account.name}`;
+
+    console.log('Transfer: Starting transfer process...');
+    console.log('Transfer: Amount:', amount);
+    console.log('Transfer: To account:', account.name);
+    console.log('Transfer: Personal balance before:', currentPersonalBalance);
+
+    // Step 1: Create output record in personal account (deduct from personal)
+    console.log('Transfer: Creating output record (personal account deduction)');
+    const outputRecord = await axios.post('/finance', {
+      type: 'output',
+      amount: amount,
+      date: date,
+      description: transferDescription
+      // Don't include sharedAccount field - this is a personal account transaction
+    });
+    console.log('Transfer: Output record created:', outputRecord.data._id);
+
+    // Step 2: Create input record in shared account (add to shared account)
+    console.log('Transfer: Creating input record (shared account addition)');
+    const inputRecord = await axios.post('/finance', {
+      type: 'input',
+      amount: amount,
+      date: date,
+      description: transferDescription,
+      sharedAccount: account._id
+    });
+    console.log('Transfer: Input record created:', inputRecord.data._id);
+    console.log('Transfer: Shared account ID:', account._id);
+
+    // Step 3: Wait for backend to process and update the shared account
+    console.log('Transfer: Waiting for backend to process...');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Step 4: Refresh accounts with retry logic to ensure records are populated
+    console.log('Transfer: Refreshing accounts...');
+    let retryCount = 0;
+    const maxRetries = 3;
+    let accountsRefreshed = false;
+    
+    while (retryCount < maxRetries && !accountsRefreshed) {
+      try {
+        await fetchAccounts();
+        await new Promise(resolve => setTimeout(resolve, 500));
+        console.log(`Transfer: Refresh attempt ${retryCount + 1} completed`);
+        accountsRefreshed = true;
+      } catch (err) {
+        console.error(`Transfer: Refresh attempt ${retryCount + 1} failed:`, err);
+        retryCount++;
+        if (retryCount < maxRetries) {
+          console.log(`Transfer: Retrying in 1 second...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+    }
+
+    // Step 5: Refresh personal balance
+    await fetchPersonalBalance();
+
+    console.log('Transfer: Successfully completed');
+    console.log('Transfer: Personal balance after:', currentPersonalBalance - amount);
+  };
+
+  // Transfer Funds UI Handlers
   const handleTransferClick = async (account: SharedAccount) => {
     setSelectedAccount(account);
     setShowTransferModal(true);
@@ -475,90 +580,14 @@ const SharedAccounts: React.FC = () => {
     setError('');
 
     try {
-      // Use the fetched personal balance, or fetch it if not available
-      let currentBalance = personalBalance;
-      if (currentBalance === null) {
-        await fetchPersonalBalance();
-        // Wait a moment for state to update, then check again
-        const personalRecordsResponse = await axios.get('/finance');
-        const personalRecords = personalRecordsResponse.data.filter((record: any) => !record.sharedAccount);
-        const personalIncome = personalRecords
-          .filter((record: any) => record.type === 'input')
-          .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
-        const personalExpenses = personalRecords
-          .filter((record: any) => record.type === 'output')
-          .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
-        currentBalance = personalIncome - personalExpenses;
-      }
-
-      if (currentBalance !== null && amount > currentBalance) {
-        setError(`Insufficient balance. Your current Personal Account balance is £${currentBalance.toFixed(2)}`);
-        setTransferSubmitting(false);
-        return;
-      }
-
-      const date = new Date().toISOString();
-      const description = transferForm.description || `Transfer to ${selectedAccount.name}`;
-
-      console.log('Transfer: Creating output record (personal account deduction)');
-      // Create output record in personal account (deduct from personal)
-      const outputRecord = await axios.post('/finance', {
-        type: 'output',
-        amount: amount,
-        date: date,
-        description: description
-        // Don't include sharedAccount field - this is a personal account transaction
-      });
-      console.log('Transfer: Output record created:', outputRecord.data);
-
-      console.log('Transfer: Creating input record (shared account addition)');
-      // Create input record in shared account (add to shared account)
-      const inputRecord = await axios.post('/finance', {
-        type: 'input',
-        amount: amount,
-        date: date,
-        description: description,
-        sharedAccount: selectedAccount._id
-      });
-      console.log('Transfer: Input record created:', inputRecord.data);
-      console.log('Transfer: Shared account ID:', selectedAccount._id);
-      console.log('Transfer: Input record ID:', inputRecord.data._id);
-
-      // Wait for the backend to process and update the shared account
-      console.log('Transfer: Waiting for backend to process...');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Refresh accounts with retry logic to ensure records are populated
-      console.log('Transfer: Refreshing accounts...');
-      let retryCount = 0;
-      const maxRetries = 3;
-      let accountsRefreshed = false;
+      // Use the transferFundsToSharedAccount function to handle the transfer
+      await transferFundsToSharedAccount(
+        selectedAccount,
+        amount,
+        transferForm.description || undefined
+      );
       
-      while (retryCount < maxRetries && !accountsRefreshed) {
-        try {
-          // Use fetchAccounts which has proper error handling and logging
-          await fetchAccounts();
-          
-          // Wait a moment for state to update
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          // Verify the record was added by checking the accounts state
-          // We'll check this in the next render cycle, but for now just refresh
-          console.log(`Transfer: Refresh attempt ${retryCount + 1} completed`);
-          accountsRefreshed = true;
-        } catch (err) {
-          console.error(`Transfer: Refresh attempt ${retryCount + 1} failed:`, err);
-          retryCount++;
-          if (retryCount < maxRetries) {
-            console.log(`Transfer: Retrying in 1 second...`);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        }
-      }
-      
-      // Also fetch personal balance
-      await fetchPersonalBalance();
-      
+      // Transfer successful - close modal and reset form
       console.log('Transfer: Successfully completed');
       setShowTransferModal(false);
       setTransferForm({ amount: '', description: '' });
