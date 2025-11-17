@@ -410,10 +410,14 @@ const SharedAccounts: React.FC = () => {
   };
 
   // Fetch personal balance (total balance from personal account)
+  // NOTE: This uses the SAME calculation as Total Balance in FinancialRecords.tsx
+  // Both filter out records with sharedAccount field to get only personal transactions
   const fetchPersonalBalance = async () => {
     try {
       setLoadingPersonalBalance(true);
       const personalRecordsResponse = await axios.get('/finance');
+      // Filter out shared account records - only count personal transactions
+      // This matches the logic in FinancialRecords.tsx for Total Balance calculation
       const personalRecords = personalRecordsResponse.data.filter((record: any) => !record.sharedAccount);
       const personalIncome = personalRecords
         .filter((record: any) => record.type === 'input')
@@ -422,6 +426,13 @@ const SharedAccounts: React.FC = () => {
         .filter((record: any) => record.type === 'output')
         .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
       const balance = personalIncome - personalExpenses;
+      console.log('Personal Account Balance calculated:', {
+        totalRecords: personalRecordsResponse.data.length,
+        personalRecords: personalRecords.length,
+        income: personalIncome,
+        expenses: personalExpenses,
+        balance: balance
+      });
       setPersonalBalance(balance);
     } catch (err: any) {
       console.error('Failed to fetch personal balance:', err);
