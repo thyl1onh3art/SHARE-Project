@@ -172,10 +172,10 @@ exports.getUserSharedAccounts = async (req, res) => {
     
     console.log('SharedAccountController: Found', accounts.length, 'accounts');
     
-    // Log details about each account and its finance records
+    // Log details about each account and its finance records BEFORE any saves
     for (const account of accounts) {
       console.log(`SharedAccountController: Account "${account.name}" (ID: ${account._id})`);
-      console.log(`  Finance Records Count (before processing): ${account.financeRecords?.length || 0}`);
+      console.log(`  Finance Records Count: ${account.financeRecords?.length || 0}`);
       
       if (account.financeRecords && account.financeRecords.length > 0) {
         account.financeRecords.forEach((record, index) => {
@@ -191,17 +191,35 @@ exports.getUserSharedAccounts = async (req, res) => {
     }
     
     // Recalculate perPersonAmount for each account to ensure it's always accurate
+    // Use updateOne to avoid losing populated data
     for (const account of accounts) {
       if (account.targetAmount && account.targetAmount > 0) {
         const currentMemberCount = Array.isArray(account.members) ? account.members.length : 0;
-        account.perPersonAmount = Math.round(calculatePerPersonAmount(account.targetAmount, currentMemberCount) * 100) / 100;
-        // Save the updated perPersonAmount
-        await account.save();
+        const newPerPersonAmount = Math.round(calculatePerPersonAmount(account.targetAmount, currentMemberCount) * 100) / 100;
+        
+        // Only update if the value has changed
+        if (account.perPersonAmount !== newPerPersonAmount) {
+          // Use updateOne to avoid interfering with populated data
+          await SharedAccount.updateOne(
+            { _id: account._id },
+            { $set: { perPersonAmount: newPerPersonAmount } }
+          );
+          // Update the in-memory object so the response has the correct value
+          account.perPersonAmount = newPerPersonAmount;
+        }
       }
     }
     
-    console.log('SharedAccountController: Returning', accounts.length, 'accounts to frontend');
-    res.json(accounts);
+    // Convert to plain objects to ensure JSON serialization works correctly
+    // This also ensures populated data is properly included
+    const accountsToReturn = accounts.map(account => {
+      const accountObj = account.toObject ? account.toObject() : account;
+      return accountObj;
+    });
+    
+    console.log('SharedAccountController: Returning', accountsToReturn.length, 'accounts to frontend');
+    console.log('SharedAccountController: Sample account finance records count:', accountsToReturn[0]?.financeRecords?.length || 0);
+    res.json(accountsToReturn);
   } catch (err) {
     console.error('SharedAccountController: Error fetching shared accounts:', err);
     res.status(500).json({ message: 'Server error', error: err.message });

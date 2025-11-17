@@ -165,7 +165,16 @@ const SharedAccounts: React.FC = () => {
       
       setLoading(true);
       setError(''); // Clear previous errors
-      const response = await axios.get('/shared-accounts');
+      
+      // Add cache-busting timestamp to ensure fresh data
+      const timestamp = new Date().getTime();
+      const response = await axios.get(`/shared-accounts?t=${timestamp}`, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
       console.log('SharedAccounts: Successfully fetched accounts:', response.data);
       
       // Log details about finance records for each account
@@ -528,26 +537,37 @@ const SharedAccounts: React.FC = () => {
     // Step 4: Refresh accounts with retry logic to ensure records are populated
     console.log('Transfer: Refreshing accounts...');
     let retryCount = 0;
-    const maxRetries = 3;
+    const maxRetries = 5; // Increased retries
     let accountsRefreshed = false;
     
     while (retryCount < maxRetries && !accountsRefreshed) {
       try {
         await fetchAccounts();
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Increased wait time
+        
+        // Verify the record was added by checking the accounts state
+        // We need to check after state updates, so we'll verify in the next cycle
         console.log(`Transfer: Refresh attempt ${retryCount + 1} completed`);
+        
+        // Give it one more moment for state to fully update
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         accountsRefreshed = true;
       } catch (err) {
         console.error(`Transfer: Refresh attempt ${retryCount + 1} failed:`, err);
         retryCount++;
         if (retryCount < maxRetries) {
-          console.log(`Transfer: Retrying in 1 second...`);
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          console.log(`Transfer: Retrying in 2 seconds...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
     }
 
-    // Step 5: Refresh personal balance
+    // Step 5: Verify the transfer was successful by checking the account balance
+    // This will be done after the component re-renders with the new data
+    console.log('Transfer: Transfer process completed. Account balance should update on next render.');
+
+    // Step 6: Refresh personal balance
     await fetchPersonalBalance();
 
     console.log('Transfer: Successfully completed');
