@@ -565,7 +565,6 @@ const SharedAccounts: React.FC = () => {
       {error && (
         <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '1.2rem' }}>⚠️</span>
             <div>
               <strong>Error:</strong> {error}
               {error.includes('log in') && (
@@ -795,12 +794,6 @@ const SharedAccounts: React.FC = () => {
                         {accountBalance >= 0 ? '+' : ''}£{accountBalance.toFixed(2)}
                       </p>
                     </div>
-                    <div style={{
-                      fontSize: '2.5rem',
-                      opacity: 0.8
-                    }}>
-                      {accountBalance >= 0 ? '💰' : '💸'}
-                    </div>
                   </div>
                 </div>
                 
@@ -963,7 +956,7 @@ const SharedAccounts: React.FC = () => {
       {/* Quick Stats */}
       <div className="grid grid-3">
         <div className="card">
-          <h3 style={{ color: '#2b6cb0', marginBottom: '1rem' }}>📊 Total Accounts</h3>
+          <h3 style={{ color: '#2b6cb0', marginBottom: '1rem' }}>Total Accounts</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#2b6cb0' }}>
             {accounts.length}
           </p>
