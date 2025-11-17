@@ -744,7 +744,7 @@ const SharedAccounts: React.FC = () => {
                             Participants:
                           </div>
                           <div style={{ marginBottom: '0.25rem' }}>
-                            <span style={{ color: '#fbbf24' }}>👤 Owner:</span>{' '}
+                            <span style={{ color: '#fbbf24' }}>Owner:</span>{' '}
                             {typeof account.owner === 'object' && account.owner ? (
                               <span>{account.owner.name || `${account.owner.firstName || ''} ${account.owner.lastName || ''}`.trim() || account.owner.email}</span>
                             ) : (
@@ -755,7 +755,7 @@ const SharedAccounts: React.FC = () => {
                             <div>
                               {account.members.map((member, idx) => (
                                 <div key={idx} style={{ marginBottom: '0.25rem' }}>
-                                  <span style={{ color: '#60a5fa' }}>👥 Member {idx + 1}:</span>{' '}
+                                  <span style={{ color: '#60a5fa' }}>Member {idx + 1}:</span>{' '}
                                   {typeof member === 'object' && member ? (
                                     <span>{member.name || `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.email}</span>
                                   ) : (
@@ -778,7 +778,7 @@ const SharedAccounts: React.FC = () => {
                       marginTop: '0.5rem'
                     }}>
                       <p style={{ color: '#0369a1', fontSize: '0.85rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
-                        ⏰ Time Remaining:
+                        Time Remaining:
                       </p>
                       {countdowns[account._id] ? (
                         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -850,7 +850,7 @@ const SharedAccounts: React.FC = () => {
                     style={{ flex: 1, fontSize: '12px', padding: '6px 12px', minWidth: '80px' }}
                     onClick={() => handleGroupPaymentClick(account)}
                   >
-                    💰 Group Payment
+                    Group Payment
                   </button>
                 </div>
               </div>
@@ -869,14 +869,14 @@ const SharedAccounts: React.FC = () => {
         </div>
         
         <div className="card">
-          <h3 style={{ color: '#38a169', marginBottom: '1rem' }}>👥 Total Members</h3>
+          <h3 style={{ color: '#38a169', marginBottom: '1rem' }}>Total Members</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#38a169' }}>
             {accounts.reduce((sum, account) => sum + account.members.length, 0)}
           </p>
         </div>
         
         <div className="card">
-          <h3 style={{ color: '#e53e3e', marginBottom: '1rem' }}>📝 Total Records</h3>
+          <h3 style={{ color: '#e53e3e', marginBottom: '1rem' }}>Total Records</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#e53e3e' }}>
             {accounts.reduce((sum, account) => sum + account.financeRecords.length, 0)}
           </p>
@@ -1316,7 +1316,7 @@ const SharedAccounts: React.FC = () => {
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
                               <p style={{ margin: 0, fontWeight: 'bold' }}>
-                                {record.type === 'input' ? '💰 Income' : '💸 Expense'}
+                                {record.type === 'input' ? 'Income' : 'Expense'}
                               </p>
                               <p style={{ margin: '0.25rem 0', fontSize: '0.9rem' }}>
                                 {record.description || 'No description'}
@@ -1592,7 +1592,7 @@ const SharedAccounts: React.FC = () => {
                         padding: '1rem',
                         marginBottom: '1rem'
                       }}>
-                        <h4 style={{ marginTop: 0, color: '#166534' }}>✅ Ready to Pay!</h4>
+                        <h4 style={{ marginTop: 0, color: '#166534' }}>Ready to Pay!</h4>
                         <p style={{ color: '#166534', fontSize: '0.9rem', margin: '0.5rem 0' }}>
                           All contributions are committed. You can now create the PayPal payment.
                         </p>

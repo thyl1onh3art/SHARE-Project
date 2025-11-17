@@ -103,14 +103,14 @@ const Dashboard: React.FC = () => {
       {/* Financial Summary */}
       <div className="grid grid-3">
         <div className="card">
-          <h3 style={{ color: '#38a169', marginBottom: '1rem' }}>💰 Total Income</h3>
+          <h3 style={{ color: '#38a169', marginBottom: '1rem' }}>Total Income</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#38a169' }}>
             £{totalIncome.toFixed(2)}
           </p>
         </div>
         
         <div className="card">
-          <h3 style={{ color: '#e53e3e', marginBottom: '1rem' }}>💸 Total Expenses</h3>
+          <h3 style={{ color: '#e53e3e', marginBottom: '1rem' }}>Total Expenses</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#e53e3e' }}>
             £{totalExpenses.toFixed(2)}
           </p>
@@ -349,7 +349,7 @@ const Dashboard: React.FC = () => {
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
                               <p style={{ margin: 0, fontWeight: 'bold' }}>
-                                {record.type === 'input' ? '💰 Income' : '💸 Expense'}
+                                {record.type === 'input' ? 'Income' : 'Expense'}
                               </p>
                               <p style={{ margin: '0.25rem 0', fontSize: '0.9rem' }}>
                                 {record.description || 'No description'}

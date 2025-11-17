@@ -138,7 +138,7 @@ const Profile: React.FC = () => {
             color: '#2d3748',
             margin: 0
           }}>
-            👤 Profile Settings
+            Profile Settings
           </h1>
           {!isEditing && (
             <button

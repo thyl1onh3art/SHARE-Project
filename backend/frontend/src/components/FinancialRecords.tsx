@@ -185,12 +185,11 @@ const FinancialRecords: React.FC = () => {
               £{totalBalance.toFixed(2)}
             </p>
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', fontSize: '0.9rem', opacity: 0.9, flexWrap: 'wrap' }}>
-              <span>📈 Income: £{totalIncome.toFixed(2)} ({incomeCount} transaction{incomeCount !== 1 ? 's' : ''})</span>
-              <span>📉 Expenses: £{totalExpenses.toFixed(2)} ({expenseCount} transaction{expenseCount !== 1 ? 's' : ''})</span>
+              <span>Income: £{totalIncome.toFixed(2)} ({incomeCount} transaction{incomeCount !== 1 ? 's' : ''})</span>
+              <span>Expenses: £{totalExpenses.toFixed(2)} ({expenseCount} transaction{expenseCount !== 1 ? 's' : ''})</span>
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', marginLeft: '2rem' }}>
-            <div style={{ fontSize: '4rem', opacity: 0.9 }}>💰</div>
             <button 
               onClick={() => setShowForm(!showForm)}
               style={{
@@ -214,7 +213,7 @@ const FinancialRecords: React.FC = () => {
                 e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
               }}
             >
-              {showForm ? 'Cancel' : '➕ Add Money'}
+              {showForm ? 'Cancel' : 'Add Money'}
             </button>
           </div>
         </div>
@@ -266,10 +265,8 @@ const FinancialRecords: React.FC = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: '1.5rem',
                         marginRight: '1rem'
                       }}>
-                        🏦
                       </div>
                       <div style={{ flex: 1 }}>
                         <h3 style={{ margin: 0, marginBottom: '0.25rem', fontSize: '1.1rem' }}>
@@ -319,8 +316,8 @@ const FinancialRecords: React.FC = () => {
                       display: 'flex',
                       justifyContent: 'space-between'
                     }}>
-                      <span>👥 {memberCount + 1} member{memberCount !== 0 ? 's' : ''}</span>
-                      <span>📝 {account.financeRecords?.length || 0} transaction{(account.financeRecords?.length || 0) !== 1 ? 's' : ''}</span>
+                      <span>{memberCount + 1} member{memberCount !== 0 ? 's' : ''}</span>
+                      <span>{account.financeRecords?.length || 0} transaction{(account.financeRecords?.length || 0) !== 1 ? 's' : ''}</span>
                     </div>
                   </div>
                 </Link>
@@ -332,7 +329,6 @@ const FinancialRecords: React.FC = () => {
 
       {sharedAccounts.length === 0 && (
         <div className="card" style={{ textAlign: 'center', padding: '2rem', marginBottom: '2rem' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🏦</div>
           <p style={{ color: '#4a5568', marginBottom: '1rem' }}>
             You don't have any shared accounts yet.
           </p>
@@ -361,8 +357,8 @@ const FinancialRecords: React.FC = () => {
                 }}
                 required
               >
-                <option value="personal">💰 Personal Account</option>
-                <option value="card">💳 Debit/Credit Card</option>
+                <option value="personal">Personal Account</option>
+                <option value="card">Debit/Credit Card</option>
               </select>
             </div>
 
@@ -374,10 +370,10 @@ const FinancialRecords: React.FC = () => {
                   value={formData.sharedAccount}
                   onChange={(e) => setFormData({ ...formData, sharedAccount: e.target.value })}
                 >
-                  <option value="">💰 Personal Account</option>
+                  <option value="">Personal Account</option>
                   {sharedAccounts.map((account) => (
                     <option key={account._id} value={account._id}>
-                      🏦 {account.name}
+                      {account.name}
                     </option>
                   ))}
                 </select>
@@ -459,7 +455,7 @@ const FinancialRecords: React.FC = () => {
           onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h2 style={{ margin: 0 }}>💳 Card Details</h2>
+              <h2 style={{ margin: 0 }}>Card Details</h2>
               <button
                 type="button"
                 onClick={() => {
@@ -579,7 +575,7 @@ const FinancialRecords: React.FC = () => {
                 <div>
                   <strong>{record.description}</strong>
                   <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
-                    {new Date(record.date).toLocaleDateString()} • {record.type === 'input' ? '💰 Income' : '💸 Expense'}
+                    {new Date(record.date).toLocaleDateString()} • {record.type === 'input' ? 'Income' : 'Expense'}
                   </p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -589,9 +585,6 @@ const FinancialRecords: React.FC = () => {
                       alignItems: 'center',
                       gap: '0.5rem'
                     }}>
-                      <span style={{ fontSize: '1.25rem' }}>
-                        {record.type === 'input' ? '💰' : '💸'}
-                      </span>
                       <span style={{ 
                         color: record.type === 'input' ? '#38a169' : '#e53e3e',
                         fontWeight: 'bold',

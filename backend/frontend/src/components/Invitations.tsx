@@ -458,7 +458,7 @@ const Invitations: React.FC = () => {
         </div>
         
         <div className="card">
-          <h3 style={{ color: '#38a169', marginBottom: '1rem' }}>✅ Accepted</h3>
+          <h3 style={{ color: '#38a169', marginBottom: '1rem' }}>Accepted</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#38a169' }}>
             {invitations.filter(inv => inv.status === 'accepted').length}
           </p>
