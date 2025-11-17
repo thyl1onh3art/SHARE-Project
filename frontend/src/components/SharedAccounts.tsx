@@ -430,33 +430,47 @@ const SharedAccounts: React.FC = () => {
       const date = new Date().toISOString();
       const description = transferForm.description || `Transfer to ${selectedAccount.name}`;
 
+      console.log('Transfer: Creating output record (personal account deduction)');
       // Create output record in personal account (deduct from personal)
-      await axios.post('/finance', {
+      const outputRecord = await axios.post('/finance', {
         type: 'output',
         amount: amount,
         date: date,
-        description: description,
-        sharedAccount: undefined // No shared account - this is personal
+        description: description
+        // Don't include sharedAccount field - this is a personal account transaction
       });
+      console.log('Transfer: Output record created:', outputRecord.data);
 
+      console.log('Transfer: Creating input record (shared account addition)');
       // Create input record in shared account (add to shared account)
-      await axios.post('/finance', {
+      const inputRecord = await axios.post('/finance', {
         type: 'input',
         amount: amount,
         date: date,
         description: description,
         sharedAccount: selectedAccount._id
       });
+      console.log('Transfer: Input record created:', inputRecord.data);
+      console.log('Transfer: Shared account ID:', selectedAccount._id);
+
+      // Wait a moment for the backend to process and update the shared account
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Refresh accounts to show updated balances
-      fetchAccounts();
+      console.log('Transfer: Refreshing accounts...');
+      await fetchAccounts();
       await fetchPersonalBalance(); // Refresh personal balance after transfer
+      
+      console.log('Transfer: Successfully completed');
       setShowTransferModal(false);
       setTransferForm({ amount: '', description: '' });
       setSelectedAccount(null);
       setPersonalBalance(null);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to transfer funds');
+      console.error('Transfer error:', err);
+      console.error('Transfer error response:', err.response);
+      const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to transfer funds';
+      setError(errorMessage);
     } finally {
       setTransferSubmitting(false);
     }
