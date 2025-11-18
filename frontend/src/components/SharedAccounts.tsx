@@ -259,6 +259,149 @@ const SharedAccounts: React.FC = () => {
                     </div>
                   </div>
 
+                {/* Transaction History */}
+                {account.financeRecords && account.financeRecords.length > 0 && (
+                  <div style={{ 
+                    marginTop: '1rem', 
+                    marginBottom: '1rem',
+                    borderTop: '1px solid #e2e8f0',
+                    paddingTop: '1rem'
+                  }}>
+                    <h4 style={{ 
+                      fontSize: '0.95rem', 
+                      fontWeight: 'bold', 
+                      color: '#2d3748',
+                      marginBottom: '0.75rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
+                    }}>
+                      <span>Transaction History</span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 'normal', color: '#718096' }}>
+                        ({account.financeRecords.length} {account.financeRecords.length === 1 ? 'transaction' : 'transactions'})
+                      </span>
+                    </h4>
+                    <div style={{
+                      maxHeight: '300px',
+                      overflowY: 'auto',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '6px',
+                      padding: '0.5rem'
+                    }}>
+                      {account.financeRecords
+                        .map((record: any) => {
+                          // Handle both string IDs and full record objects
+                          if (typeof record === 'string' || record instanceof String) {
+                            return null;
+                          }
+                          return record;
+                        })
+                        .filter((record: any) => record !== null)
+                        .sort((a: any, b: any) => {
+                          const dateA = new Date(a.date || a.createdAt || 0).getTime();
+                          const dateB = new Date(b.date || b.createdAt || 0).getTime();
+                          return dateB - dateA; // Most recent first
+                        })
+                        .map((record: any, index: number) => {
+                          const isInput = record.type === 'input';
+                          const amount = record.amount || 0;
+                          const date = record.date || record.createdAt;
+                          const description = record.description || 'No description';
+                          const user = record.user;
+                          const userName = user 
+                            ? (typeof user === 'object' 
+                              ? (user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email)
+                              : 'User')
+                            : 'Unknown';
+
+                          return (
+                            <div
+                              key={record._id || index}
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'flex-start',
+                                padding: '0.75rem',
+                                marginBottom: '0.5rem',
+                                backgroundColor: isInput ? '#f0fdf4' : '#fef2f2',
+                                border: `1px solid ${isInput ? '#bbf7d0' : '#fecaca'}`,
+                                borderRadius: '4px',
+                                borderLeft: `4px solid ${isInput ? '#38a169' : '#e53e3e'}`
+                              }}
+                            >
+                              <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                                  <span style={{
+                                    fontSize: '0.75rem',
+                                    fontWeight: 'bold',
+                                    color: isInput ? '#38a169' : '#e53e3e',
+                                    backgroundColor: isInput ? '#d1fae5' : '#fee2e2',
+                                    padding: '2px 6px',
+                                    borderRadius: '3px'
+                                  }}>
+                                    {isInput ? 'IN' : 'OUT'}
+                                  </span>
+                                  <span style={{ 
+                                    fontSize: '0.9rem', 
+                                    fontWeight: 'bold',
+                                    color: '#2d3748'
+                                  }}>
+                                    {isInput ? '+' : '-'}£{amount.toFixed(2)}
+                                  </span>
+                                </div>
+                                <p style={{ 
+                                  fontSize: '0.85rem', 
+                                  color: '#4a5568',
+                                  margin: '0.25rem 0',
+                                  wordBreak: 'break-word'
+                                }}>
+                                  {description}
+                                </p>
+                                <div style={{ 
+                                  display: 'flex', 
+                                  gap: '0.75rem',
+                                  fontSize: '0.75rem',
+                                  color: '#718096',
+                                  marginTop: '0.25rem'
+                                }}>
+                                  <span>By: {userName}</span>
+                                  {date && (
+                                    <span>{new Date(date).toLocaleString()}</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      {account.financeRecords.filter((r: any) => typeof r !== 'string' && !(r instanceof String)).length === 0 && (
+                        <p style={{ 
+                          textAlign: 'center', 
+                          color: '#a0aec0', 
+                          fontSize: '0.85rem',
+                          padding: '1rem'
+                        }}>
+                          No transactions to display
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button 
+                    className="btn btn-secondary" 
+                    style={{ flex: 1, fontSize: '12px', padding: '6px 12px', minWidth: '80px' }}
+                    onClick={() => handleEditClick(account)}
+                  >
+                    View/Edit Details
+                  </button>
+                  <button 
+                    className="btn btn-outline" 
+                    style={{ flex: 1, fontSize: '12px', padding: '6px 12px', minWidth: '80px' }}
+                    onClick={() => handleNavigateToInvitations(account)}
+                  >
+                    Manage Invites
+                  </button>
                   <button 
                     className="btn btn-primary" 
                     style={{ width: '100%' }}
