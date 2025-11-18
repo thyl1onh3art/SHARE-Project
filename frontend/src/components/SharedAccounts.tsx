@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 interface SharedAccount {
   _id: string;
@@ -35,6 +36,8 @@ const SharedAccounts: React.FC = () => {
     targetDate: ''
   });
   const [editSubmitting, setEditSubmitting] = useState(false);
+  const [countdowns, setCountdowns] = useState<{ [key: string]: { days: number; hours: number; minutes: number; seconds: number } }>({});
+  const navigate = useNavigate();
 
   // Calculate balance for a shared account
   const calculateAccountBalance = (account: SharedAccount): number => {
@@ -82,6 +85,46 @@ const SharedAccounts: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Calculate countdown timer
+  const calculateCountdown = (targetDate: string | undefined): { days: number; hours: number; minutes: number; seconds: number } | null => {
+    if (!targetDate) return null;
+    const target = new Date(targetDate).getTime();
+    const now = new Date().getTime();
+    const difference = target - now;
+
+    if (difference <= 0) {
+      return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+    }
+
+    return {
+      days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+      hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+      minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
+      seconds: Math.floor((difference % (1000 * 60)) / 1000)
+    };
+  };
+
+  // Initialize and update countdowns every second
+  useEffect(() => {
+    const initializeCountdowns = () => {
+      const newCountdowns: { [key: string]: { days: number; hours: number; minutes: number; seconds: number } } = {};
+      accounts.forEach(account => {
+        if (account.targetDate) {
+          const countdown = calculateCountdown(account.targetDate);
+          if (countdown) {
+            newCountdowns[account._id] = countdown;
+          }
+        }
+      });
+      setCountdowns(newCountdowns);
+    };
+
+    initializeCountdowns();
+    const timer = setInterval(initializeCountdowns, 1000);
+
+    return () => clearInterval(timer);
+  }, [accounts]);
 
   useEffect(() => {
     fetchAccounts();
@@ -164,6 +207,16 @@ const SharedAccounts: React.FC = () => {
       targetDate: account.targetDate ? new Date(account.targetDate).toISOString().slice(0, 16) : ''
     });
     setShowEditModal(true);
+  };
+
+  const handleNavigateToInvitations = (account: SharedAccount) => {
+    navigate(`/invitations?account=${account._id}`);
+  };
+
+  const handlePayClick = (account: SharedAccount) => {
+    // Navigate to payment page or open payment modal
+    // For now, we'll navigate to a payment page if it exists, or show an alert
+    navigate(`/payment?accountId=${account._id}`);
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -299,196 +352,96 @@ const SharedAccounts: React.FC = () => {
         ) : (
           <div className="grid grid-2">
             {accounts.map((account) => {
-              const accountBalance = calculateAccountBalance(account);
+              const memberCount = Array.isArray(account.members) ? account.members.length : 0;
+              const totalParticipants = memberCount + 1;
               return (
                 <div key={account._id} className="card" style={{ margin: 0 }}>
-                  <h3 style={{ margin: 0, marginBottom: '1rem' }}>{account.name}</h3>
-                  
-                  {/* Balance Display */}
-                  <div style={{
-                    background: accountBalance >= 0 
-                      ? 'linear-gradient(135deg, #38a169 0%, #48bb78 100%)' 
-                      : 'linear-gradient(135deg, #e53e3e 0%, #fc8181 100%)',
-                    color: 'white',
-                    borderRadius: '8px',
-                    padding: '1rem',
-                    marginBottom: '1rem',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                  }}>
-                    <div>
-                      <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.9, fontWeight: 'normal' }}>
-                        Account Balance
+                  {/* Account Details */}
+                  <div style={{ marginBottom: '1rem' }}>
+                    <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
+                      <strong>Purpose:</strong> {account.description || account.name}
+                    </p>
+                    {account.targetAmount !== undefined && account.targetAmount > 0 && (
+                      <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
+                        <strong>Target Amount:</strong> £{account.targetAmount.toFixed(2)}
                       </p>
+                    )}
+                    {account.perPersonAmount !== undefined && account.perPersonAmount > 0 && (
                       <p style={{ 
-                        fontSize: '2rem', 
-                        fontWeight: 'bold', 
-                        margin: '0.25rem 0 0 0',
-                        textShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                        color: '#2b6cb0', 
+                        fontSize: '0.9rem', 
+                        margin: '0.25rem 0', 
+                        fontWeight: 'bold',
+                        textDecoration: 'underline',
+                        textDecorationStyle: 'dotted',
+                        textUnderlineOffset: '2px'
                       }}>
-                        {accountBalance >= 0 ? '+' : ''}£{accountBalance.toFixed(2)}
+                        <strong>Per Person:</strong> £{account.perPersonAmount.toFixed(2)} ({totalParticipants} {totalParticipants === 1 ? 'participant' : 'participants'})
                       </p>
-                    </div>
-                  </div>
-
-                {/* Account Details */}
-                <div style={{ marginBottom: '1rem' }}>
-                  {account.description && (
-                    <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
-                      <strong>Purpose:</strong> {account.description}
-                    </p>
-                  )}
-                  {account.targetAmount !== undefined && account.targetAmount > 0 && (
-                    <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
-                      <strong>Target Amount:</strong> £{account.targetAmount.toFixed(2)}
-                    </p>
-                  )}
-                  {account.targetDate && (
-                    <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
-                      <strong>Target Date:</strong> {new Date(account.targetDate).toLocaleString()}
-                    </p>
-                  )}
-                  {account.perPersonAmount !== undefined && account.perPersonAmount > 0 && (
-                    <p style={{ color: '#2b6cb0', fontSize: '0.9rem', margin: '0.25rem 0', fontWeight: 'bold' }}>
-                      <strong>Per Person:</strong> £{account.perPersonAmount.toFixed(2)}
-                    </p>
-                  )}
-                </div>
-
-                {/* Transaction History */}
-                {account.financeRecords && account.financeRecords.length > 0 && (
-                  <div style={{ 
-                    marginTop: '1rem', 
-                    marginBottom: '1rem',
-                    borderTop: '1px solid #e2e8f0',
-                    paddingTop: '1rem'
-                  }}>
-                    <h4 style={{ 
-                      fontSize: '0.95rem', 
-                      fontWeight: 'bold', 
-                      color: '#2d3748',
-                      marginBottom: '0.75rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between'
-                    }}>
-                      <span>Transaction History</span>
-                      <span style={{ fontSize: '0.85rem', fontWeight: 'normal', color: '#718096' }}>
-                        ({account.financeRecords.length} {account.financeRecords.length === 1 ? 'transaction' : 'transactions'})
-                      </span>
-                    </h4>
-                    <div style={{
-                      maxHeight: '300px',
-                      overflowY: 'auto',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '6px',
-                      padding: '0.5rem'
-                    }}>
-                      {account.financeRecords
-                        .map((record: any) => {
-                          // Handle both string IDs and full record objects
-                          if (typeof record === 'string' || record instanceof String) {
-                            return null;
-                          }
-                          return record;
-                        })
-                        .filter((record: any) => record !== null)
-                        .sort((a: any, b: any) => {
-                          const dateA = new Date(a.date || a.createdAt || 0).getTime();
-                          const dateB = new Date(b.date || b.createdAt || 0).getTime();
-                          return dateB - dateA; // Most recent first
-                        })
-                        .map((record: any, index: number) => {
-                          const isInput = record.type === 'input';
-                          const amount = record.amount || 0;
-                          const date = record.date || record.createdAt;
-                          const description = record.description || 'No description';
-                          const user = record.user;
-                          const userName = user 
-                            ? (typeof user === 'object' 
-                              ? (user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email)
-                              : 'User')
-                            : 'Unknown';
-
-                          return (
-                            <div
-                              key={record._id || index}
-                              style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'flex-start',
-                                padding: '0.75rem',
-                                marginBottom: '0.5rem',
-                                backgroundColor: isInput ? '#f0fdf4' : '#fef2f2',
-                                border: `1px solid ${isInput ? '#bbf7d0' : '#fecaca'}`,
-                                borderRadius: '4px',
-                                borderLeft: `4px solid ${isInput ? '#38a169' : '#e53e3e'}`
-                              }}
-                            >
-                              <div style={{ flex: 1 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                                  <span style={{
-                                    fontSize: '0.75rem',
-                                    fontWeight: 'bold',
-                                    color: isInput ? '#38a169' : '#e53e3e',
-                                    backgroundColor: isInput ? '#d1fae5' : '#fee2e2',
-                                    padding: '2px 6px',
-                                    borderRadius: '3px'
-                                  }}>
-                                    {isInput ? 'IN' : 'OUT'}
-                                  </span>
-                                  <span style={{ 
-                                    fontSize: '0.9rem', 
-                                    fontWeight: 'bold',
-                                    color: '#2d3748'
-                                  }}>
-                                    {isInput ? '+' : '-'}£{amount.toFixed(2)}
-                                  </span>
-                                </div>
-                                <p style={{ 
-                                  fontSize: '0.85rem', 
-                                  color: '#4a5568',
-                                  margin: '0.25rem 0',
-                                  wordBreak: 'break-word'
-                                }}>
-                                  {description}
-                                </p>
-                                <div style={{ 
-                                  display: 'flex', 
-                                  gap: '0.75rem',
-                                  fontSize: '0.75rem',
-                                  color: '#718096',
-                                  marginTop: '0.25rem'
-                                }}>
-                                  <span>By: {userName}</span>
-                                  {date && (
-                                    <span>{new Date(date).toLocaleString()}</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      {account.financeRecords.filter((r: any) => typeof r !== 'string' && !(r instanceof String)).length === 0 && (
-                        <p style={{ 
-                          textAlign: 'center', 
-                          color: '#a0aec0', 
-                          fontSize: '0.85rem',
-                          padding: '1rem'
-                        }}>
-                          No transactions to display
+                    )}
+                    {account.targetDate && (
+                      <div style={{ 
+                        background: '#f0f9ff',
+                        border: '1px solid #bae6fd',
+                        borderRadius: '6px',
+                        padding: '0.75rem',
+                        marginTop: '0.5rem'
+                      }}>
+                        <p style={{ color: '#0369a1', fontSize: '0.85rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
+                          Time Remaining:
                         </p>
-                      )}
-                    </div>
+                        {countdowns[account._id] ? (
+                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                            {countdowns[account._id].days > 0 && (
+                              <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>
+                                {countdowns[account._id].days}d
+                              </span>
+                            )}
+                            <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>
+                              {countdowns[account._id].hours}h
+                            </span>
+                            <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>
+                              {countdowns[account._id].minutes}m
+                            </span>
+                            <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>
+                              {countdowns[account._id].seconds}s
+                            </span>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>Calculating...</span>
+                        )}
+                        <p style={{ color: '#0369a1', fontSize: '0.75rem', margin: '0.5rem 0 0 0' }}>
+                          Target: {new Date(account.targetDate).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+                    <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
+                      <strong>Members:</strong> {totalParticipants} (including you)
+                    </p>
+                    <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
+                      <strong>Records:</strong> {account.financeRecords?.length || 0}
+                    </p>
+                    {account.createdAt && (
+                      <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
+                        <strong>Created:</strong> {new Date(account.createdAt).toLocaleDateString()}
+                      </p>
+                    )}
                   </div>
-                )}
 
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '1rem' }}>
                   <button 
                     className="btn btn-secondary" 
                     style={{ flex: 1, fontSize: '12px', padding: '6px 12px', minWidth: '80px' }}
                     onClick={() => handleEditClick(account)}
                   >
-                    Edit Account
+                    View/Edit Details
+                  </button>
+                  <button 
+                    className="btn btn-outline" 
+                    style={{ flex: 1, fontSize: '12px', padding: '6px 12px', minWidth: '80px' }}
+                    onClick={() => handleNavigateToInvitations(account)}
+                  >
+                    Manage Invites
                   </button>
                   <button 
                     className="btn btn-primary" 
@@ -498,6 +451,13 @@ const SharedAccounts: React.FC = () => {
                     Transfer Funds
                   </button>
                 </div>
+                <button 
+                  className="btn btn-success" 
+                  style={{ width: '100%', marginTop: '0.5rem', fontSize: '12px', padding: '6px 12px' }}
+                  onClick={() => handlePayClick(account)}
+                >
+                  Pay
+                </button>
               </div>
             );
             })}
