@@ -389,20 +389,6 @@ const SharedAccounts: React.FC = () => {
 
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <button 
-                    className="btn btn-secondary" 
-                    style={{ flex: 1, fontSize: '12px', padding: '6px 12px', minWidth: '80px' }}
-                    onClick={() => handleEditClick(account)}
-                  >
-                    View/Edit Details
-                  </button>
-                  <button 
-                    className="btn btn-outline" 
-                    style={{ flex: 1, fontSize: '12px', padding: '6px 12px', minWidth: '80px' }}
-                    onClick={() => handleNavigateToInvitations(account)}
-                  >
-                    Manage Invites
-                  </button>
-                  <button 
                     className="btn btn-primary" 
                     style={{ width: '100%' }}
                     onClick={() => handleTransferClick(account)}
@@ -410,7 +396,8 @@ const SharedAccounts: React.FC = () => {
                     Transfer Funds
                   </button>
                 </div>
-              );
+              </div>
+            );
             })}
           </div>
         )}
