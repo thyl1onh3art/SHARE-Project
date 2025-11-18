@@ -22,7 +22,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://share-project-production.up.railway.app/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 // Configure axios defaults
 axios.defaults.baseURL = API_BASE_URL;
@@ -84,24 +84,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const register = async (name: string, email: string, password: string, age: number, interests: string[]) => {
     try {
-      const response = await axios.post('/users/register', {
+      await axios.post('/users/register', {
         name,
         email,
         password,
         age,
         interests
       });
-      return response.data;
     } catch (error: any) {
-      // Log the full error for debugging
-      console.error('Registration error:', error.response?.data || error.message);
-      
-      // Return detailed error information
-      const errorMessage = error.response?.data?.errors 
-        ? error.response.data.errors.map((e: any) => e.message || e).join(', ')
-        : error.response?.data?.message || error.message || 'Registration failed';
-      
-      throw new Error(errorMessage);
+      throw new Error(error.response?.data?.message || 'Registration failed');
     }
   };
 

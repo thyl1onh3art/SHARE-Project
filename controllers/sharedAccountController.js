@@ -154,9 +154,7 @@ exports.createSharedAccount = async (req, res) => {
 exports.getUserSharedAccounts = async (req, res) => {
   try {
     const userId = req.user.userId;
-    console.log('SharedAccountController: Fetching shared accounts for user:', userId);
-    
-    // Fetch accounts and populate owner, members, and financeRecords with user details
+    // Fetch accounts and populate owner and members with user details
     const accounts = await SharedAccount.find({
       $or: [
         { owner: userId },
@@ -164,118 +162,20 @@ exports.getUserSharedAccounts = async (req, res) => {
       ]
     })
       .populate('owner', 'name firstName lastName email')
-      .populate('members', 'name firstName lastName email')
-      .populate({
-        path: 'financeRecords',
-        populate: { path: 'user', select: 'name email' }
-      });
-    
-    console.log('SharedAccountController: Found', accounts.length, 'accounts');
-    
-    // Log details about each account and its finance records BEFORE any saves
-    for (const account of accounts) {
-      console.log(`SharedAccountController: Account "${account.name}" (ID: ${account._id})`);
-      console.log(`  Finance Records Count: ${account.financeRecords?.length || 0}`);
-      
-      if (account.financeRecords && account.financeRecords.length > 0) {
-        account.financeRecords.forEach((record, index) => {
-          if (typeof record === 'object' && record !== null && record._id) {
-            console.log(`  Record ${index + 1}: type=${record.type}, amount=£${record.amount}, id=${record._id}, populated=${!!record.type}`);
-          } else {
-            console.warn(`  Record ${index + 1}: NOT POPULATED (ID only): ${record}`);
-          }
-        });
-      } else {
-        console.warn(`  Account "${account.name}" has NO finance records!`);
-      }
-    }
+      .populate('members', 'name firstName lastName email');
     
     // Recalculate perPersonAmount for each account to ensure it's always accurate
-    // Use updateOne to avoid losing populated data
     for (const account of accounts) {
       if (account.targetAmount && account.targetAmount > 0) {
         const currentMemberCount = Array.isArray(account.members) ? account.members.length : 0;
-        const newPerPersonAmount = Math.round(calculatePerPersonAmount(account.targetAmount, currentMemberCount) * 100) / 100;
-        
-        // Only update if the value has changed
-        if (account.perPersonAmount !== newPerPersonAmount) {
-          // Use updateOne to avoid interfering with populated data
-          await SharedAccount.updateOne(
-            { _id: account._id },
-            { $set: { perPersonAmount: newPerPersonAmount } }
-          );
-          // Update the in-memory object so the response has the correct value
-          account.perPersonAmount = newPerPersonAmount;
-        }
+        account.perPersonAmount = Math.round(calculatePerPersonAmount(account.targetAmount, currentMemberCount) * 100) / 100;
+        // Save the updated perPersonAmount
+        await account.save();
       }
     }
     
-    // Convert to plain objects to ensure JSON serialization works correctly
-    // This also ensures populated data is properly included
-    const accountsToReturn = await Promise.all(accounts.map(async (account) => {
-      const accountObj = account.toObject ? account.toObject() : account;
-      
-      // Log detailed information about each account being returned
-      console.log(`SharedAccountController: Processing account "${accountObj.name}"`);
-      console.log(`  Finance Records Array Length (from populate): ${accountObj.financeRecords?.length || 0}`);
-      
-      // FALLBACK: If populate didn't work or returned empty, fetch records directly
-      if (!accountObj.financeRecords || accountObj.financeRecords.length === 0) {
-        console.log(`  SharedAccountController: Populate returned empty, fetching records directly for account ${accountObj._id}`);
-        const directRecords = await FinanceRecord.find({ sharedAccount: accountObj._id })
-          .populate('user', 'name email');
-        
-        console.log(`  SharedAccountController: Found ${directRecords.length} records via direct query`);
-        if (directRecords.length > 0) {
-          // Convert to plain objects
-          accountObj.financeRecords = directRecords.map(record => {
-            const recordObj = record.toObject ? record.toObject() : record;
-            return recordObj;
-          });
-          console.log(`  SharedAccountController: Added ${accountObj.financeRecords.length} records to account`);
-          
-          // Also update the shared account's financeRecords array in the database
-          // to ensure consistency for future fetches
-          const recordIds = directRecords.map(r => r._id);
-          const existingIds = (account.financeRecords || []).map((id) => id.toString());
-          const missingIds = recordIds.filter(id => !existingIds.includes(id.toString()));
-          
-          if (missingIds.length > 0) {
-            console.log(`  SharedAccountController: Found ${missingIds.length} records not in account's financeRecords array, adding them...`);
-            await SharedAccount.updateOne(
-              { _id: accountObj._id },
-              { $push: { financeRecords: { $each: missingIds } } }
-            );
-            console.log(`  SharedAccountController: Added ${missingIds.length} record IDs to account's financeRecords array`);
-          }
-        }
-      }
-      
-      // Log final state
-      if (accountObj.financeRecords && accountObj.financeRecords.length > 0) {
-        accountObj.financeRecords.forEach((record, idx) => {
-          if (record && typeof record === 'object') {
-            console.log(`  Record ${idx + 1}: type=${record.type}, amount=£${record.amount}, id=${record._id}`);
-          } else {
-            console.warn(`  Record ${idx + 1}: NOT POPULATED - ${typeof record}: ${record}`);
-          }
-        });
-      } else {
-        console.warn(`  SharedAccountController: Account "${accountObj.name}" still has NO finance records after fallback query`);
-      }
-      
-      return accountObj;
-    }));
-    
-    console.log('SharedAccountController: Returning', accountsToReturn.length, 'accounts to frontend');
-    if (accountsToReturn.length > 0) {
-      console.log('SharedAccountController: First account finance records:', accountsToReturn[0].financeRecords?.length || 0);
-      console.log('SharedAccountController: First account finance records type:', typeof accountsToReturn[0].financeRecords);
-      console.log('SharedAccountController: First account finance records is array:', Array.isArray(accountsToReturn[0].financeRecords));
-    }
-    res.json(accountsToReturn);
+    res.json(accounts);
   } catch (err) {
-    console.error('SharedAccountController: Error fetching shared accounts:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };

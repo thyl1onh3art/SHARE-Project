@@ -37,6 +37,11 @@ const suspiciousPatterns = [
 
 // Rate limiting configurations
 const createRateLimit = (windowMs, max, message) => {
+  // Disable rate limiting in test environment
+  if (process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true') {
+    return (req, res, next) => next();
+  }
+  
   return rateLimit({
     windowMs,
     max,
@@ -82,14 +87,17 @@ const twoFactorRateLimit = createRateLimit(
 );
 
 // Slow down after failed attempts
-const speedLimiter = slowDown({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  delayAfter: 2, // Allow 2 requests per windowMs without delay
-  delayMs: 500, // Add 500ms delay per request after delayAfter
-  maxDelayMs: 20000, // Max delay of 20 seconds
-  skipSuccessfulRequests: true,
-  skipFailedRequests: false
-});
+const speedLimiter = process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true'
+  ? (req, res, next) => next()
+  : slowDown({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      delayAfter: 2, // Allow 2 requests per windowMs without delay
+      delayMs: () => 500, // Add 500ms delay per request after delayAfter
+      maxDelayMs: 20000, // Max delay of 20 seconds
+      skipSuccessfulRequests: true,
+      skipFailedRequests: false,
+      validate: { delayMs: false } // Suppress deprecation warning
+    });
 
 // WAF middleware
 const wafMiddleware = (req, res, next) => {

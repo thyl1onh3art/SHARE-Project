@@ -8,9 +8,6 @@ const { asyncHandler } = require('../middleware/errorHandler');
 // Send an invite to a user by email/phone
 router.post('/send', auth, validateInvite, asyncHandler(inviteController.sendInvite));
 
-// Send invites to multiple recipients at once
-router.post('/send-bulk', auth, asyncHandler(inviteController.sendBulkInvites));
-
 // Accept an invite
 router.post('/accept', auth, validateAcceptInvite, asyncHandler(inviteController.acceptInvite));
 

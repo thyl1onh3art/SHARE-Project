@@ -44,13 +44,16 @@ const Navbar: React.FC = () => {
         WebkitBackgroundClip: 'text',
         WebkitTextFillColor: 'transparent'
       }}>
-        SHARE Project
+        💰 SHARE Project
       </Link>
       
       {user ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <Link to="/personal-finance" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
+            <Link to="/dashboard" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
+              Dashboard
+            </Link>
+            <Link to="/financial-records" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
               Finance
             </Link>
             <Link to="/shared-accounts" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
@@ -88,6 +91,7 @@ const Navbar: React.FC = () => {
               onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
               onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
             >
+              <span>👤</span>
               <span>{user.name}</span>
               <span style={{ fontSize: '12px' }}>▼</span>
             </button>
@@ -130,7 +134,7 @@ const Navbar: React.FC = () => {
                     onMouseEnter={(e) => e.currentTarget.style.background = '#f7fafc'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                   >
-                    Edit Profile
+                    👤 Edit Profile
                   </Link>
                   
                   <Link
@@ -147,7 +151,7 @@ const Navbar: React.FC = () => {
                     onMouseEnter={(e) => e.currentTarget.style.background = '#f7fafc'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                   >
-                    Settings
+                    ⚙️ Settings
                   </Link>
                   
                   <div style={{ borderTop: '1px solid #e2e8f0', margin: '0.5rem 0' }}></div>
@@ -172,7 +176,7 @@ const Navbar: React.FC = () => {
                     onMouseEnter={(e) => e.currentTarget.style.background = '#fed7d7'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                   >
-                    Logout
+                    🚪 Logout
                   </button>
                 </div>
               </div>

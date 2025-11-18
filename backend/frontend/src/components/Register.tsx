@@ -47,30 +47,17 @@ const Register: React.FC = () => {
     e.preventDefault();
     setError('');
 
-    // Validate age group is selected
-    if (!formData.ageGroup) {
-      setError('Please select an age group');
-      return;
-    }
-
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
     }
 
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters long');
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long');
       return;
     }
 
-    // Check password requirements
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
-    if (!passwordRegex.test(formData.password)) {
-      setError('Password must contain at least one uppercase letter, one lowercase letter, and one number');
-      return;
-    }
-
-    // Register directly (email verification temporarily disabled)
+    // Skip email verification and register directly
     setLoading(true);
     try {
       // Convert age group to a representative age for backend compatibility
@@ -82,15 +69,8 @@ const Register: React.FC = () => {
         '36-40': 38,
         '40+': 45
       };
-      const age = ageMap[formData.ageGroup];
+      const age = ageMap[formData.ageGroup] || 25;
       
-      if (!age) {
-        setError('Invalid age group selected');
-        setLoading(false);
-        return;
-      }
-      
-      // Register user directly
       await register(
         formData.name,
         formData.email,
@@ -98,43 +78,31 @@ const Register: React.FC = () => {
         age,
         formData.interests
       );
-      
-      // Redirect to login on success
       navigate('/login');
     } catch (err: any) {
-      // Display validation errors if available
-      const errorMessage = err.response?.data?.errors 
-        ? err.response.data.errors.map((e: any) => e.message || e).join(', ')
-        : err.response?.data?.message || err.message || 'Registration failed';
-      setError(errorMessage);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // Email verification handlers temporarily disabled
+  // Email verification functions temporarily disabled
   // const handleVerificationComplete = async () => {
   //   setLoading(true);
   //   setError('');
+
   //   try {
-  //     const pendingData = (window as any).pendingRegistration;
-  //     if (!pendingData) {
-  //       throw new Error('Registration data not found');
-  //     }
+  //     const interests = formData.interests.split(',').map(i => i.trim()).filter(i => i);
   //     await register(
-  //       pendingData.name,
-  //       pendingData.email,
-  //       pendingData.password,
-  //       pendingData.age,
-  //       pendingData.interests
+  //       formData.name,
+  //       formData.email,
+  //       formData.password,
+  //       parseInt(formData.age),
+  //       interests
   //     );
-  //     delete (window as any).pendingRegistration;
   //     navigate('/login');
   //   } catch (err: any) {
-  //     const errorMessage = err.response?.data?.errors 
-  //       ? err.response.data.errors.map((e: any) => e.message || e).join(', ')
-  //       : err.response?.data?.message || err.message || 'Registration failed';
-  //     setError(errorMessage);
+  //     setError(err.message);
   //     setShowEmailVerification(false);
   //   } finally {
   //     setLoading(false);
@@ -144,7 +112,6 @@ const Register: React.FC = () => {
   // const handleBackToRegistration = () => {
   //   setShowEmailVerification(false);
   //   setError('');
-  //   delete (window as any).pendingRegistration;
   // };
 
   // if (showEmailVerification) {
@@ -170,17 +137,8 @@ const Register: React.FC = () => {
         </div>
         
         {error && (
-          <div className="alert alert-error" style={{ 
-            marginBottom: '1rem',
-            padding: '12px 16px',
-            borderRadius: '8px',
-            backgroundColor: '#fed7d7',
-            border: '1px solid #feb2b2',
-            color: '#742a2a',
-            fontSize: '14px',
-            lineHeight: '1.5'
-          }}>
-            <strong>Error:</strong> {error}
+          <div className="alert alert-error">
+            {error}
           </div>
         )}
 
@@ -305,47 +263,9 @@ const Register: React.FC = () => {
                 className="password-toggle-btn"
                 onClick={() => setShowPassword(!showPassword)}
                 aria-label={showPassword ? "Hide password" : "Show password"}
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  fontSize: '18px',
-                  color: '#667eea'
-                }}
               >
-                {showPassword ? (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                    <circle cx="12" cy="12" r="3"></circle>
-                  </svg>
-                ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                    <line x1="1" y1="1" x2="23" y2="23"></line>
-                  </svg>
-                )}
+                {showPassword ? "🙈" : "👁️"}
               </button>
-            </div>
-            <div style={{ 
-              fontSize: '0.85rem', 
-              color: '#6b7280', 
-              marginTop: '0.5rem',
-              marginBottom: 0,
-              padding: '8px 12px',
-              backgroundColor: '#f7fafc',
-              borderRadius: '6px',
-              border: '1px solid #e2e8f0'
-            }}>
-              <strong>Password Requirements:</strong>
-              <ul style={{ margin: '4px 0 0 20px', padding: 0 }}>
-                <li>At least 8 characters long</li>
-                <li>Contains at least one uppercase letter (A-Z)</li>
-                <li>Contains at least one lowercase letter (a-z)</li>
-                <li>Contains at least one number (0-9)</li>
-              </ul>
-              <p style={{ margin: '4px 0 0 0', fontStyle: 'italic' }}>
-                Example: Test1234
-              </p>
             </div>
           </div>
 
@@ -366,25 +286,8 @@ const Register: React.FC = () => {
                 className="password-toggle-btn"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  fontSize: '18px',
-                  color: '#667eea'
-                }}
               >
-                {showConfirmPassword ? (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                    <circle cx="12" cy="12" r="3"></circle>
-                  </svg>
-                ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                    <line x1="1" y1="1" x2="23" y2="23"></line>
-                  </svg>
-                )}
+                {showConfirmPassword ? "🙈" : "👁️"}
               </button>
             </div>
           </div>

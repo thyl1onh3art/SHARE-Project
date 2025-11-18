@@ -51,7 +51,7 @@ npm run build
 
 ## Deployment
 
-This project is configured for deployment on Railway. See the backend [RAILWAY_DEPLOYMENT.md](../backend/RAILWAY_DEPLOYMENT.md) for deployment instructions.
+This project is configured for deployment on Vercel.
 
 ## License
 

@@ -1,6 +1,6 @@
 const TwoFactorAuth = require('../models/TwoFactorAuth');
 const TwoFactorCode = require('../models/TwoFactorCode');
-const User = require('../models/User');
+const User = require('../models/mongoose/User');
 const twoFactorService = require('../services/twoFactorService');
 const auth = require('../middleware/auth');
 

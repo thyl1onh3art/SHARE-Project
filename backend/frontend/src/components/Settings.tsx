@@ -56,7 +56,7 @@ const Settings: React.FC = () => {
           color: '#2d3748',
           marginBottom: '2rem'
         }}>
-          Account Settings
+          ⚙️ Account Settings
         </h1>
 
         <div style={{ display: 'grid', gap: '2rem' }}>

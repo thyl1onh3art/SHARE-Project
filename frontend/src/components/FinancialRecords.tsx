@@ -121,8 +121,6 @@ const FinancialRecords: React.FC = () => {
   };
 
   // Calculate totals - only count personal transactions (not shared account transactions)
-  // NOTE: This uses the SAME calculation as Personal Account balance in SharedAccounts.tsx
-  // Both filter out records with sharedAccount field to get only personal transactions
   const personalRecords = records.filter(record => !record.sharedAccount);
   
   const totalIncome = personalRecords
@@ -134,15 +132,6 @@ const FinancialRecords: React.FC = () => {
     .reduce((sum, record) => sum + record.amount, 0);
 
   const totalBalance = totalIncome - totalExpenses;
-  
-  // Log for verification - should match Personal Account balance in transfer modal
-  console.log('Total Balance (Personal Account) calculated:', {
-    totalRecords: records.length,
-    personalRecords: personalRecords.length,
-    income: totalIncome,
-    expenses: totalExpenses,
-    balance: totalBalance
-  });
   
   // Count transactions
   const incomeCount = personalRecords.filter(record => record.type === 'input').length;

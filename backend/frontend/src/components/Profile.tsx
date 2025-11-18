@@ -12,8 +12,7 @@ interface UserProfile {
 }
 
 const Profile: React.FC = () => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { user } = useAuth();
+  const { } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -138,7 +137,7 @@ const Profile: React.FC = () => {
             color: '#2d3748',
             margin: 0
           }}>
-            Profile Settings
+            👤 Profile Settings
           </h1>
           {!isEditing && (
             <button

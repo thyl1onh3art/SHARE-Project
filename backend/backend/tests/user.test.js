@@ -1,7 +1,7 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const app = require('../app');
-const User = require('../models/mongoose/User');
+const User = require('../models/User');
 
 describe('User API Endpoints', () => {
   let testUser;
@@ -38,13 +38,14 @@ describe('User API Endpoints', () => {
         .send(userData)
         .expect(201);
 
+      expect(response.body.success).toBe(true);
       expect(response.body.message).toBe('User registered successfully');
-      expect(response.body.token).toBeDefined();
       
       // Verify user was created in database
       const user = await User.findOne({ email: userData.email });
       expect(user).toBeTruthy();
-      expect(user.firstName || user.name).toBeTruthy();
+      expect(user.name).toBe(userData.name);
+      expect(user.age).toBe(userData.age);
     });
 
     it('should reject registration with invalid email', async () => {
@@ -60,8 +61,8 @@ describe('User API Endpoints', () => {
         .send(userData)
         .expect(400);
 
-      expect(response.body.message).toBeDefined();
-      expect(response.body.errors || response.body.error).toBeDefined();
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.errors).toBeDefined();
     });
 
     it('should reject registration with weak password', async () => {
@@ -77,7 +78,7 @@ describe('User API Endpoints', () => {
         .send(userData)
         .expect(400);
 
-      expect(response.body.message).toBeDefined();
+      expect(response.body.success).toBe(false);
     });
 
     it('should reject registration with duplicate email', async () => {
@@ -203,6 +204,7 @@ describe('User API Endpoints', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
+      expect(response.body.success).toBe(true);
       expect(response.body.user).toBeDefined();
       expect(response.body.user.email).toBe('test@example.com');
     });

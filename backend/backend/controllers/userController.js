@@ -1,69 +1,60 @@
-const User = require('../models/mongoose/User');
+const User = require('../models/User');
+const EmailVerification = require('../models/EmailVerification');
+const FinanceRecord = require('../models/FinanceRecord');
+const SharedAccount = require('../models/SharedAccount');
+const Invite = require('../models/Invite');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 // Register a new user
 exports.register = async (req, res) => {
   try {
-    const { name, firstName, lastName, age, interests, email, password, username } = req.body;
+    const { name, firstName, lastName, age, interests, email, password } = req.body;
     
     // Handle both frontend formats (name or firstName/lastName)
-    // If only name is provided, split it or use as firstName
-    let userFirstName, userLastName;
-    if (firstName && lastName) {
-      userFirstName = firstName;
-      userLastName = lastName;
-    } else if (name) {
-      const nameParts = name.trim().split(/\s+/);
-      userFirstName = nameParts[0] || '';
-      userLastName = nameParts.slice(1).join(' ') || nameParts[0] || ''; // Use first name as last name fallback
-    } else {
-      userFirstName = '';
-      userLastName = '';
-    }
+    const userFirstName = firstName || (name ? name.split(' ')[0] : '');
+    const userLastName = lastName || (name ? name.split(' ').slice(1).join(' ') : '');
     
-    // Validate user data
-    const validationErrors = await User.validateUserData({
-      username: username || email.split('@')[0], // Use email prefix as username if not provided
-      firstName: userFirstName,
-      lastName: userLastName,
-      email,
-      password
-    });
-
-    if (validationErrors.length > 0) {
-      return res.status(400).json({ 
-        message: 'Validation failed', 
-        errors: validationErrors 
-      });
+    // Check if user exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists' });
     }
 
+    // Check if email is verified (temporarily disabled for testing)
+    // const emailVerification = await EmailVerification.findOne({ 
+    //   email, 
+    //   verified: true,
+    //   expiresAt: { $gt: new Date() }
+    // });
+
+    // if (!emailVerification) {
+    //   return res.status(400).json({ 
+    //     message: 'Email verification required. Please verify your email before registering.' 
+    //   });
+    // }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
     // Create user
-    const user = await User.create({
-      username: username || email.split('@')[0],
+    const user = new User({
       firstName: userFirstName,
       lastName: userLastName,
       age,
       interests,
       email,
-      password
+      password: hashedPassword,
     });
     
-    // Generate JWT token
-    const token = jwt.sign(
-      { userId: user._id, email: user.email },
-      process.env.JWT_SECRET || 'fallback-secret-key',
-      { expiresIn: '7d' }
-    );
-
-    res.status(201).json({
-      message: 'User registered successfully',
-      token,
-      user: user.toPublicJSON()
-    });
-  } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ message: 'Registration failed', error: error.message });
+    await user.save();
+    
+    // Clean up the verification record after successful registration (temporarily disabled)
+    // await EmailVerification.findByIdAndDelete(emailVerification._id);
+    
+    res.status(201).json({ message: 'User registered successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
@@ -71,112 +62,66 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
-    }
-
-    const user = await User.findByEmail(email);
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
-
-    const isMatch = await user.comparePassword(password);
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
-
     // Generate JWT
     const token = jwt.sign(
       { userId: user._id, email: user.email },
-      process.env.JWT_SECRET || 'fallback-secret-key',
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
-
-    res.json({ 
-      message: 'Login successful',
-      token, 
-      user: user.toPublicJSON() 
-    });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Login failed', error: error.message });
+    res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
 // Get user profile
 exports.getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId);
+    const user = await User.findById(req.user.userId).select('-password');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    res.json({ user: user.toPublicJSON() });
-  } catch (error) {
-    console.error('Get profile error:', error);
-    res.status(500).json({ message: 'Failed to get profile', error: error.message });
+    res.json({ user });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
 // Update user profile
 exports.updateProfile = async (req, res) => {
   try {
-    const { firstName, lastName, phone, preferences } = req.body;
+    const { name, age, interests } = req.body;
     const userId = req.user.userId;
 
     const updateData = {};
-    if (firstName) updateData.firstName = firstName;
-    if (lastName) updateData.lastName = lastName;
-    if (phone) updateData.phone = phone;
-    if (preferences) updateData.preferences = preferences;
+    if (name !== undefined) updateData.name = name;
+    if (age !== undefined) updateData.age = age;
+    if (interests !== undefined) updateData.interests = interests;
 
-    const updatedUser = await User.updateById(userId, updateData);
-    if (!updatedUser) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    const user = await User.findByIdAndUpdate(
+      userId,
+      updateData,
+      { new: true, runValidators: true }
+    ).select('-password');
 
-    res.json({ 
-      message: 'Profile updated successfully',
-      user: updatedUser.toPublicJSON() 
-    });
-  } catch (error) {
-    console.error('Update profile error:', error);
-    res.status(500).json({ message: 'Failed to update profile', error: error.message });
-  }
-};
-
-// Change password
-exports.changePassword = async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-    const userId = req.user.userId;
-
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({ message: 'Current password and new password are required' });
-    }
-
-    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const isCurrentPasswordValid = await user.comparePassword(currentPassword);
-    if (!isCurrentPasswordValid) {
-      return res.status(400).json({ message: 'Current password is incorrect' });
-    }
-
-    if (!User.validatePassword(newPassword)) {
-      return res.status(400).json({ 
-        message: 'New password must be at least 8 characters with uppercase, lowercase, and number' 
-      });
-    }
-
-    await User.updatePassword(userId, newPassword);
-
-    res.json({ message: 'Password changed successfully' });
-  } catch (error) {
-    console.error('Change password error:', error);
-    res.status(500).json({ message: 'Failed to change password', error: error.message });
+    res.json({ 
+      message: 'Profile updated successfully', 
+      user 
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
@@ -184,60 +129,36 @@ exports.changePassword = async (req, res) => {
 exports.deleteAccount = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { password } = req.body;
 
-    if (!password) {
-      return res.status(400).json({ message: 'Password confirmation is required' });
-    }
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
-      return res.status(400).json({ message: 'Password is incorrect' });
-    }
-
-    await User.deleteById(userId);
+    // Delete all user-related data
+    await Promise.all([
+      // Delete user's finance records
+      FinanceRecord.deleteMany({ userId }),
+      
+      // Remove user from shared accounts
+      SharedAccount.updateMany(
+        { members: userId },
+        { $pull: { members: userId } }
+      ),
+      
+      // Delete shared accounts owned by user
+      SharedAccount.deleteMany({ owner: userId }),
+      
+      // Delete invitations sent by user
+      Invite.deleteMany({ fromUser: userId }),
+      
+      // Delete invitations sent to user
+      Invite.deleteMany({ toUser: userId }),
+      
+      // Delete email verification records
+      EmailVerification.deleteMany({ email: req.user.email }),
+      
+      // Finally, delete the user
+      User.findByIdAndDelete(userId)
+    ]);
 
     res.json({ message: 'Account deleted successfully' });
-  } catch (error) {
-    console.error('Delete account error:', error);
-    res.status(500).json({ message: 'Failed to delete account', error: error.message });
-  }
-};
-
-// Get all users (admin only)
-exports.getAllUsers = async (req, res) => {
-  try {
-    const users = await User.find();
-    const publicUsers = users.map(user => user.toPublicJSON());
-    
-    res.json({ 
-      users: publicUsers,
-      count: users.length 
-    });
-  } catch (error) {
-    console.error('Get all users error:', error);
-    res.status(500).json({ message: 'Failed to get users', error: error.message });
-  }
-};
-
-// Get user by ID (admin only)
-exports.getUserById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const user = await User.findById(id);
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    res.json({ user: user.toPublicJSON() });
-  } catch (error) {
-    console.error('Get user by ID error:', error);
-    res.status(500).json({ message: 'Failed to get user', error: error.message });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 };

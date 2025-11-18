@@ -2,9 +2,6 @@
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-jwt-secret-key-for-testing-only';
 process.env.MONGO_URI = process.env.MONGO_URI_TEST || 'mongodb://localhost:27017/share_project_test';
-process.env.MONGODB_URI = process.env.MONGO_URI_TEST || 'mongodb://localhost:27017/share_project_test';
-// Disable rate limiting in tests
-process.env.DISABLE_RATE_LIMIT = 'true';
 
 // Suppress console.log during tests (optional)
 if (process.env.SUPPRESS_LOGS === 'true') {
