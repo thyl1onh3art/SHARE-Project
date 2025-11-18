@@ -4,7 +4,14 @@ import axios from 'axios';
 interface SharedAccount {
   _id: string;
   name: string;
+  description?: string;
+  targetAmount?: number;
+  targetDate?: string;
+  perPersonAmount?: number;
+  owner: string | { _id: string; firstName?: string; lastName?: string; email: string };
+  members: string[] | Array<{ _id: string; firstName?: string; lastName?: string; email: string }>;
   financeRecords: any[];
+  createdAt?: string;
 }
 
 const SharedAccounts: React.FC = () => {
@@ -20,6 +27,14 @@ const SharedAccounts: React.FC = () => {
   const [transferSubmitting, setTransferSubmitting] = useState(false);
   const [personalBalance, setPersonalBalance] = useState<number | null>(null);
   const [loadingPersonalBalance, setLoadingPersonalBalance] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    description: '',
+    targetAmount: '',
+    targetDate: ''
+  });
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
   // Calculate balance for a shared account
   const calculateAccountBalance = (account: SharedAccount): number => {
@@ -137,6 +152,62 @@ const SharedAccounts: React.FC = () => {
     await new Promise(resolve => setTimeout(resolve, 500));
     await fetchAccounts();
     await fetchPersonalBalance();
+  };
+
+  // Edit Account Handlers
+  const handleEditClick = (account: SharedAccount) => {
+    setSelectedAccount(account);
+    setEditForm({
+      name: account.name,
+      description: account.description || '',
+      targetAmount: account.targetAmount?.toString() || '',
+      targetDate: account.targetDate ? new Date(account.targetDate).toISOString().slice(0, 16) : ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAccount) return;
+
+    setEditSubmitting(true);
+    setError('');
+
+    try {
+      const updateData: any = {};
+      
+      if (editForm.name !== selectedAccount.name) {
+        updateData.name = editForm.name;
+      }
+      if (editForm.description !== (selectedAccount.description || '')) {
+        updateData.description = editForm.description;
+      }
+      if (editForm.targetAmount && parseFloat(editForm.targetAmount) !== (selectedAccount.targetAmount || 0)) {
+        updateData.targetAmount = parseFloat(editForm.targetAmount);
+      }
+      if (editForm.targetDate) {
+        const newDate = new Date(editForm.targetDate).toISOString();
+        const oldDate = selectedAccount.targetDate ? new Date(selectedAccount.targetDate).toISOString() : '';
+        if (newDate !== oldDate) {
+          updateData.targetDate = editForm.targetDate;
+        }
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await axios.put(`/shared-accounts/${selectedAccount._id}`, updateData);
+        setShowEditModal(false);
+        setSelectedAccount(null);
+        await fetchAccounts();
+      } else {
+        setShowEditModal(false);
+        setSelectedAccount(null);
+      }
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Failed to update shared account';
+      setError(errorMessage);
+    } finally {
+      setEditSubmitting(false);
+    }
   };
 
   // Transfer Funds UI Handlers
@@ -258,6 +329,30 @@ const SharedAccounts: React.FC = () => {
                       </p>
                     </div>
                   </div>
+
+                {/* Account Details */}
+                <div style={{ marginBottom: '1rem' }}>
+                  {account.description && (
+                    <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
+                      <strong>Purpose:</strong> {account.description}
+                    </p>
+                  )}
+                  {account.targetAmount !== undefined && account.targetAmount > 0 && (
+                    <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
+                      <strong>Target Amount:</strong> £{account.targetAmount.toFixed(2)}
+                    </p>
+                  )}
+                  {account.targetDate && (
+                    <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
+                      <strong>Target Date:</strong> {new Date(account.targetDate).toLocaleString()}
+                    </p>
+                  )}
+                  {account.perPersonAmount !== undefined && account.perPersonAmount > 0 && (
+                    <p style={{ color: '#2b6cb0', fontSize: '0.9rem', margin: '0.25rem 0', fontWeight: 'bold' }}>
+                      <strong>Per Person:</strong> £{account.perPersonAmount.toFixed(2)}
+                    </p>
+                  )}
+                </div>
 
                 {/* Transaction History */}
                 {account.financeRecords && account.financeRecords.length > 0 && (
@@ -389,8 +484,15 @@ const SharedAccounts: React.FC = () => {
 
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <button 
+                    className="btn btn-secondary" 
+                    style={{ flex: 1, fontSize: '12px', padding: '6px 12px', minWidth: '80px' }}
+                    onClick={() => handleEditClick(account)}
+                  >
+                    Edit Account
+                  </button>
+                  <button 
                     className="btn btn-primary" 
-                    style={{ width: '100%' }}
+                    style={{ flex: 1, fontSize: '12px', padding: '6px 12px', minWidth: '80px' }}
                     onClick={() => handleTransferClick(account)}
                   >
                     Transfer Funds
@@ -554,6 +656,132 @@ const SharedAccounts: React.FC = () => {
                   style={{ flex: 1 }}
                 >
                   {transferSubmitting ? <span className="spinner"></span> : 'Transfer Funds'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Account Modal */}
+      {showEditModal && selectedAccount && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div className="card" style={{ 
+            width: '90%', 
+            maxWidth: '600px', 
+            maxHeight: '90vh', 
+            overflow: 'auto',
+            position: 'relative'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              marginBottom: '1rem' 
+            }}>
+              <h2 style={{ margin: 0 }}>Edit Shared Account</h2>
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setSelectedAccount(null);
+                  setEditForm({ name: '', description: '', targetAmount: '', targetDate: '' });
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#4a5568'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit}>
+              <div className="form-group">
+                <label className="form-label">Account Name</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  required
+                  placeholder="Account name"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Description</label>
+                <textarea
+                  className="form-input"
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  placeholder="What is this account for?"
+                  rows={3}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Target Amount (£)</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  value={editForm.targetAmount}
+                  onChange={(e) => setEditForm({ ...editForm, targetAmount: e.target.value })}
+                  min="0.01"
+                  step="0.01"
+                  placeholder="e.g., 100.00"
+                />
+                <p style={{ fontSize: '0.85rem', color: '#4a5568', marginTop: '0.25rem' }}>
+                  The total amount needed for this shared account.
+                </p>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Target Date</label>
+                <input
+                  type="datetime-local"
+                  className="form-input"
+                  value={editForm.targetDate}
+                  onChange={(e) => setEditForm({ ...editForm, targetDate: e.target.value })}
+                />
+                <p style={{ fontSize: '0.85rem', color: '#4a5568', marginTop: '0.25rem' }}>
+                  When is this payment needed?
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setSelectedAccount(null);
+                    setEditForm({ name: '', description: '', targetAmount: '', targetDate: '' });
+                  }}
+                  className="btn btn-secondary"
+                  style={{ flex: 1 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={editSubmitting}
+                  style={{ flex: 1 }}
+                >
+                  {editSubmitting ? <span className="spinner"></span> : 'Save Changes'}
                 </button>
               </div>
             </form>
