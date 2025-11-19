@@ -253,14 +253,6 @@ const SharedAccounts: React.FC = () => {
       }
     });
     
-    // Get accepted invitations for this account to verify count
-    const accountInvitations = invitations.filter(
-      (inv: any) => {
-        const invAccountId = inv.sharedAccount === account._id || inv.sharedAccount?._id === account._id;
-        return invAccountId && inv.status === 'accepted';
-      }
-    );
-    
     // The participant count is: owner (1) + all members (who accepted and joined)
     // This represents the total number of people who are part of the shared account
     return uniqueMembers.size;
