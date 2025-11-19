@@ -14,4 +14,10 @@ router.get('/', auth, asyncHandler(sharedAccountController.getUserSharedAccounts
 // Get details of a shared account
 router.get('/:id', auth, asyncHandler(sharedAccountController.getSharedAccountDetails));
 
+// Update a shared account
+router.put('/:id', auth, asyncHandler(sharedAccountController.updateSharedAccount));
+
+// Delete a shared account
+router.delete('/:id', auth, asyncHandler(sharedAccountController.deleteSharedAccount));
+
 module.exports = router;

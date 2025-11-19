@@ -37,6 +37,11 @@ const SharedAccounts: React.FC = () => {
   });
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [countdowns, setCountdowns] = useState<{ [key: string]: { days: number; hours: number; minutes: number; seconds: number } }>({});
+  const [invitations, setInvitations] = useState<any[]>([]);
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [paySubmitting, setPaySubmitting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const navigate = useNavigate();
 
   // Calculate balance for a shared account
@@ -86,6 +91,17 @@ const SharedAccounts: React.FC = () => {
     }
   };
 
+  // Fetch invitations for all shared accounts
+  const fetchInvitations = async () => {
+    try {
+      const response = await axios.get('/invites/list');
+      setInvitations(response.data || []);
+    } catch (err: any) {
+      // Silently fail - invitations are optional
+      console.error('Failed to load invitations:', err);
+    }
+  };
+
   // Calculate countdown timer
   const calculateCountdown = (targetDate: string | undefined): { days: number; hours: number; minutes: number; seconds: number } | null => {
     if (!targetDate) return null;
@@ -128,6 +144,7 @@ const SharedAccounts: React.FC = () => {
 
   useEffect(() => {
     fetchAccounts();
+    fetchInvitations();
   }, []);
 
   // Fetch personal balance (total balance from personal account)
@@ -213,10 +230,118 @@ const SharedAccounts: React.FC = () => {
     navigate(`/invitations?account=${account._id}`);
   };
 
+  // Calculate participant count for an account (owner + members who accepted invitations)
+  const getParticipantCount = (account: SharedAccount): number => {
+    // Get owner ID
+    const ownerId = typeof account.owner === 'string' ? account.owner : account.owner?._id;
+    const ownerIdStr = ownerId?.toString();
+    
+    // Count members (people who accepted invitations and joined)
+    const memberArray = Array.isArray(account.members) ? account.members : [];
+    const uniqueMembers = new Set<string>();
+    
+    // Add owner if not null
+    if (ownerIdStr) {
+      uniqueMembers.add(ownerIdStr);
+    }
+    
+    // Add all members (these are people who accepted invitations)
+    memberArray.forEach((member: any) => {
+      const memberId = typeof member === 'string' ? member : member?._id;
+      if (memberId) {
+        uniqueMembers.add(memberId.toString());
+      }
+    });
+    
+    // Get accepted invitations for this account to verify count
+    const accountInvitations = invitations.filter(
+      (inv: any) => {
+        const invAccountId = inv.sharedAccount === account._id || inv.sharedAccount?._id === account._id;
+        return invAccountId && inv.status === 'accepted';
+      }
+    );
+    
+    // The participant count is: owner (1) + all members (who accepted and joined)
+    // This represents the total number of people who are part of the shared account
+    return uniqueMembers.size;
+  };
+
   const handlePayClick = (account: SharedAccount) => {
-    // Navigate to payment page or open payment modal
-    // For now, we'll navigate to a payment page if it exists, or show an alert
-    navigate(`/payment?accountId=${account._id}`);
+    const balance = calculateAccountBalance(account);
+    if (balance <= 0) {
+      setError('No balance to pay. The shared account balance is £0.00 or negative.');
+      return;
+    }
+    setSelectedAccount(account);
+    setShowPayModal(true);
+    fetchPersonalBalance();
+  };
+
+  const handlePaySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAccount) return;
+
+    const balance = calculateAccountBalance(selectedAccount);
+    if (balance <= 0) {
+      setError('No balance to pay. The shared account balance is £0.00 or negative.');
+      return;
+    }
+
+    if (personalBalance !== null && balance > personalBalance) {
+      setError('Insufficient funds in your personal account to pay the full balance.');
+      return;
+    }
+
+    setPaySubmitting(true);
+    setError('');
+
+    try {
+      // Pay the full balance - create output record in shared account (deduct from shared account)
+      await axios.post('/finance', {
+        type: 'output',
+        amount: balance,
+        date: new Date().toISOString(),
+        description: `Full payment for ${selectedAccount.name}`,
+        sharedAccount: selectedAccount._id
+      });
+
+      // Wait for backend to process and refresh accounts
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await fetchAccounts();
+      await fetchPersonalBalance();
+      
+      setShowPayModal(false);
+      setSelectedAccount(null);
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to process payment';
+      setError(errorMessage);
+    } finally {
+      setPaySubmitting(false);
+    }
+  };
+
+  const handleDeleteClick = (account: SharedAccount) => {
+    setSelectedAccount(account);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteSubmit = async () => {
+    if (!selectedAccount) return;
+
+    setDeleteSubmitting(true);
+    setError('');
+
+    try {
+      await axios.delete(`/shared-accounts/${selectedAccount._id}`);
+      setShowDeleteModal(false);
+      setSelectedAccount(null);
+      await fetchAccounts();
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to delete shared account';
+      setError(errorMessage);
+    } finally {
+      setDeleteSubmitting(false);
+    }
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -352,8 +477,8 @@ const SharedAccounts: React.FC = () => {
         ) : (
           <div className="grid grid-2">
             {accounts.map((account) => {
-              const memberCount = Array.isArray(account.members) ? account.members.length : 0;
-              const totalParticipants = memberCount + 1;
+              const balance = calculateAccountBalance(account);
+              const participantCount = getParticipantCount(account);
               return (
                 <div key={account._id} className="card" style={{ margin: 0 }}>
                   {/* Account Details */}
@@ -376,9 +501,17 @@ const SharedAccounts: React.FC = () => {
                         textDecorationStyle: 'dotted',
                         textUnderlineOffset: '2px'
                       }}>
-                        <strong>Per Person:</strong> £{account.perPersonAmount.toFixed(2)} ({totalParticipants} {totalParticipants === 1 ? 'participant' : 'participants'})
+                        <strong>Per Person:</strong> £{account.perPersonAmount.toFixed(2)}
                       </p>
                     )}
+                    <p style={{ 
+                      color: '#2b6cb0', 
+                      fontSize: '0.9rem', 
+                      margin: '0.25rem 0', 
+                      fontWeight: 'bold'
+                    }}>
+                      <strong>Balance:</strong> £{balance.toFixed(2)}
+                    </p>
                     {account.targetDate && (
                       <div style={{ 
                         background: '#f0f9ff',
@@ -416,7 +549,7 @@ const SharedAccounts: React.FC = () => {
                       </div>
                     )}
                     <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
-                      <strong>Members:</strong> {totalParticipants} (including you)
+                      <strong>Participants:</strong> {participantCount} {participantCount === 1 ? 'person' : 'people'} (invited and accepted)
                     </p>
                     <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
                       <strong>Records:</strong> {account.financeRecords?.length || 0}
@@ -455,8 +588,16 @@ const SharedAccounts: React.FC = () => {
                   className="btn btn-success" 
                   style={{ width: '100%', marginTop: '0.5rem', fontSize: '12px', padding: '6px 12px' }}
                   onClick={() => handlePayClick(account)}
+                  disabled={balance <= 0}
                 >
-                  Pay
+                  Pay Full Balance (£{balance.toFixed(2)})
+                </button>
+                <button 
+                  className="btn btn-danger" 
+                  style={{ width: '100%', marginTop: '0.5rem', fontSize: '12px', padding: '6px 12px' }}
+                  onClick={() => handleDeleteClick(account)}
+                >
+                  Delete Account
                 </button>
               </div>
             );
@@ -745,6 +886,217 @@ const SharedAccounts: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Pay Full Balance Modal */}
+      {showPayModal && selectedAccount && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div className="card" style={{ 
+            width: '90%', 
+            maxWidth: '500px', 
+            maxHeight: '90vh', 
+            overflow: 'auto',
+            position: 'relative'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              marginBottom: '1rem' 
+            }}>
+              <h2 style={{ margin: 0 }}>Pay Full Balance</h2>
+              <button
+                onClick={() => {
+                  setShowPayModal(false);
+                  setSelectedAccount(null);
+                  setPersonalBalance(null);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#4a5568'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              color: 'white',
+              borderRadius: '8px',
+              padding: '1rem',
+              marginBottom: '1rem',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+            }}>
+              <h3 style={{ margin: 0, fontSize: '0.9rem', opacity: 0.9, fontWeight: 'normal' }}>
+                Shared Account: {selectedAccount.name}
+              </h3>
+              <p style={{ 
+                fontSize: '2rem', 
+                fontWeight: 'bold', 
+                margin: '0.5rem 0 0 0',
+                textShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}>
+                £{calculateAccountBalance(selectedAccount).toFixed(2)}
+              </p>
+              <p style={{ fontSize: '0.75rem', margin: '0.5rem 0 0 0', opacity: 0.8 }}>
+                This is the full balance that will be paid from this shared account
+              </p>
+            </div>
+
+            {personalBalance !== null && (
+              <div style={{
+                background: '#fef3c7',
+                border: '1px solid #f59e0b',
+                borderRadius: '6px',
+                padding: '0.75rem',
+                marginBottom: '1rem'
+              }}>
+                <p style={{ color: '#92400e', fontSize: '0.9rem', margin: 0 }}>
+                  <strong>Your Personal Balance:</strong> £{personalBalance.toFixed(2)}
+                </p>
+              </div>
+            )}
+
+            <div style={{
+              background: '#fee2e2',
+              border: '1px solid #ef4444',
+              borderRadius: '6px',
+              padding: '0.75rem',
+              marginBottom: '1rem'
+            }}>
+              <p style={{ color: '#991b1b', fontSize: '0.9rem', margin: 0 }}>
+                <strong>⚠️ Important:</strong> This will pay the FULL balance (£{calculateAccountBalance(selectedAccount).toFixed(2)}) from the shared account. This action cannot be undone. The full amount will be deducted from the shared account balance.
+              </p>
+            </div>
+
+            <form onSubmit={handlePaySubmit}>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPayModal(false);
+                    setSelectedAccount(null);
+                    setPersonalBalance(null);
+                  }}
+                  className="btn btn-secondary"
+                  style={{ flex: 1 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-success"
+                  disabled={paySubmitting || calculateAccountBalance(selectedAccount) <= 0}
+                  style={{ flex: 1 }}
+                >
+                  {paySubmitting ? <span className="spinner"></span> : 'Pay Full Balance'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Account Modal */}
+      {showDeleteModal && selectedAccount && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div className="card" style={{ 
+            width: '90%', 
+            maxWidth: '500px', 
+            maxHeight: '90vh', 
+            overflow: 'auto',
+            position: 'relative'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              marginBottom: '1rem' 
+            }}>
+              <h2 style={{ margin: 0, color: '#dc2626' }}>Delete Shared Account</h2>
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setSelectedAccount(null);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#4a5568'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{
+              background: '#fee2e2',
+              border: '1px solid #ef4444',
+              borderRadius: '6px',
+              padding: '1rem',
+              marginBottom: '1rem'
+            }}>
+              <p style={{ color: '#991b1b', fontSize: '1rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
+                ⚠️ Warning: This action cannot be undone!
+              </p>
+              <p style={{ color: '#991b1b', fontSize: '0.9rem', margin: 0 }}>
+                You are about to delete the shared account <strong>"{selectedAccount.name}"</strong>. All finance records associated with this account will be removed from the account (but may remain in your personal records). This action is permanent.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setSelectedAccount(null);
+                }}
+                className="btn btn-secondary"
+                style={{ flex: 1 }}
+                disabled={deleteSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteSubmit}
+                className="btn btn-danger"
+                disabled={deleteSubmitting}
+                style={{ flex: 1 }}
+              >
+                {deleteSubmitting ? <span className="spinner"></span> : 'Delete Account'}
+              </button>
+            </div>
           </div>
         </div>
       )}
