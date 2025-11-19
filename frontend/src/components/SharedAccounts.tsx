@@ -37,7 +37,6 @@ const SharedAccounts: React.FC = () => {
   });
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [countdowns, setCountdowns] = useState<{ [key: string]: { days: number; hours: number; minutes: number; seconds: number } }>({});
-  const [invitations, setInvitations] = useState<any[]>([]);
   const [showPayModal, setShowPayModal] = useState(false);
   const [paySubmitting, setPaySubmitting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -91,16 +90,6 @@ const SharedAccounts: React.FC = () => {
     }
   };
 
-  // Fetch invitations for all shared accounts
-  const fetchInvitations = async () => {
-    try {
-      const response = await axios.get('/invites/list');
-      setInvitations(response.data || []);
-    } catch (err: any) {
-      // Silently fail - invitations are optional
-      console.error('Failed to load invitations:', err);
-    }
-  };
 
   // Calculate countdown timer
   const calculateCountdown = (targetDate: string | undefined): { days: number; hours: number; minutes: number; seconds: number } | null => {
@@ -144,7 +133,6 @@ const SharedAccounts: React.FC = () => {
 
   useEffect(() => {
     fetchAccounts();
-    fetchInvitations();
   }, []);
 
   // Fetch personal balance (total balance from personal account)
