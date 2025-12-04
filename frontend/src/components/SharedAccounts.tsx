@@ -41,6 +41,7 @@ const SharedAccounts: React.FC = () => {
   const [paySubmitting, setPaySubmitting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [hoveredAccountId, setHoveredAccountId] = useState<string | null>(null);
   const navigate = useNavigate();
 
   // Calculate balance for a shared account
@@ -244,6 +245,32 @@ const SharedAccounts: React.FC = () => {
     // The participant count is: owner (1) + all members (who accepted and joined)
     // This represents the total number of people who are part of the shared account
     return uniqueMembers.size;
+  };
+
+  // Get list of participant names for an account
+  const getParticipantNames = (account: SharedAccount): string[] => {
+    const names: string[] = [];
+    
+    // Get owner name
+    if (typeof account.owner === 'object' && account.owner) {
+      const ownerName = account.owner.firstName && account.owner.lastName
+        ? `${account.owner.firstName} ${account.owner.lastName}`
+        : account.owner.email || 'Owner';
+      names.push(ownerName);
+    }
+    
+    // Get member names
+    const memberArray = Array.isArray(account.members) ? account.members : [];
+    memberArray.forEach((member: any) => {
+      if (typeof member === 'object' && member) {
+        const memberName = member.firstName && member.lastName
+          ? `${member.firstName} ${member.lastName}`
+          : member.email || 'Member';
+        names.push(memberName);
+      }
+    });
+    
+    return names;
   };
 
   const handlePayClick = (account: SharedAccount) => {
@@ -528,9 +555,69 @@ const SharedAccounts: React.FC = () => {
                         </p>
                       </div>
                     )}
-                    <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
-                      <strong>Participants:</strong> {participantCount} {participantCount === 1 ? 'person' : 'people'} (invited and accepted)
-                    </p>
+                    <div 
+                      style={{ 
+                        color: '#4a5568', 
+                        fontSize: '0.9rem', 
+                        margin: '0.25rem 0',
+                        position: 'relative',
+                        display: 'inline-block'
+                      }}
+                      onMouseEnter={() => setHoveredAccountId(account._id)}
+                      onMouseLeave={() => setHoveredAccountId(null)}
+                    >
+                      <strong>Participants:</strong>{' '}
+                      <span style={{ 
+                        cursor: 'pointer', 
+                        textDecoration: 'underline',
+                        textDecorationStyle: 'dotted',
+                        color: '#2b6cb0'
+                      }}>
+                        {participantCount} {participantCount === 1 ? 'person' : 'people'} (invited and accepted)
+                      </span>
+                      {hoveredAccountId === account._id && (
+                        <div style={{
+                          position: 'absolute',
+                          bottom: '100%',
+                          left: 0,
+                          marginBottom: '8px',
+                          background: 'white',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '8px',
+                          padding: '12px',
+                          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                          zIndex: 1000,
+                          minWidth: '200px',
+                          maxWidth: '300px'
+                        }}>
+                          <div style={{
+                            fontSize: '0.85rem',
+                            fontWeight: '600',
+                            marginBottom: '8px',
+                            color: '#2d3748',
+                            borderBottom: '1px solid #e2e8f0',
+                            paddingBottom: '6px'
+                          }}>
+                            Participants:
+                          </div>
+                          <ul style={{
+                            listStyle: 'none',
+                            padding: 0,
+                            margin: 0
+                          }}>
+                            {getParticipantNames(account).map((name, index) => (
+                              <li key={index} style={{
+                                padding: '4px 0',
+                                fontSize: '0.85rem',
+                                color: '#4a5568'
+                              }}>
+                                • {name}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
                     <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
                       <strong>Records:</strong> {account.financeRecords?.length || 0}
                     </p>
