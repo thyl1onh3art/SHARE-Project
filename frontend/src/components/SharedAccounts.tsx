@@ -541,44 +541,127 @@ const SharedAccounts: React.FC = () => {
                     )}
                   </div>
 
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '1rem' }}>
+                {/* Action Buttons Section */}
+                <div style={{ 
+                  marginTop: '1.5rem', 
+                  paddingTop: '1rem', 
+                  borderTop: '2px solid #e2e8f0' 
+                }}>
+                  <h4 style={{ 
+                    fontSize: '0.9rem', 
+                    fontWeight: '600', 
+                    color: '#2d3748', 
+                    marginBottom: '0.75rem',
+                    textAlign: 'center'
+                  }}>
+                    Account Actions
+                  </h4>
+                  
+                  {/* Primary Actions Row */}
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(2, 1fr)', 
+                    gap: '0.5rem', 
+                    marginBottom: '0.5rem' 
+                  }}>
+                    <button 
+                      className="btn btn-secondary" 
+                      style={{ 
+                        fontSize: '13px', 
+                        padding: '10px 12px', 
+                        fontWeight: '500',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.25rem'
+                      }}
+                      onClick={() => handleEditClick(account)}
+                      title="View and edit account details"
+                    >
+                      <span>📝</span> View/Edit Details
+                    </button>
+                    <button 
+                      className="btn btn-outline" 
+                      style={{ 
+                        fontSize: '13px', 
+                        padding: '10px 12px', 
+                        fontWeight: '500',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.25rem'
+                      }}
+                      onClick={() => handleNavigateToInvitations(account)}
+                      title="Manage invitations for this account"
+                    >
+                      <span>👥</span> Manage Invites
+                    </button>
+                  </div>
+
+                  {/* Secondary Actions Row */}
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(2, 1fr)', 
+                    gap: '0.5rem', 
+                    marginBottom: '0.5rem' 
+                  }}>
+                    <button 
+                      className="btn btn-primary" 
+                      style={{ 
+                        fontSize: '13px', 
+                        padding: '10px 12px', 
+                        fontWeight: '500',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.25rem'
+                      }}
+                      onClick={() => handleTransferClick(account)}
+                      title="Transfer funds from personal account to this shared account"
+                    >
+                      <span>💸</span> Transfer Funds
+                    </button>
+                    <button 
+                      className="btn btn-success" 
+                      style={{ 
+                        fontSize: '13px', 
+                        padding: '10px 12px', 
+                        fontWeight: '500',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.25rem',
+                        opacity: balance <= 0 ? 0.6 : 1,
+                        cursor: balance <= 0 ? 'not-allowed' : 'pointer'
+                      }}
+                      onClick={() => handlePayClick(account)}
+                      disabled={balance <= 0}
+                      title={balance <= 0 ? "No balance to pay" : `Pay full balance of £${balance.toFixed(2)}`}
+                    >
+                      <span>💳</span> Pay Full Balance
+                    </button>
+                  </div>
+
+                  {/* Delete Action - Full Width */}
                   <button 
-                    className="btn btn-secondary" 
-                    style={{ flex: 1, fontSize: '12px', padding: '6px 12px', minWidth: '80px' }}
-                    onClick={() => handleEditClick(account)}
+                    className="btn btn-danger" 
+                    style={{ 
+                      width: '100%', 
+                      fontSize: '13px', 
+                      padding: '10px 12px', 
+                      fontWeight: '500',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.25rem',
+                      marginTop: '0.5rem'
+                    }}
+                    onClick={() => handleDeleteClick(account)}
+                    title="Permanently delete this shared account"
                   >
-                    View/Edit Details
-                  </button>
-                  <button 
-                    className="btn btn-outline" 
-                    style={{ flex: 1, fontSize: '12px', padding: '6px 12px', minWidth: '80px' }}
-                    onClick={() => handleNavigateToInvitations(account)}
-                  >
-                    Manage Invites
-                  </button>
-                  <button 
-                    className="btn btn-primary" 
-                    style={{ flex: 1, fontSize: '12px', padding: '6px 12px', minWidth: '80px' }}
-                    onClick={() => handleTransferClick(account)}
-                  >
-                    Transfer Funds
+                    <span>🗑️</span> Delete Account
                   </button>
                 </div>
-                <button 
-                  className="btn btn-success" 
-                  style={{ width: '100%', marginTop: '0.5rem', fontSize: '12px', padding: '6px 12px' }}
-                  onClick={() => handlePayClick(account)}
-                  disabled={balance <= 0}
-                >
-                  Pay Full Balance (£{balance.toFixed(2)})
-                </button>
-                <button 
-                  className="btn btn-danger" 
-                  style={{ width: '100%', marginTop: '0.5rem', fontSize: '12px', padding: '6px 12px' }}
-                  onClick={() => handleDeleteClick(account)}
-                >
-                  Delete Account
-                </button>
               </div>
             );
             })}
