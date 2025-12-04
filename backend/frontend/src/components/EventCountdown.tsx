@@ -56,7 +56,7 @@ const EventCountdown: React.FC = () => {
     recurringType: 'yearly',
     budget: {
       totalAmount: 0,
-      currency: 'USD',
+      currency: 'GBP',
       savingsGoal: 0,
       savingsFrequency: 'monthly',
       amountPerPeriod: 0,
@@ -98,6 +98,7 @@ const EventCountdown: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events]);
 
   const fetchEvents = async () => {
@@ -208,7 +209,7 @@ const EventCountdown: React.FC = () => {
         recurringType: 'yearly',
         budget: {
           totalAmount: 0,
-          currency: 'USD',
+          currency: 'GBP',
           savingsGoal: 0,
           savingsFrequency: 'monthly',
           amountPerPeriod: 0,
@@ -411,7 +412,7 @@ const EventCountdown: React.FC = () => {
 
             {/* Budget Planning Section */}
             <div style={{ marginTop: '2rem', padding: '1rem', background: '#f8f9fa', borderRadius: '8px', border: '1px solid #e9ecef' }}>
-              <h3 style={{ marginBottom: '1rem', color: '#495057' }}>💰 Budget Planning</h3>
+              <h3 style={{ marginBottom: '1rem', color: '#495057' }}>Budget Planning</h3>
               
               <div className="form-group">
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -439,7 +440,7 @@ const EventCountdown: React.FC = () => {
                         <select
                           className="form-input"
                           style={{ width: '80px' }}
-                          value={formData.budget?.currency || 'USD'}
+                          value={formData.budget?.currency || 'GBP'}
                           onChange={(e) => setFormData({ 
                             ...formData, 
                             budget: { 
@@ -448,9 +449,9 @@ const EventCountdown: React.FC = () => {
                             } 
                           })}
                         >
+                          <option value="GBP">GBP</option>
                           <option value="USD">USD</option>
                           <option value="EUR">EUR</option>
-                          <option value="GBP">GBP</option>
                           <option value="CAD">CAD</option>
                           <option value="AUD">AUD</option>
                         </select>
@@ -686,7 +687,7 @@ const EventCountdown: React.FC = () => {
                         border: '1px solid #c8e6c9'
                       }}>
                         <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#2e7d32' }}>
-                          <strong>💰 Budget:</strong> {event.budget.currency} {event.budget.totalAmount.toLocaleString()}
+                          <strong>Budget:</strong> {event.budget.currency} {event.budget.totalAmount.toLocaleString()}
                         </p>
                         <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#2e7d32' }}>
                           <strong>Save per {event.budget.savingsFrequency}:</strong> {event.budget.currency} {event.budget.amountPerPeriod}
@@ -708,7 +709,7 @@ const EventCountdown: React.FC = () => {
                         </p>
                         {event.accommodation.price > 0 && (
                           <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#e65100' }}>
-                            <strong>Price:</strong> {event.budget?.currency || 'USD'} {event.accommodation.price}/night
+                            <strong>Price:</strong> {event.budget?.currency || 'GBP'} {event.accommodation.price}/night
                           </p>
                         )}
                         {event.accommodation.bookingLink && (
@@ -735,7 +736,7 @@ const EventCountdown: React.FC = () => {
                       color: isUpcoming ? '#0369a1' : '#92400e',
                       marginBottom: '0.5rem'
                     }}>
-                      {isUpcoming ? '⏰ Time Remaining' : '✅ Event Passed'}
+                      {isUpcoming ? 'Time Remaining' : 'Event Passed'}
                     </div>
                     <div style={{
                       fontSize: '2rem',
@@ -763,7 +764,7 @@ const EventCountdown: React.FC = () => {
         </div>
         
         <div className="card">
-          <h3 style={{ color: '#38a169', marginBottom: '1rem' }}>⏰ Upcoming</h3>
+          <h3 style={{ color: '#38a169', marginBottom: '1rem' }}>Upcoming</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#38a169' }}>
             {events.filter(event => {
               const time = timeLeft[event._id || event.title] || { days: 0, hours: 0, minutes: 0, seconds: 0 };

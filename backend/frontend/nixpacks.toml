@@ -2,8 +2,9 @@
 nixPkgs = ["nodejs_20"]
 
 [phases.install]
+# Install all dependencies (including dev) for build
 cmds = [
-  "npm ci --no-cache"
+  "npm ci"
 ]
 
 [phases.build]
@@ -11,6 +12,5 @@ cmds = [
   "npm run build"
 ]
 
-[variables]
-CI = "false"
+# For production, we don't need to reinstall, but Railway handles this
 

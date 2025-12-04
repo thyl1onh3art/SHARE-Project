@@ -154,7 +154,7 @@ exports.createSharedAccount = async (req, res) => {
 exports.getUserSharedAccounts = async (req, res) => {
   try {
     const userId = req.user.userId;
-    // Fetch accounts and populate owner, members, and financeRecords with user details
+    // Fetch accounts and populate owner and members with user details
     const accounts = await SharedAccount.find({
       $or: [
         { owner: userId },
@@ -162,11 +162,7 @@ exports.getUserSharedAccounts = async (req, res) => {
       ]
     })
       .populate('owner', 'name firstName lastName email')
-      .populate('members', 'name firstName lastName email')
-      .populate({
-        path: 'financeRecords',
-        populate: { path: 'user', select: 'name firstName lastName email' }
-      });
+      .populate('members', 'name firstName lastName email');
     
     // Recalculate perPersonAmount for each account to ensure it's always accurate
     for (const account of accounts) {

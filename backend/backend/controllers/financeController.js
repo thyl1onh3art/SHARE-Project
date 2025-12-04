@@ -1,4 +1,5 @@
 const FinanceRecord = require('../models/FinanceRecord');
+const SharedAccount = require('../models/SharedAccount');
 
 // Create a finance record
 exports.createRecord = async (req, res) => {
@@ -13,6 +14,16 @@ exports.createRecord = async (req, res) => {
       sharedAccount,
     });
     await record.save();
+    
+    // If this record is associated with a shared account, add it to the account's financeRecords array
+    if (sharedAccount) {
+      await SharedAccount.findByIdAndUpdate(
+        sharedAccount,
+        { $push: { financeRecords: record._id } },
+        { new: true }
+      );
+    }
+    
     res.status(201).json(record);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });

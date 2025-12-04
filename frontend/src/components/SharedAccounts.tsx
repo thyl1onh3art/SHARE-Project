@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SharedAccount {
   _id: string;
@@ -42,6 +43,9 @@ const SharedAccounts: React.FC = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [hoveredAccountId, setHoveredAccountId] = useState<string | null>(null);
+  const [paymentRequests, setPaymentRequests] = useState<any[]>([]);
+  const [loadingPaymentRequests, setLoadingPaymentRequests] = useState(false);
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   // Calculate balance for a shared account
@@ -143,6 +147,12 @@ const SharedAccounts: React.FC = () => {
 
   useEffect(() => {
     fetchAccounts();
+    fetchPaymentRequests();
+    // Poll for payment requests every 10 seconds
+    const interval = setInterval(() => {
+      fetchPaymentRequests();
+    }, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   // Fetch personal balance (total balance from personal account)
@@ -325,27 +335,66 @@ const SharedAccounts: React.FC = () => {
     setError('');
 
     try {
-      // Pay the full balance - create output record in shared account (deduct from shared account)
-      await axios.post('/finance', {
-        type: 'output',
+      // Create a payment request instead of executing payment directly
+      await axios.post('/payment-requests', {
+        sharedAccountId: selectedAccount._id,
         amount: balance,
-        date: new Date().toISOString(),
-        description: `Full payment for ${selectedAccount.name}`,
-        sharedAccount: selectedAccount._id
+        description: `Full payment for ${selectedAccount.name}`
       });
 
-      // Wait for backend to process and refresh accounts
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Refresh payment requests and accounts
+      await fetchPaymentRequests();
       await fetchAccounts();
-      await fetchPersonalBalance();
       
       setShowPayModal(false);
       setSelectedAccount(null);
+      setError(''); // Clear any errors
+      // Show success message
+      alert('Payment request created! All participants will be notified and must approve before the payment is processed.');
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to process payment';
+      const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to create payment request';
       setError(errorMessage);
     } finally {
       setPaySubmitting(false);
+    }
+  };
+
+  // Fetch payment requests
+  const fetchPaymentRequests = async () => {
+    try {
+      setLoadingPaymentRequests(true);
+      const response = await axios.get('/payment-requests');
+      setPaymentRequests(response.data);
+    } catch (err: any) {
+      console.error('Failed to fetch payment requests:', err);
+    } finally {
+      setLoadingPaymentRequests(false);
+    }
+  };
+
+  // Approve a payment request
+  const handleApprovePayment = async (requestId: string) => {
+    try {
+      await axios.post(`/payment-requests/${requestId}/approve`);
+      await fetchPaymentRequests();
+      await fetchAccounts();
+      setError(''); // Clear any errors
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to approve payment';
+      setError(errorMessage);
+    }
+  };
+
+  // Reject a payment request
+  const handleRejectPayment = async (requestId: string) => {
+    try {
+      await axios.post(`/payment-requests/${requestId}/reject`);
+      await fetchPaymentRequests();
+      await fetchAccounts();
+      setError(''); // Clear any errors
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to reject payment';
+      setError(errorMessage);
     }
   };
 
@@ -506,6 +555,123 @@ const SharedAccounts: React.FC = () => {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Pending Payment Requests */}
+      {paymentRequests.length > 0 && (
+        <div className="card" style={{ marginBottom: '1.5rem', background: '#fef3c7', border: '2px solid #f59e0b' }}>
+          <h2 style={{ marginBottom: '1rem', color: '#92400e' }}>⚠️ Pending Payment Requests</h2>
+          {paymentRequests.map((request: any) => {
+            // Get current user ID from auth context
+            const currentUserId = user?.id || '';
+            const hasApproved = request.approvals?.some((a: any) => {
+              const userId = typeof a.user === 'object' ? a.user?._id : a.user;
+              return userId === currentUserId || userId?.toString() === currentUserId;
+            });
+            const hasRejected = request.rejections?.some((r: any) => {
+              const userId = typeof r.user === 'object' ? r.user?._id : r.user;
+              return userId === currentUserId || userId?.toString() === currentUserId;
+            });
+            const approvalCount = request.approvals?.length || 0;
+            const requiredApprovals = request.requiredApprovals || 0;
+            
+            return (
+              <div key={request._id} style={{
+                background: 'white',
+                borderRadius: '8px',
+                padding: '1rem',
+                marginBottom: '1rem',
+                border: '1px solid #e2e8f0'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
+                  <div>
+                    <h3 style={{ margin: '0 0 0.5rem 0', color: '#2d3748' }}>
+                      Payment Request for: {request.sharedAccount?.name || 'Unknown Account'}
+                    </h3>
+                    <p style={{ margin: '0.25rem 0', color: '#4a5568', fontSize: '0.9rem' }}>
+                      <strong>Amount:</strong> £{request.amount?.toFixed(2)}
+                    </p>
+                    <p style={{ margin: '0.25rem 0', color: '#4a5568', fontSize: '0.9rem' }}>
+                      <strong>Requested by:</strong> {request.requestedBy?.firstName} {request.requestedBy?.lastName} ({request.requestedBy?.email})
+                    </p>
+                    <p style={{ margin: '0.25rem 0', color: '#4a5568', fontSize: '0.9rem' }}>
+                      <strong>Description:</strong> {request.description}
+                    </p>
+                    <p style={{ margin: '0.5rem 0', color: '#667eea', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                      Approvals: {approvalCount} / {requiredApprovals} required
+                    </p>
+                  </div>
+                </div>
+                {request.status === 'pending' && !hasApproved && !hasRejected && (
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                    <button
+                      className="btn btn-success"
+                      onClick={() => handleApprovePayment(request._id)}
+                      style={{ flex: 1 }}
+                    >
+                      ✅ Approve Payment
+                    </button>
+                    <button
+                      className="btn btn-danger"
+                      onClick={() => handleRejectPayment(request._id)}
+                      style={{ flex: 1 }}
+                    >
+                      ❌ Reject Payment
+                    </button>
+                  </div>
+                )}
+                {hasApproved && (
+                  <div style={{
+                    background: '#f0fff4',
+                    border: '1px solid #9ae6b4',
+                    borderRadius: '6px',
+                    padding: '0.75rem',
+                    marginTop: '0.5rem',
+                    color: '#22543d'
+                  }}>
+                    ✅ You have approved this payment request
+                  </div>
+                )}
+                {hasRejected && (
+                  <div style={{
+                    background: '#fed7d7',
+                    border: '1px solid #feb2b2',
+                    borderRadius: '6px',
+                    padding: '0.75rem',
+                    marginTop: '0.5rem',
+                    color: '#742a2a'
+                  }}>
+                    ❌ You have rejected this payment request
+                  </div>
+                )}
+                {request.status === 'executed' && (
+                  <div style={{
+                    background: '#ebf8ff',
+                    border: '1px solid #90cdf4',
+                    borderRadius: '6px',
+                    padding: '0.75rem',
+                    marginTop: '0.5rem',
+                    color: '#2a4365'
+                  }}>
+                    ✅ Payment has been executed
+                  </div>
+                )}
+                {request.status === 'rejected' && (
+                  <div style={{
+                    background: '#fed7d7',
+                    border: '1px solid #feb2b2',
+                    borderRadius: '6px',
+                    padding: '0.75rem',
+                    marginTop: '0.5rem',
+                    color: '#742a2a'
+                  }}>
+                    ❌ Payment request was rejected
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 

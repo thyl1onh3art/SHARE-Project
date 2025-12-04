@@ -2,12 +2,17 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useSearchParams } from 'react-router-dom';
 
+interface SharedAccountRef {
+  _id: string;
+  name: string;
+}
+
 interface Invitation {
   _id: string;
   sender: string;
   recipientEmail?: string;
   recipientPhone?: string;
-  sharedAccount: string;
+  sharedAccount: string | SharedAccountRef | null; // Can be ID string, populated object, or null
   status: 'pending' | 'accepted' | 'cancelled';
   expiresAt: string;
   createdAt: string;
@@ -26,8 +31,7 @@ const Invitations: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     sharedAccountId: '',
-    recipientEmail: '',
-    recipientPhone: ''
+    recipients: [{ recipientEmail: '', recipientPhone: '' }] // Array of recipients
   });
   const [submitting, setSubmitting] = useState(false);
   const [searchParams] = useSearchParams();
@@ -42,7 +46,7 @@ const Invitations: React.FC = () => {
     if (accountId && accounts.length > 0) {
       const account = accounts.find(acc => acc._id === accountId);
       if (account) {
-        setFormData(prev => ({ ...prev, sharedAccountId: accountId }));
+        setFormData(prev => ({ ...prev, sharedAccountId: accountId, recipients: prev.recipients || [{ recipientEmail: '', recipientPhone: '' }] }));
         setShowForm(true);
       }
     }
@@ -70,24 +74,79 @@ const Invitations: React.FC = () => {
     setSubmitting(true);
 
     try {
-      await axios.post('/invites/send', {
-        sharedAccountId: formData.sharedAccountId,
-        recipientEmail: formData.recipientEmail || undefined,
-        recipientPhone: formData.recipientPhone || undefined
-      });
+      // Filter out empty recipients and validate
+      const validRecipients = formData.recipients.filter(
+        r => r.recipientEmail.trim() || r.recipientPhone.trim()
+      );
+
+      if (validRecipients.length === 0) {
+        setError('Please add at least one recipient with email or phone');
+        setSubmitting(false);
+        return;
+      }
+
+      // Use bulk endpoint if multiple recipients, otherwise use single endpoint
+      if (validRecipients.length === 1) {
+        // Single recipient - use original endpoint for backward compatibility
+        await axios.post('/invites/send', {
+          sharedAccountId: formData.sharedAccountId,
+          recipientEmail: validRecipients[0].recipientEmail.trim() || undefined,
+          recipientPhone: validRecipients[0].recipientPhone.trim() || undefined
+        });
+      } else {
+        // Multiple recipients - use bulk endpoint
+        const response = await axios.post('/invites/send-bulk', {
+          sharedAccountId: formData.sharedAccountId,
+          recipients: validRecipients.map(r => ({
+            recipientEmail: r.recipientEmail.trim() || undefined,
+            recipientPhone: r.recipientPhone.trim() || undefined
+          }))
+        });
+
+        // Show detailed results if some failed
+        if (response.data.failedCount > 0) {
+          const failedMessages = response.data.results.failed.map((f: any) => 
+            `${f.recipient.recipientEmail || f.recipient.recipientPhone}: ${f.error}`
+          ).join('\n');
+          alert(`${response.data.successCount} invitation(s) sent successfully.\n\nFailed:\n${failedMessages}`);
+        } else {
+          alert(`${response.data.successCount} invitation(s) sent successfully!`);
+        }
+      }
       
-      setFormData({ sharedAccountId: '', recipientEmail: '', recipientPhone: '' });
+      setFormData({ sharedAccountId: '', recipients: [{ recipientEmail: '', recipientPhone: '' }] });
       setShowForm(false);
       fetchData();
       
-      // Show success message
-      setError(''); // Clear any previous errors
-      alert('Invitation sent successfully!');
+      // Clear any previous errors
+      setError('');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to send invitation');
+      setError(err.response?.data?.message || 'Failed to send invitation(s)');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const addRecipient = () => {
+    setFormData({
+      ...formData,
+      recipients: [...formData.recipients, { recipientEmail: '', recipientPhone: '' }]
+    });
+  };
+
+  const removeRecipient = (index: number) => {
+    if (formData.recipients.length > 1) {
+      setFormData({
+        ...formData,
+        recipients: formData.recipients.filter((_, i) => i !== index)
+      });
+    }
+  };
+
+  const updateRecipient = (index: number, field: 'recipientEmail' | 'recipientPhone', value: string) => {
+    const updatedRecipients = [...formData.recipients];
+    updatedRecipients[index] = { ...updatedRecipients[index], [field]: value };
+    setFormData({ ...formData, recipients: updatedRecipients });
   };
 
   const handleAccept = async (inviteId: string) => {
@@ -108,9 +167,22 @@ const Invitations: React.FC = () => {
     }
   };
 
-  const getAccountName = (accountId: string) => {
-    const account = accounts.find(acc => acc._id === accountId);
-    return account ? account.name : 'Unknown Account';
+  const getAccountName = (accountIdOrObject: string | SharedAccountRef | null) => {
+    // Handle null case
+    if (accountIdOrObject === null || accountIdOrObject === undefined) {
+      return 'Unknown Account';
+    }
+    // If it's already a populated object with name, use it directly
+    if (typeof accountIdOrObject === 'object' && accountIdOrObject !== null && 'name' in accountIdOrObject) {
+      return accountIdOrObject.name;
+    }
+    // Otherwise, it's an ID string - look it up in the accounts list
+    if (typeof accountIdOrObject === 'string') {
+      const account = accounts.find(acc => acc._id === accountIdOrObject);
+      return account ? account.name : 'Unknown Account';
+    }
+    // Fallback for any other case
+    return 'Unknown Account';
   };
 
   const isExpired = (expiresAt: string) => {
@@ -231,25 +303,77 @@ const Invitations: React.FC = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Recipient Email</label>
-              <input
-                type="email"
-                className="form-input"
-                value={formData.recipientEmail}
-                onChange={(e) => setFormData({ ...formData, recipientEmail: e.target.value })}
-                placeholder="friend@example.com"
-              />
-            </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <label className="form-label">Recipients</label>
+                <button
+                  type="button"
+                  onClick={addRecipient}
+                  className="btn btn-outline"
+                  style={{ padding: '4px 12px', fontSize: '0.85rem' }}
+                >
+                  + Add Recipient
+                </button>
+              </div>
 
-            <div className="form-group">
-              <label className="form-label">Recipient Phone (optional)</label>
-              <input
-                type="tel"
-                className="form-input"
-                value={formData.recipientPhone}
-                onChange={(e) => setFormData({ ...formData, recipientPhone: e.target.value })}
-                placeholder="+1234567890"
-              />
+              {formData.recipients.map((recipient, index) => (
+                <div key={index} style={{
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '6px',
+                  padding: '1rem',
+                  marginBottom: '0.75rem',
+                  background: '#f7fafc',
+                  position: 'relative'
+                }}>
+                  {formData.recipients.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeRecipient(index)}
+                      style={{
+                        position: 'absolute',
+                        top: '0.5rem',
+                        right: '0.5rem',
+                        background: '#fee2e2',
+                        border: 'none',
+                        borderRadius: '4px',
+                        padding: '4px 8px',
+                        cursor: 'pointer',
+                        fontSize: '0.75rem',
+                        color: '#991b1b'
+                      }}
+                      title="Remove recipient"
+                    >
+                      ×
+                    </button>
+                  )}
+                  <p style={{ fontSize: '0.85rem', color: '#4a5568', marginBottom: '0.75rem', fontWeight: 'bold' }}>
+                    Recipient {index + 1}
+                  </p>
+                  <div style={{ marginBottom: '0.5rem' }}>
+                    <label className="form-label" style={{ fontSize: '0.85rem' }}>Email</label>
+                    <input
+                      type="email"
+                      className="form-input"
+                      value={recipient.recipientEmail}
+                      onChange={(e) => updateRecipient(index, 'recipientEmail', e.target.value)}
+                      placeholder="friend@example.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.85rem' }}>Phone (optional)</label>
+                    <input
+                      type="tel"
+                      className="form-input"
+                      value={recipient.recipientPhone}
+                      onChange={(e) => updateRecipient(index, 'recipientPhone', e.target.value)}
+                      placeholder="+1234567890"
+                    />
+                  </div>
+                </div>
+              ))}
+
+              <p style={{ fontSize: '0.8rem', color: '#4a5568', marginTop: '0.5rem' }}>
+                💡 Tip: Add multiple recipients to invite several people at once. Each recipient needs at least an email or phone number.
+              </p>
             </div>
 
             <button
@@ -257,7 +381,7 @@ const Invitations: React.FC = () => {
               className="btn btn-primary"
               disabled={submitting || accounts.length === 0}
             >
-              {submitting ? <span className="spinner"></span> : 'Send Invitation'}
+              {submitting ? <span className="spinner"></span> : `Send ${formData.recipients.length > 1 ? `${formData.recipients.length} ` : ''}Invitation${formData.recipients.length > 1 ? 's' : ''}`}
             </button>
           </form>
         </div>
@@ -334,7 +458,7 @@ const Invitations: React.FC = () => {
         </div>
         
         <div className="card">
-          <h3 style={{ color: '#38a169', marginBottom: '1rem' }}>✅ Accepted</h3>
+          <h3 style={{ color: '#38a169', marginBottom: '1rem' }}>Accepted</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#38a169' }}>
             {invitations.filter(inv => inv.status === 'accepted').length}
           </p>
