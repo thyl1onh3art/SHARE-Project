@@ -72,6 +72,15 @@ const SharedAccounts: React.FC = () => {
     return income - expenses;
   };
 
+  // Calculate remaining capacity (targetAmount - current balance)
+  const calculateRemainingCapacity = (account: SharedAccount): number | null => {
+    if (!account.targetAmount || account.targetAmount <= 0) {
+      return null; // No limit set
+    }
+    const balance = calculateAccountBalance(account);
+    return Math.max(0, account.targetAmount - balance);
+  };
+
   const fetchAccounts = async () => {
     try {
       setLoading(true);
@@ -175,6 +184,19 @@ const SharedAccounts: React.FC = () => {
 
     if (personalBalance !== null && amount > personalBalance) {
       throw new Error('Insufficient funds in your personal account');
+    }
+
+    // Check if transfer would exceed target amount limit
+    if (account.targetAmount && account.targetAmount > 0) {
+      const currentBalance = calculateAccountBalance(account);
+      const newBalance = currentBalance + amount;
+      if (newBalance > account.targetAmount) {
+        const remaining = account.targetAmount - currentBalance;
+        throw new Error(
+          `Transfer would exceed the account limit of £${account.targetAmount.toFixed(2)}. ` +
+          `Maximum transfer allowed: £${remaining.toFixed(2)}`
+        );
+      }
     }
 
     const date = new Date().toISOString();
@@ -417,6 +439,20 @@ const SharedAccounts: React.FC = () => {
       return;
     }
 
+    // Check account limit before submitting
+    if (selectedAccount.targetAmount && selectedAccount.targetAmount > 0) {
+      const currentBalance = calculateAccountBalance(selectedAccount);
+      const newBalance = currentBalance + amount;
+      if (newBalance > selectedAccount.targetAmount) {
+        const remaining = selectedAccount.targetAmount - currentBalance;
+        setError(
+          `Transfer would exceed the account limit of £${selectedAccount.targetAmount.toFixed(2)}. ` +
+          `Maximum transfer allowed: £${remaining.toFixed(2)}`
+        );
+        return;
+      }
+    }
+
     setTransferSubmitting(true);
     setError('');
 
@@ -494,9 +530,73 @@ const SharedAccounts: React.FC = () => {
                       <strong>Purpose:</strong> {account.description || account.name}
                     </p>
                     {account.targetAmount !== undefined && account.targetAmount > 0 && (
-                      <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
-                        <strong>Target Amount:</strong> £{account.targetAmount.toFixed(2)}
-                      </p>
+                      <div style={{ margin: '0.25rem 0' }}>
+                        <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
+                          <strong>Target Amount (Limit):</strong> £{account.targetAmount.toFixed(2)}
+                        </p>
+                        {(() => {
+                          const remaining = calculateRemainingCapacity(account);
+                          const balance = calculateAccountBalance(account);
+                          const percentage = (balance / account.targetAmount) * 100;
+                          const isNearLimit = percentage >= 90;
+                          const isAtLimit = percentage >= 100;
+                          
+                          return (
+                            <div style={{
+                              background: isAtLimit ? '#fee2e2' : isNearLimit ? '#fef3c7' : '#f0f9ff',
+                              border: `1px solid ${isAtLimit ? '#ef4444' : isNearLimit ? '#f59e0b' : '#bae6fd'}`,
+                              borderRadius: '6px',
+                              padding: '0.75rem',
+                              marginTop: '0.5rem'
+                            }}>
+                              <div style={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                alignItems: 'center',
+                                marginBottom: '0.5rem'
+                              }}>
+                                <span style={{ 
+                                  fontSize: '0.85rem', 
+                                  color: isAtLimit ? '#991b1b' : isNearLimit ? '#92400e' : '#0369a1',
+                                  fontWeight: 'bold'
+                                }}>
+                                  {isAtLimit ? '⚠️ Limit Reached' : isNearLimit ? '⚠️ Near Limit' : 'Remaining Capacity:'}
+                                </span>
+                                <span style={{ 
+                                  fontSize: '0.9rem', 
+                                  color: isAtLimit ? '#dc2626' : isNearLimit ? '#d97706' : '#0284c7',
+                                  fontWeight: 'bold'
+                                }}>
+                                  {remaining !== null ? `£${remaining.toFixed(2)}` : 'No limit'}
+                                </span>
+                              </div>
+                              <div style={{
+                                width: '100%',
+                                height: '8px',
+                                background: '#e2e8f0',
+                                borderRadius: '4px',
+                                overflow: 'hidden',
+                                marginTop: '0.5rem'
+                              }}>
+                                <div style={{
+                                  width: `${Math.min(100, percentage)}%`,
+                                  height: '100%',
+                                  background: isAtLimit ? '#dc2626' : isNearLimit ? '#f59e0b' : '#0284c7',
+                                  transition: 'width 0.3s ease'
+                                }} />
+                              </div>
+                              <p style={{ 
+                                fontSize: '0.75rem', 
+                                color: isAtLimit ? '#991b1b' : isNearLimit ? '#92400e' : '#0369a1',
+                                margin: '0.5rem 0 0 0',
+                                textAlign: 'center'
+                              }}>
+                                {balance.toFixed(2)} / {account.targetAmount.toFixed(2)} ({percentage.toFixed(1)}%)
+                              </p>
+                            </div>
+                          );
+                        })()}
+                      </div>
                     )}
                     {account.perPersonAmount !== undefined && account.perPersonAmount > 0 && (
                       <p style={{ 
@@ -701,10 +801,39 @@ const SharedAccounts: React.FC = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: '0.25rem'
+                        gap: '0.25rem',
+                        opacity: (() => {
+                          if (account.targetAmount && account.targetAmount > 0) {
+                            const remaining = calculateRemainingCapacity(account);
+                            return remaining !== null && remaining <= 0 ? 0.6 : 1;
+                          }
+                          return 1;
+                        })(),
+                        cursor: (() => {
+                          if (account.targetAmount && account.targetAmount > 0) {
+                            const remaining = calculateRemainingCapacity(account);
+                            return remaining !== null && remaining <= 0 ? 'not-allowed' : 'pointer';
+                          }
+                          return 'pointer';
+                        })()
                       }}
                       onClick={() => handleTransferClick(account)}
-                      title="Transfer funds from personal account to this shared account"
+                      disabled={(() => {
+                        if (account.targetAmount && account.targetAmount > 0) {
+                          const remaining = calculateRemainingCapacity(account);
+                          return remaining !== null && remaining <= 0;
+                        }
+                        return false;
+                      })()}
+                      title={(() => {
+                        if (account.targetAmount && account.targetAmount > 0) {
+                          const remaining = calculateRemainingCapacity(account);
+                          if (remaining !== null && remaining <= 0) {
+                            return "Account limit reached. Cannot transfer more funds.";
+                          }
+                        }
+                        return "Transfer funds from personal account to this shared account";
+                      })()}
                     >
                       <span>💸</span> Transfer Funds
                     </button>
@@ -839,6 +968,80 @@ const SharedAccounts: React.FC = () => {
               </p>
             </div>
 
+            {/* Account Limit Information */}
+            {selectedAccount.targetAmount && selectedAccount.targetAmount > 0 && (() => {
+              const currentBalance = calculateAccountBalance(selectedAccount);
+              const remaining = calculateRemainingCapacity(selectedAccount);
+              const percentage = (currentBalance / selectedAccount.targetAmount) * 100;
+              const isNearLimit = percentage >= 90;
+              const isAtLimit = percentage >= 100;
+              
+              return (
+                <div style={{
+                  background: isAtLimit ? '#fee2e2' : isNearLimit ? '#fef3c7' : '#f0f9ff',
+                  border: `1px solid ${isAtLimit ? '#ef4444' : isNearLimit ? '#f59e0b' : '#bae6fd'}`,
+                  borderRadius: '6px',
+                  padding: '0.75rem',
+                  marginBottom: '1rem'
+                }}>
+                  <p style={{ 
+                    color: isAtLimit ? '#991b1b' : isNearLimit ? '#92400e' : '#0369a1', 
+                    fontSize: '0.9rem', 
+                    margin: '0 0 0.5rem 0',
+                    fontWeight: 'bold'
+                  }}>
+                    {isAtLimit ? '⚠️ Account Limit Reached' : isNearLimit ? '⚠️ Near Account Limit' : '📊 Account Limit'}
+                  </p>
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    marginBottom: '0.5rem'
+                  }}>
+                    <span style={{ fontSize: '0.85rem', color: isAtLimit ? '#991b1b' : isNearLimit ? '#92400e' : '#0369a1' }}>
+                      Current Balance:
+                    </span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: isAtLimit ? '#dc2626' : isNearLimit ? '#d97706' : '#0284c7' }}>
+                      £{currentBalance.toFixed(2)} / £{selectedAccount.targetAmount.toFixed(2)}
+                    </span>
+                  </div>
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    marginBottom: '0.5rem'
+                  }}>
+                    <span style={{ fontSize: '0.85rem', color: isAtLimit ? '#991b1b' : isNearLimit ? '#92400e' : '#0369a1' }}>
+                      Remaining Capacity:
+                    </span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: isAtLimit ? '#dc2626' : isNearLimit ? '#d97706' : '#0284c7' }}>
+                      {remaining !== null ? `£${remaining.toFixed(2)}` : 'No limit'}
+                    </span>
+                  </div>
+                  <div style={{
+                    width: '100%',
+                    height: '6px',
+                    background: '#e2e8f0',
+                    borderRadius: '3px',
+                    overflow: 'hidden',
+                    marginTop: '0.5rem'
+                  }}>
+                    <div style={{
+                      width: `${Math.min(100, percentage)}%`,
+                      height: '100%',
+                      background: isAtLimit ? '#dc2626' : isNearLimit ? '#f59e0b' : '#0284c7',
+                      transition: 'width 0.3s ease'
+                    }} />
+                  </div>
+                  {isAtLimit && (
+                    <p style={{ color: '#991b1b', fontSize: '0.85rem', margin: '0.5rem 0 0 0' }}>
+                      ⚠️ Cannot transfer more funds. Account has reached its limit.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+
             <div style={{
               background: '#fef3c7',
               border: '1px solid #f59e0b',
@@ -848,6 +1051,9 @@ const SharedAccounts: React.FC = () => {
             }}>
               <p style={{ color: '#92400e', fontSize: '0.9rem', margin: 0 }}>
                 <strong>How it works:</strong> This will transfer funds from your <strong>Personal Account (Total Balance)</strong> to this shared account. The amount will be deducted from your personal balance and added to the shared account balance.
+                {selectedAccount.targetAmount && selectedAccount.targetAmount > 0 && (
+                  <span> Transfers cannot exceed the account limit of £{selectedAccount.targetAmount.toFixed(2)}.</span>
+                )}
               </p>
             </div>
 
@@ -858,7 +1064,14 @@ const SharedAccounts: React.FC = () => {
                   type="number"
                   step="0.01"
                   min="0.01"
-                  max={personalBalance !== null ? personalBalance : undefined}
+                  max={(() => {
+                    const remaining = selectedAccount.targetAmount && selectedAccount.targetAmount > 0 
+                      ? calculateRemainingCapacity(selectedAccount) 
+                      : null;
+                    const maxFromPersonal = personalBalance !== null ? personalBalance : Infinity;
+                    const maxFromLimit = remaining !== null ? remaining : Infinity;
+                    return Math.min(maxFromPersonal, maxFromLimit);
+                  })()}
                   className="form-input"
                   value={transferForm.amount}
                   onChange={(e) => setTransferForm({ ...transferForm, amount: e.target.value })}
@@ -869,9 +1082,20 @@ const SharedAccounts: React.FC = () => {
                   Enter the amount you want to transfer from your <strong>Personal Account</strong> to this shared account.
                   {personalBalance !== null && personalBalance > 0 && (
                     <span style={{ display: 'block', marginTop: '0.25rem', color: '#667eea', fontWeight: 'bold' }}>
-                      Available: £{personalBalance.toFixed(2)}
+                      Available from Personal Account: £{personalBalance.toFixed(2)}
                     </span>
                   )}
+                  {selectedAccount.targetAmount && selectedAccount.targetAmount > 0 && (() => {
+                    const remaining = calculateRemainingCapacity(selectedAccount);
+                    if (remaining !== null && remaining < (personalBalance || Infinity)) {
+                      return (
+                        <span style={{ display: 'block', marginTop: '0.25rem', color: '#d97706', fontWeight: 'bold' }}>
+                          Maximum transfer (account limit): £{remaining.toFixed(2)}
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
                 </p>
               </div>
 
