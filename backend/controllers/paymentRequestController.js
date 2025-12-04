@@ -29,7 +29,7 @@ exports.createPaymentRequest = async (req, res) => {
     // Check if user is owner or member
     const ownerId = typeof sharedAccount.owner === 'object' ? sharedAccount.owner._id.toString() : sharedAccount.owner.toString();
     const isOwner = ownerId === userId;
-    const isMember = sharedAccount.members.some((m: any) => {
+    const isMember = sharedAccount.members.some((m) => {
       const memberId = typeof m === 'object' ? m._id.toString() : m.toString();
       return memberId === userId;
     });
@@ -40,7 +40,7 @@ exports.createPaymentRequest = async (req, res) => {
 
     // Calculate required approvals (all participants except the requester)
     const ownerIdStr = typeof sharedAccount.owner === 'object' ? sharedAccount.owner._id.toString() : sharedAccount.owner.toString();
-    const memberIds = sharedAccount.members.map((m: any) => {
+    const memberIds = sharedAccount.members.map((m) => {
       return typeof m === 'object' ? m._id.toString() : m.toString();
     });
     const allParticipants = [ownerIdStr, ...memberIds];
@@ -146,21 +146,34 @@ exports.approvePaymentRequest = async (req, res) => {
     }
 
     // Get shared account to check membership
-    const sharedAccount = await SharedAccount.findById(paymentRequest.sharedAccount)
-      .populate('owner')
-      .populate('members');
+    const sharedAccount = await SharedAccount.findById(paymentRequest.sharedAccount);
+    if (!sharedAccount) {
+      return res.status(404).json({ message: 'Shared account not found' });
+    }
+    await sharedAccount.populate('owner', 'firstName lastName email');
+    await sharedAccount.populate('members', 'firstName lastName email');
 
     // Check if user is a participant
-    const isOwner = sharedAccount.owner._id.toString() === userId;
-    const isMember = sharedAccount.members.some(m => m._id.toString() === userId);
+    const ownerId = typeof sharedAccount.owner === 'object' ? sharedAccount.owner._id.toString() : sharedAccount.owner.toString();
+    const isOwner = ownerId === userId;
+    const isMember = sharedAccount.members.some((m) => {
+      const memberId = typeof m === 'object' ? m._id.toString() : m.toString();
+      return memberId === userId;
+    });
     
     if (!isOwner && !isMember) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
     // Check if user already approved or rejected
-    const alreadyApproved = paymentRequest.approvals.some(a => a.user.toString() === userId);
-    const alreadyRejected = paymentRequest.rejections.some(r => r.user.toString() === userId);
+    const alreadyApproved = paymentRequest.approvals.some((a) => {
+      const userIdFromApproval = typeof a.user === 'object' ? a.user._id.toString() : a.user.toString();
+      return userIdFromApproval === userId;
+    });
+    const alreadyRejected = paymentRequest.rejections.some((r) => {
+      const userIdFromRejection = typeof r.user === 'object' ? r.user._id.toString() : r.user.toString();
+      return userIdFromRejection === userId;
+    });
 
     if (alreadyApproved) {
       return res.status(400).json({ message: 'You have already approved this payment request' });
@@ -208,6 +221,10 @@ exports.approvePaymentRequest = async (req, res) => {
       }
       sharedAccount.financeRecords.push(financeRecord._id);
       await sharedAccount.save();
+      
+      // Refresh payment request to get updated status
+      await paymentRequest.populate('requestedBy', 'firstName lastName email');
+      await paymentRequest.populate('sharedAccount', 'name');
 
       paymentRequest.status = 'executed';
     }
@@ -246,21 +263,34 @@ exports.rejectPaymentRequest = async (req, res) => {
     }
 
     // Get shared account to check membership
-    const sharedAccount = await SharedAccount.findById(paymentRequest.sharedAccount)
-      .populate('owner')
-      .populate('members');
+    const sharedAccount = await SharedAccount.findById(paymentRequest.sharedAccount);
+    if (!sharedAccount) {
+      return res.status(404).json({ message: 'Shared account not found' });
+    }
+    await sharedAccount.populate('owner', 'firstName lastName email');
+    await sharedAccount.populate('members', 'firstName lastName email');
 
     // Check if user is a participant
-    const isOwner = sharedAccount.owner._id.toString() === userId;
-    const isMember = sharedAccount.members.some(m => m._id.toString() === userId);
+    const ownerId = typeof sharedAccount.owner === 'object' ? sharedAccount.owner._id.toString() : sharedAccount.owner.toString();
+    const isOwner = ownerId === userId;
+    const isMember = sharedAccount.members.some((m) => {
+      const memberId = typeof m === 'object' ? m._id.toString() : m.toString();
+      return memberId === userId;
+    });
     
     if (!isOwner && !isMember) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
     // Check if user already approved or rejected
-    const alreadyApproved = paymentRequest.approvals.some(a => a.user.toString() === userId);
-    const alreadyRejected = paymentRequest.rejections.some(r => r.user.toString() === userId);
+    const alreadyApproved = paymentRequest.approvals.some((a) => {
+      const userIdFromApproval = typeof a.user === 'object' ? a.user._id.toString() : a.user.toString();
+      return userIdFromApproval === userId;
+    });
+    const alreadyRejected = paymentRequest.rejections.some((r) => {
+      const userIdFromRejection = typeof r.user === 'object' ? r.user._id.toString() : r.user.toString();
+      return userIdFromRejection === userId;
+    });
 
     if (alreadyApproved) {
       return res.status(400).json({ message: 'You have already approved this payment request' });
