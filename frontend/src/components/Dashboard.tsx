@@ -87,7 +87,7 @@ const Dashboard: React.FC = () => {
     <div>
       <div className="card">
         <div className="card-header">
-          <h1 className="card-title">Welcome back, {user?.name}! 👋</h1>
+          <h1 className="card-title">Welcome back, {user?.name}!</h1>
           <p style={{ color: '#4a5568', marginTop: '0.5rem' }}>
             Here's an overview of your financial activity
           </p>
@@ -118,7 +118,7 @@ const Dashboard: React.FC = () => {
         
         <div className="card">
           <h3 style={{ color: netBalance >= 0 ? '#38a169' : '#e53e3e', marginBottom: '1rem' }}>
-            📊 Net Balance
+            Net Balance
           </h3>
           <p style={{ 
             fontSize: '2rem', 

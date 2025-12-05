@@ -174,7 +174,7 @@ const Payment: React.FC<PaymentProps> = ({
       </div>
 
       <p style={{ fontSize: '0.85rem', color: '#6b7280', textAlign: 'center' }}>
-        🔒 Your payment is secured by PayPal. We never store your payment details.
+        Your payment is secured by PayPal. We never store your payment details.
       </p>
     </div>
   );

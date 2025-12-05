@@ -73,7 +73,7 @@ const Settings: React.FC = () => {
               color: '#2d3748',
               marginBottom: '1rem'
             }}>
-              🔒 Security
+              Security
             </h2>
             <p style={{ color: '#4a5568', marginBottom: '1rem' }}>
               Manage your account security and privacy settings.
@@ -101,7 +101,7 @@ const Settings: React.FC = () => {
               color: '#2d3748',
               marginBottom: '1rem'
             }}>
-              🛡️ Privacy
+              Privacy
             </h2>
             <p style={{ color: '#4a5568', marginBottom: '1rem' }}>
               Control your privacy and data sharing preferences.
@@ -129,7 +129,7 @@ const Settings: React.FC = () => {
               color: '#c53030',
               marginBottom: '1rem'
             }}>
-              ⚠️ Danger Zone
+              Danger Zone
             </h2>
             <p style={{ color: '#4a5568', marginBottom: '1rem' }}>
               These actions are irreversible. Please proceed with caution.
@@ -173,7 +173,7 @@ const Settings: React.FC = () => {
               color: '#c53030',
               marginBottom: '1rem'
             }}>
-              🗑️ Delete Account
+              Delete Account
             </h2>
             
             <div style={{
@@ -184,7 +184,7 @@ const Settings: React.FC = () => {
               marginBottom: '1.5rem'
             }}>
               <p style={{ color: '#c53030', margin: 0, fontWeight: '600' }}>
-                ⚠️ This action cannot be undone!
+                This action cannot be undone!
               </p>
               <p style={{ color: '#c53030', margin: '0.5rem 0 0 0' }}>
                 This will permanently delete your account and all associated data including:

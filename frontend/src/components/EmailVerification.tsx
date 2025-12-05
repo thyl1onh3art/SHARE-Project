@@ -84,7 +84,7 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({
     <div className="email-verification">
       <div className="verification-container">
         <div className="verification-header">
-          <h2>📧 Verify Your Email</h2>
+          <h2>Verify Your Email</h2>
           <p>We've sent a 6-digit verification code to:</p>
           <div className="email-display">{email}</div>
         </div>
@@ -153,7 +153,7 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({
         </div>
 
         <div className="verification-info">
-          <h4>📋 Important Notes:</h4>
+          <h4>Important Notes:</h4>
           <ul>
             <li>Check your spam folder if you don't see the email</li>
             <li>The code expires in 15 minutes</li>

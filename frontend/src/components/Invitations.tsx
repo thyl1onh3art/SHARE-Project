@@ -228,7 +228,6 @@ const Invitations: React.FC = () => {
           marginBottom: '1rem'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-            <span>💡</span>
             <strong>Getting Started</strong>
           </div>
           <p style={{ margin: 0 }}>
@@ -372,7 +371,7 @@ const Invitations: React.FC = () => {
               ))}
 
               <p style={{ fontSize: '0.8rem', color: '#4a5568', marginTop: '0.5rem' }}>
-                💡 Tip: Add multiple recipients to invite several people at once. Each recipient needs at least an email or phone number.
+                Tip: Add multiple recipients to invite several people at once. Each recipient needs at least an email or phone number.
               </p>
             </div>
 
@@ -451,7 +450,7 @@ const Invitations: React.FC = () => {
       {/* Quick Stats */}
       <div className="grid grid-3">
         <div className="card">
-          <h3 style={{ color: '#2b6cb0', marginBottom: '1rem' }}>📨 Total Invitations</h3>
+          <h3 style={{ color: '#2b6cb0', marginBottom: '1rem' }}>Total Invitations</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#2b6cb0' }}>
             {invitations.length}
           </p>
@@ -465,7 +464,7 @@ const Invitations: React.FC = () => {
         </div>
         
         <div className="card">
-          <h3 style={{ color: '#e53e3e', marginBottom: '1rem' }}>⏳ Pending</h3>
+          <h3 style={{ color: '#e53e3e', marginBottom: '1rem' }}>Pending</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#e53e3e' }}>
             {invitations.filter(inv => inv.status === 'pending').length}
           </p>

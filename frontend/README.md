@@ -4,13 +4,13 @@ A React-based frontend for the SHARE Project - a comprehensive social event plan
 
 ## Features
 
-- 🎉 Event Countdown & Planning
-- 📸 Shared Gallery
-- 💰 Budget Planning & Savings Calculator
-- 🏨 Accommodation Recommendations
-- 📊 Financial Records Management
-- 👥 Shared Accounts & Invitations
-- 🔐 User Authentication & Profiles
+- Event Countdown & Planning
+- Shared Gallery
+- Budget Planning & Savings Calculator
+- Accommodation Recommendations
+- Financial Records Management
+- Shared Accounts & Invitations
+- User Authentication & Profiles
 
 ## Tech Stack
 

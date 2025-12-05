@@ -77,15 +77,15 @@ const EventCountdown: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState<{ [key: string]: TimeLeft }>({});
 
   const categories = [
-    { value: 'social', label: 'Social Event', emoji: '🎉' },
-    { value: 'birthday', label: 'Birthday', emoji: '🎂' },
-    { value: 'holiday', label: 'Holiday', emoji: '🎄' },
-    { value: 'anniversary', label: 'Anniversary', emoji: '💕' },
-    { value: 'travel', label: 'Travel', emoji: '✈️' },
-    { value: 'work', label: 'Work Event', emoji: '💼' },
-    { value: 'sports', label: 'Sports', emoji: '⚽' },
-    { value: 'concert', label: 'Concert', emoji: '🎵' },
-    { value: 'other', label: 'Other', emoji: '📅' }
+    { value: 'social', label: 'Social Event', emoji: '' },
+    { value: 'birthday', label: 'Birthday', emoji: '' },
+    { value: 'holiday', label: 'Holiday', emoji: '' },
+    { value: 'anniversary', label: 'Anniversary', emoji: '' },
+    { value: 'travel', label: 'Travel', emoji: '' },
+    { value: 'work', label: 'Work Event', emoji: '' },
+    { value: 'sports', label: 'Sports', emoji: '' },
+    { value: 'concert', label: 'Concert', emoji: '' },
+    { value: 'other', label: 'Other', emoji: '' }
   ];
 
   useEffect(() => {
@@ -257,7 +257,7 @@ const EventCountdown: React.FC = () => {
 
   const getCategoryEmoji = (category: string): string => {
     const cat = categories.find(c => c.value === category);
-    return cat ? cat.emoji : '📅';
+    return cat ? cat.emoji : '';
   };
 
   const isEventUpcoming = (time: TimeLeft): boolean => {
@@ -277,7 +277,7 @@ const EventCountdown: React.FC = () => {
     <div>
       <div className="card">
         <div className="card-header">
-          <h1 className="card-title">🎯 Event Countdowns</h1>
+          <h1 className="card-title">Event Countdowns</h1>
           <button 
             onClick={() => setShowForm(!showForm)}
             className="btn btn-primary"
@@ -290,7 +290,6 @@ const EventCountdown: React.FC = () => {
       {error && (
         <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '1.2rem' }}>⚠️</span>
             <div>
               <strong>Error:</strong> {error}
               {error.includes('log in') && (
@@ -501,7 +500,7 @@ const EventCountdown: React.FC = () => {
                       marginTop: '1rem',
                       border: '1px solid #bbdefb'
                     }}>
-                      <h4 style={{ margin: '0 0 0.5rem 0', color: '#1976d2' }}>📊 Savings Plan</h4>
+                      <h4 style={{ margin: '0 0 0.5rem 0', color: '#1976d2' }}>Savings Plan</h4>
                       <p style={{ margin: '0.25rem 0', fontSize: '0.9rem' }}>
                         <strong>Amount to save per {formData.budget?.savingsFrequency}:</strong> 
                         <span style={{ color: '#1976d2', fontWeight: 'bold' }}>
@@ -519,7 +518,7 @@ const EventCountdown: React.FC = () => {
 
             {/* Accommodation Section */}
             <div style={{ marginTop: '2rem', padding: '1rem', background: '#f8f9fa', borderRadius: '8px', border: '1px solid #e9ecef' }}>
-              <h3 style={{ marginBottom: '1rem', color: '#495057' }}>🏨 Accommodation</h3>
+              <h3 style={{ marginBottom: '1rem', color: '#495057' }}>Accommodation</h3>
               
               <div className="grid grid-2">
                 <div className="form-group">
@@ -705,7 +704,7 @@ const EventCountdown: React.FC = () => {
                         border: '1px solid #ffcc02'
                       }}>
                         <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#e65100' }}>
-                          <strong>🏨 {event.accommodation.name}</strong> ({event.accommodation.type})
+                          <strong>{event.accommodation.name}</strong> ({event.accommodation.type})
                         </p>
                         {event.accommodation.price > 0 && (
                           <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#e65100' }}>
@@ -757,7 +756,7 @@ const EventCountdown: React.FC = () => {
       {/* Quick Stats */}
       <div className="grid grid-3">
         <div className="card">
-          <h3 style={{ color: '#2b6cb0', marginBottom: '1rem' }}>📅 Total Events</h3>
+          <h3 style={{ color: '#2b6cb0', marginBottom: '1rem' }}>Total Events</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#2b6cb0' }}>
             {events.length}
           </p>
@@ -774,7 +773,7 @@ const EventCountdown: React.FC = () => {
         </div>
         
         <div className="card">
-          <h3 style={{ color: '#e53e3e', marginBottom: '1rem' }}>🔄 Recurring</h3>
+          <h3 style={{ color: '#e53e3e', marginBottom: '1rem' }}>Recurring</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#e53e3e' }}>
             {events.filter(event => event.isRecurring).length}
           </p>

@@ -186,7 +186,7 @@ const SharedGallery: React.FC = () => {
     <div>
       <div className="card">
         <div className="card-header">
-          <h1 className="card-title">📸 Shared Gallery</h1>
+          <h1 className="card-title">Shared Gallery</h1>
           <button 
             onClick={() => setShowUploadModal(true)}
             className="btn btn-primary"
@@ -199,7 +199,6 @@ const SharedGallery: React.FC = () => {
       {error && (
         <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '1.2rem' }}>⚠️</span>
             <div>
               <strong>Error:</strong> {error}
               {error.includes('log in') && (
@@ -329,7 +328,7 @@ const SharedGallery: React.FC = () => {
                   
                   {image.eventTitle && (
                     <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: '#666' }}>
-                      📅 {image.eventTitle}
+                      {image.eventTitle}
                     </p>
                   )}
                   
@@ -539,7 +538,7 @@ const SharedGallery: React.FC = () => {
                 {selectedImage.caption || 'No caption'}
               </p>
               <p style={{ margin: '0', fontSize: '0.9rem', color: '#666' }}>
-                {selectedImage.eventTitle && `📅 ${selectedImage.eventTitle} • `}
+                {selectedImage.eventTitle && `${selectedImage.eventTitle} • `}
                 {formatFileSize(selectedImage.size)} • {formatDate(selectedImage.createdAt)}
               </p>
             </div>

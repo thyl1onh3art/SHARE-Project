@@ -561,7 +561,7 @@ const SharedAccounts: React.FC = () => {
       {/* Pending Payment Requests */}
       {paymentRequests.length > 0 && (
         <div className="card" style={{ marginBottom: '1.5rem', background: '#fef3c7', border: '2px solid #f59e0b' }}>
-          <h2 style={{ marginBottom: '1rem', color: '#92400e' }}>⚠️ Pending Payment Requests</h2>
+          <h2 style={{ marginBottom: '1rem', color: '#92400e' }}>Pending Payment Requests</h2>
           {paymentRequests.map((request: any) => {
             // Get current user ID from auth context
             const currentUserId = user?.id || '';
@@ -610,14 +610,14 @@ const SharedAccounts: React.FC = () => {
                       onClick={() => handleApprovePayment(request._id)}
                       style={{ flex: 1 }}
                     >
-                      ✅ Approve Payment
+                      Approve Payment
                     </button>
                     <button
                       className="btn btn-danger"
                       onClick={() => handleRejectPayment(request._id)}
                       style={{ flex: 1 }}
                     >
-                      ❌ Reject Payment
+                      Reject Payment
                     </button>
                   </div>
                 )}
@@ -630,7 +630,7 @@ const SharedAccounts: React.FC = () => {
                     marginTop: '0.5rem',
                     color: '#22543d'
                   }}>
-                    ✅ You have approved this payment request
+                    You have approved this payment request
                   </div>
                 )}
                 {hasRejected && (
@@ -642,7 +642,7 @@ const SharedAccounts: React.FC = () => {
                     marginTop: '0.5rem',
                     color: '#742a2a'
                   }}>
-                    ❌ You have rejected this payment request
+                    You have rejected this payment request
                   </div>
                 )}
                 {request.status === 'executed' && (
@@ -654,7 +654,7 @@ const SharedAccounts: React.FC = () => {
                     marginTop: '0.5rem',
                     color: '#2a4365'
                   }}>
-                    ✅ Payment has been executed
+                    Payment has been executed
                   </div>
                 )}
                 {request.status === 'rejected' && (
@@ -666,7 +666,7 @@ const SharedAccounts: React.FC = () => {
                     marginTop: '0.5rem',
                     color: '#742a2a'
                   }}>
-                    ❌ Payment request was rejected
+                    Payment request was rejected
                   </div>
                 )}
               </div>
@@ -726,7 +726,7 @@ const SharedAccounts: React.FC = () => {
                                   color: isAtLimit ? '#991b1b' : isNearLimit ? '#92400e' : '#0369a1',
                                   fontWeight: 'bold'
                                 }}>
-                                  {isAtLimit ? '⚠️ Limit Reached' : isNearLimit ? '⚠️ Near Limit' : 'Remaining Capacity:'}
+                                  {isAtLimit ? 'Limit Reached' : isNearLimit ? 'Near Limit' : 'Remaining Capacity:'}
                                 </span>
                                 <span style={{ 
                                   fontSize: '0.9rem', 
@@ -931,7 +931,7 @@ const SharedAccounts: React.FC = () => {
                       onClick={() => handleEditClick(account)}
                       title="View and edit account details"
                     >
-                      <span>📝</span> View/Edit Details
+                      View/Edit Details
                     </button>
                     <button 
                       className="btn btn-outline" 
@@ -947,7 +947,7 @@ const SharedAccounts: React.FC = () => {
                       onClick={() => handleNavigateToInvitations(account)}
                       title="Manage invitations for this account"
                     >
-                      <span>👥</span> Manage Invites
+                      Manage Invites
                     </button>
                   </div>
 
@@ -1001,7 +1001,7 @@ const SharedAccounts: React.FC = () => {
                         return "Transfer funds from personal account to this shared account";
                       })()}
                     >
-                      <span>💸</span> Transfer Funds
+                      Transfer Funds
                     </button>
                     <button 
                       className="btn btn-success" 
@@ -1020,7 +1020,7 @@ const SharedAccounts: React.FC = () => {
                       disabled={balance <= 0}
                       title={balance <= 0 ? "No balance to pay" : `Pay full balance of £${balance.toFixed(2)}`}
                     >
-                      <span>💳</span> Pay Full Balance
+                      Pay Full Balance
                     </button>
                   </div>
 
@@ -1041,7 +1041,7 @@ const SharedAccounts: React.FC = () => {
                     onClick={() => handleDeleteClick(account)}
                     title="Permanently delete this shared account"
                   >
-                    <span>🗑️</span> Delete Account
+                    Delete Account
                   </button>
                 </div>
               </div>
@@ -1156,7 +1156,7 @@ const SharedAccounts: React.FC = () => {
                     margin: '0 0 0.5rem 0',
                     fontWeight: 'bold'
                   }}>
-                    {isAtLimit ? '⚠️ Account Limit Reached' : isNearLimit ? '⚠️ Near Account Limit' : '📊 Account Limit'}
+                    {isAtLimit ? 'Account Limit Reached' : isNearLimit ? 'Near Account Limit' : 'Account Limit'}
                   </p>
                   <div style={{ 
                     display: 'flex', 
@@ -1201,7 +1201,7 @@ const SharedAccounts: React.FC = () => {
                   </div>
                   {isAtLimit && (
                     <p style={{ color: '#991b1b', fontSize: '0.85rem', margin: '0.5rem 0 0 0' }}>
-                      ⚠️ Cannot transfer more funds. Account has reached its limit.
+                      Cannot transfer more funds. Account has reached its limit.
                     </p>
                   )}
                 </div>
@@ -1522,7 +1522,7 @@ const SharedAccounts: React.FC = () => {
               marginBottom: '1rem'
             }}>
               <p style={{ color: '#991b1b', fontSize: '0.9rem', margin: 0 }}>
-                <strong>⚠️ Important:</strong> This will pay the FULL balance (£{calculateAccountBalance(selectedAccount).toFixed(2)}) from the shared account. This action cannot be undone. The full amount will be deducted from the shared account balance.
+                <strong>Important:</strong> This will pay the FULL balance (£{calculateAccountBalance(selectedAccount).toFixed(2)}) from the shared account. This action cannot be undone. The full amount will be deducted from the shared account balance.
               </p>
             </div>
 
@@ -1607,7 +1607,7 @@ const SharedAccounts: React.FC = () => {
               marginBottom: '1rem'
             }}>
               <p style={{ color: '#991b1b', fontSize: '1rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
-                ⚠️ Warning: This action cannot be undone!
+                Warning: This action cannot be undone!
               </p>
               <p style={{ color: '#991b1b', fontSize: '0.9rem', margin: 0 }}>
                 You are about to delete the shared account <strong>"{selectedAccount.name}"</strong>. All finance records associated with this account will be removed from the account (but may remain in your personal records). This action is permanent.

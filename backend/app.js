@@ -164,16 +164,16 @@ app.use(errorHandler);
 const initializeDataStore = async () => {
   try {
     console.log('🔗 Initializing MongoDB connection...');
-    console.log('🔍 DEBUG: Environment variables:');
-    console.log('🔍 MONGO_PUBLIC_URL:', process.env.MONGO_PUBLIC_URL);
-    console.log('🔍 MONGO_URL:', process.env.MONGO_URL);
-    console.log('🔍 MONGODB_URI:', process.env.MONGODB_URI);
+    console.log('DEBUG: Environment variables:');
+    console.log('MONGO_PUBLIC_URL:', process.env.MONGO_PUBLIC_URL);
+    console.log('MONGO_URL:', process.env.MONGO_URL);
+    console.log('MONGODB_URI:', process.env.MONGODB_URI);
     await mongodbService.connect();
     const healthCheck = await mongodbService.healthCheck();
-    console.log('📊 MongoDB health check:', healthCheck);
-    console.log('✅ MongoDB initialized successfully');
+    console.log('MongoDB health check:', healthCheck);
+    console.log('MongoDB initialized successfully');
   } catch (error) {
-    console.error('❌ MongoDB initialization error:', error.message);
+    console.error('MongoDB initialization error:', error.message);
     if (!process.env.VERCEL) {
       process.exit(1);
     }
@@ -192,10 +192,10 @@ const startServer = async () => {
     if (!process.env.VERCEL) {
       // Start HTTP server
       app.listen(PORT, () => {
-        console.log(`🚀 SHARE Project API server running on port ${PORT}`);
-        console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-        console.log(`📊 Health check: http://localhost:${PORT}/health`);
-        console.log(`💾 Database: MongoDB with Mongoose ODM`);
+        console.log(`SHARE Project API server running on port ${PORT}`);
+        console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`Health check: http://localhost:${PORT}/health`);
+        console.log(`Database: MongoDB with Mongoose ODM`);
       });
 
       // Start HTTPS server
@@ -206,18 +206,18 @@ const startServer = async () => {
         };
 
         https.createServer(httpsOptions, app).listen(HTTPS_PORT, () => {
-          console.log(`🔒 HTTPS server running on port ${HTTPS_PORT}`);
-          console.log(`🔐 Secure health check: https://localhost:${HTTPS_PORT}/health`);
+          console.log(`HTTPS server running on port ${HTTPS_PORT}`);
+          console.log(`Secure health check: https://localhost:${HTTPS_PORT}/health`);
         });
       } catch (sslError) {
-        console.warn('⚠️ HTTPS server not started:', sslError.message);
-        console.log('💡 Run "node generateCert.js" to generate SSL certificates');
+        console.warn('HTTPS server not started:', sslError.message);
+        console.log('Run "node generateCert.js" to generate SSL certificates');
       }
     } else {
-      console.log('🚀 Running in Vercel serverless environment');
+      console.log('Running in Vercel serverless environment');
     }
   } catch (error) {
-    console.error('❌ Failed to start server:', error.message);
+    console.error('Failed to start server:', error.message);
     // Don't exit in serverless environment - let Vercel handle it
     if (!process.env.VERCEL) {
       process.exit(1);
