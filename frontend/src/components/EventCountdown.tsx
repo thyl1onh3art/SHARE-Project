@@ -77,15 +77,15 @@ const EventCountdown: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState<{ [key: string]: TimeLeft }>({});
 
   const categories = [
-    { value: 'social', label: 'Social Event', emoji: '' },
-    { value: 'birthday', label: 'Birthday', emoji: '' },
-    { value: 'holiday', label: 'Holiday', emoji: '' },
-    { value: 'anniversary', label: 'Anniversary', emoji: '' },
-    { value: 'travel', label: 'Travel', emoji: '' },
-    { value: 'work', label: 'Work Event', emoji: '' },
-    { value: 'sports', label: 'Sports', emoji: '' },
-    { value: 'concert', label: 'Concert', emoji: '' },
-    { value: 'other', label: 'Other', emoji: '' }
+    { value: 'social', label: 'Social Event' },
+    { value: 'birthday', label: 'Birthday' },
+    { value: 'holiday', label: 'Holiday' },
+    { value: 'anniversary', label: 'Anniversary' },
+    { value: 'travel', label: 'Travel' },
+    { value: 'work', label: 'Work Event' },
+    { value: 'sports', label: 'Sports' },
+    { value: 'concert', label: 'Concert' },
+    { value: 'other', label: 'Other' }
   ];
 
   useEffect(() => {
@@ -255,10 +255,6 @@ const EventCountdown: React.FC = () => {
     return `${time.days}d ${time.hours}h ${time.minutes}m ${time.seconds}s`;
   };
 
-  const getCategoryEmoji = (category: string): string => {
-    const cat = categories.find(c => c.value === category);
-    return cat ? cat.emoji : '';
-  };
 
   const isEventUpcoming = (time: TimeLeft): boolean => {
     return !(time.days === 0 && time.hours === 0 && time.minutes === 0 && time.seconds === 0);
@@ -376,7 +372,7 @@ const EventCountdown: React.FC = () => {
               >
                 {categories.map(cat => (
                   <option key={cat.value} value={cat.value}>
-                    {cat.emoji} {cat.label}
+                    {cat.label}
                   </option>
                 ))}
               </select>
@@ -645,7 +641,6 @@ const EventCountdown: React.FC = () => {
                 <div key={event._id || event.title} className="card" style={{ margin: 0, marginBottom: '1rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{ fontSize: '1.5rem' }}>{getCategoryEmoji(event.category)}</span>
                       <h3 style={{ margin: 0 }}>{event.title}</h3>
                     </div>
                     <button
