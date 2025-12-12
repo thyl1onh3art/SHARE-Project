@@ -36,7 +36,7 @@ const Navbar: React.FC = () => {
       justifyContent: 'space-between',
       alignItems: 'center'
     }}>
-      <Link to="/" style={{
+      <Link to="/dashboard" style={{
         fontSize: '1.5rem',
         fontWeight: 'bold',
         textDecoration: 'none',
@@ -50,6 +50,9 @@ const Navbar: React.FC = () => {
       {user ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <Link to="/dashboard" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
+              Dashboard
+            </Link>
             <Link to="/personal-finance" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
               Finance
             </Link>
