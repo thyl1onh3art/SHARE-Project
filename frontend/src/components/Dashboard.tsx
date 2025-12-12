@@ -23,28 +23,74 @@ const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const [financialRecords, setFinancialRecords] = useState<FinancialRecord[]>([]);
   const [sharedAccounts, setSharedAccounts] = useState<SharedAccount[]>([]);
+  const [invitesCount, setInvitesCount] = useState(0);
+  const [eventsCount, setEventsCount] = useState(0);
+  const [galleryCount, setGalleryCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [accountDetails, setAccountDetails] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [setupDismissed, setSetupDismissed] = useState(false);
 
   useEffect(() => {
+    setSetupDismissed(localStorage.getItem('setupChecklistDismissed') === '1');
     fetchDashboardData();
   }, []);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const [financeResponse, accountsResponse] = await Promise.all([
+      setError('');
+
+      const results = await Promise.allSettled([
         axios.get('/finance'),
-        axios.get('/shared-accounts')
+        axios.get('/shared-accounts'),
+        axios.get('/invites/list'),
+        axios.get('/events'),
+        axios.get('/gallery/images')
       ]);
-      
-      setFinancialRecords(financeResponse.data);
-      setSharedAccounts(accountsResponse.data);
-    } catch (err: any) {
-      setError('Failed to load dashboard data');
+
+      const financeResult = results[0];
+      const accountsResult = results[1];
+      const invitesResult = results[2];
+      const eventsResult = results[3];
+      const galleryResult = results[4];
+
+      if (financeResult.status === 'fulfilled') {
+        setFinancialRecords(financeResult.value.data || []);
+      } else {
+        setFinancialRecords([]);
+      }
+
+      if (accountsResult.status === 'fulfilled') {
+        setSharedAccounts(accountsResult.value.data || []);
+      } else {
+        setSharedAccounts([]);
+      }
+
+      if (invitesResult.status === 'fulfilled') {
+        setInvitesCount(Array.isArray(invitesResult.value.data) ? invitesResult.value.data.length : 0);
+      } else {
+        setInvitesCount(0);
+      }
+
+      if (eventsResult.status === 'fulfilled') {
+        setEventsCount(Array.isArray(eventsResult.value.data) ? eventsResult.value.data.length : 0);
+      } else {
+        setEventsCount(0);
+      }
+
+      if (galleryResult.status === 'fulfilled') {
+        setGalleryCount(Array.isArray(galleryResult.value.data) ? galleryResult.value.data.length : 0);
+      } else {
+        setGalleryCount(0);
+      }
+
+      const anyFailed = results.some(r => r.status === 'rejected');
+      if (anyFailed) {
+        setError('Some dashboard sections could not be loaded (showing what we can).');
+      }
     } finally {
       setLoading(false);
     }
@@ -59,6 +105,52 @@ const Dashboard: React.FC = () => {
     .reduce((sum, record) => sum + record.amount, 0);
 
   const netBalance = totalIncome - totalExpenses;
+
+  // Guided setup checklist completion
+  const isEmailVerified = false; // Email verification is currently disabled in the app flow
+  const hasSharedAccount = sharedAccounts.length > 0;
+  const hasInvite = invitesCount > 0;
+  const hasFirstItem = financialRecords.length > 0 || eventsCount > 0 || galleryCount > 0;
+
+  const setupSteps = [
+    {
+      key: 'verify-email',
+      title: 'Verify your email',
+      description: 'Currently disabled (do this later).',
+      done: isEmailVerified,
+      cta: null as null | { to: string; label: string }
+    },
+    {
+      key: 'add-account',
+      title: 'Create a shared account',
+      description: 'Create an account to collaborate with others.',
+      done: hasSharedAccount,
+      cta: { to: '/shared-accounts', label: 'Create shared account' }
+    },
+    {
+      key: 'invite',
+      title: 'Invite someone',
+      description: 'Send an invitation to join a shared account.',
+      done: hasInvite,
+      cta: { to: '/invitations', label: 'Send invite' }
+    },
+    {
+      key: 'first-item',
+      title: 'Create your first record/event/gallery item',
+      description: 'Add at least one item so the app can start tracking.',
+      done: hasFirstItem,
+      cta: { to: '/financial-records', label: 'Add first record' }
+    }
+  ];
+
+  const completedCount = setupSteps.filter(s => s.done).length;
+  const totalCount = setupSteps.length;
+  const progressPct = Math.round((completedCount / totalCount) * 100);
+
+  const dismissSetupChecklist = () => {
+    localStorage.setItem('setupChecklistDismissed', '1');
+    setSetupDismissed(true);
+  };
 
   const handleViewDetails = async (accountId: string) => {
     try {
@@ -97,6 +189,86 @@ const Dashboard: React.FC = () => {
       {error && (
         <div className="alert alert-error">
           {error}
+        </div>
+      )}
+
+      {!setupDismissed && (
+        <div className="card" style={{ border: '1px solid #e2e8f0' }}>
+          <div className="card-header">
+            <div>
+              <h2 className="card-title" style={{ marginBottom: '0.25rem' }}>Getting started</h2>
+              <p style={{ color: '#4a5568', margin: 0 }}>
+                {completedCount}/{totalCount} complete • {progressPct}%
+              </p>
+            </div>
+            <button className="btn btn-secondary" onClick={dismissSetupChecklist}>
+              Hide
+            </button>
+          </div>
+
+          <div style={{ marginBottom: '1rem' }}>
+            <div style={{
+              width: '100%',
+              height: '10px',
+              background: '#edf2f7',
+              borderRadius: '999px',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                width: `${progressPct}%`,
+                height: '100%',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                transition: 'width 0.2s ease'
+              }} />
+            </div>
+          </div>
+
+          <div className="list">
+            {setupSteps.map(step => (
+              <div key={step.key} className="list-item" style={{ alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                  <div style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '999px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 'bold',
+                    background: step.done ? '#c6f6d5' : '#edf2f7',
+                    color: step.done ? '#22543d' : '#4a5568',
+                    flexShrink: 0
+                  }}>
+                    {step.done ? '✓' : '•'}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600, color: '#2d3748' }}>{step.title}</div>
+                    <div style={{ color: '#4a5568', fontSize: '0.9rem', marginTop: '0.15rem' }}>
+                      {step.description}
+                    </div>
+                    {!step.done && step.key === 'first-item' && (
+                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                        <Link to="/financial-records" className="btn btn-primary" style={{ textDecoration: 'none' }}>
+                          Add record
+                        </Link>
+                        <Link to="/events" className="btn btn-secondary" style={{ textDecoration: 'none' }}>
+                          Add event
+                        </Link>
+                        <Link to="/gallery" className="btn btn-secondary" style={{ textDecoration: 'none' }}>
+                          Upload image
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {!step.done && step.cta && step.key !== 'first-item' && (
+                  <Link to={step.cta.to} className="btn btn-primary" style={{ textDecoration: 'none' }}>
+                    {step.cta.label}
+                  </Link>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

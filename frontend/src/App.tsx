@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './contexts/AuthContext';
 import Login from './components/Login';
 import Register from './components/Register';
+import Dashboard from './components/Dashboard';
 import FinancialRecords from './components/FinancialRecords';
 import PersonalFinance from './components/PersonalFinance';
 import SharedAccounts from './components/SharedAccounts';
@@ -25,7 +26,15 @@ function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              <Route path="/" element={<Navigate to="/financial-records" replace />} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
               <Route 
                 path="/financial-records" 
                 element={
