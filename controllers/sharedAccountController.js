@@ -162,7 +162,11 @@ exports.getUserSharedAccounts = async (req, res) => {
       ]
     })
       .populate('owner', 'name firstName lastName email')
-      .populate('members', 'name firstName lastName email');
+      .populate('members', 'name firstName lastName email')
+      .populate({
+        path: 'financeRecords',
+        populate: { path: 'user', select: 'firstName lastName email' }
+      });
     
     // Recalculate perPersonAmount for each account to ensure it's always accurate
     for (const account of accounts) {
