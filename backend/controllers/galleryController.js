@@ -43,7 +43,7 @@ exports.uploadImage = async (req, res) => {
       return res.status(400).json({ message: 'No image file provided' });
     }
 
-    const { caption, tags, eventId, isPublic } = req.body;
+    const { caption, tags, eventId, sharedAccountId, isPublic } = req.body;
     
     // Get event title if eventId is provided
     let eventTitle = null;
@@ -51,6 +51,30 @@ exports.uploadImage = async (req, res) => {
       const event = await Event.findOne({ _id: eventId, user: req.user.userId });
       if (event) {
         eventTitle = event.title;
+      }
+    }
+
+    // Get shared account name if sharedAccountId is provided
+    let sharedAccountName = null;
+    if (sharedAccountId) {
+      const SharedAccount = require('../models/SharedAccount');
+      const sharedAccount = await SharedAccount.findById(sharedAccountId);
+      if (sharedAccount) {
+        // Check if user is a member or owner
+        const ownerId = typeof sharedAccount.owner === 'object' 
+          ? sharedAccount.owner._id.toString() 
+          : sharedAccount.owner.toString();
+        const isOwner = ownerId === req.user.userId;
+        const isMember = sharedAccount.members.some((m) => {
+          const memberId = typeof m === 'object' ? m._id.toString() : m.toString();
+          return memberId === req.user.userId;
+        });
+        
+        if (!isOwner && !isMember) {
+          return res.status(403).json({ message: 'Access denied. You must be a member of this shared account.' });
+        }
+        
+        sharedAccountName = sharedAccount.name;
       }
     }
 
@@ -62,6 +86,8 @@ exports.uploadImage = async (req, res) => {
       uploadedBy: req.user.userId,
       eventId: eventId || null,
       eventTitle: eventTitle,
+      sharedAccountId: sharedAccountId || null,
+      sharedAccountName: sharedAccountName,
       caption: caption || '',
       tags: tags ? tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
       isPublic: isPublic === 'true',
@@ -79,13 +105,34 @@ exports.uploadImage = async (req, res) => {
 // Get all images for the user
 exports.getUserImages = async (req, res) => {
   try {
-    const images = await GalleryImage.find({
+    const { sharedAccountId } = req.query;
+    
+    // Get all shared accounts where user is a member
+    const SharedAccount = require('../models/SharedAccount');
+    const userAccounts = await SharedAccount.find({
+      $or: [
+        { owner: req.user.userId },
+        { members: req.user.userId }
+      ]
+    }).select('_id');
+    
+    const accountIds = userAccounts.map(acc => acc._id);
+    
+    let query = {
       $or: [
         { uploadedBy: req.user.userId },
         { isPublic: true },
-        { sharedWith: req.user.userId }
+        { sharedWith: req.user.userId },
+        { sharedAccountId: { $in: accountIds } } // Images from shared accounts user is part of
       ]
-    }).sort({ createdAt: -1 });
+    };
+    
+    // Filter by shared account if provided
+    if (sharedAccountId) {
+      query.sharedAccountId = sharedAccountId;
+    }
+    
+    const images = await GalleryImage.find(query).sort({ createdAt: -1 });
     
     res.json(images);
   } catch (err) {

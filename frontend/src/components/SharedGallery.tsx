@@ -10,12 +10,19 @@ interface GalleryImage {
   uploadedBy: string;
   eventId?: string;
   eventTitle?: string;
+  sharedAccountId?: string;
+  sharedAccountName?: string;
   caption: string;
   tags: string[];
   isPublic: boolean;
   sharedWith: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+interface SharedAccount {
+  _id: string;
+  name: string;
 }
 
 interface Event {
@@ -28,12 +35,14 @@ interface Event {
 const SharedGallery: React.FC = () => {
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
+  const [sharedAccounts, setSharedAccounts] = useState<SharedAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
   const [uploading, setUploading] = useState(false);
   const [filterEvent, setFilterEvent] = useState<string>('all');
+  const [filterSharedAccount, setFilterSharedAccount] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -42,12 +51,14 @@ const SharedGallery: React.FC = () => {
     caption: '',
     tags: '',
     eventId: '',
+    sharedAccountId: '',
     isPublic: false
   });
 
   useEffect(() => {
     fetchImages();
     fetchEvents();
+    fetchSharedAccounts();
   }, []);
 
   const fetchImages = async () => {
@@ -74,6 +85,15 @@ const SharedGallery: React.FC = () => {
       setEvents(response.data);
     } catch (err: any) {
       console.error('Error fetching events:', err);
+    }
+  };
+
+  const fetchSharedAccounts = async () => {
+    try {
+      const response = await axios.get('/shared-accounts');
+      setSharedAccounts(response.data);
+    } catch (err: any) {
+      console.error('Error fetching shared accounts:', err);
     }
   };
 
@@ -107,6 +127,9 @@ const SharedGallery: React.FC = () => {
     formData.append('caption', uploadData.caption);
     formData.append('tags', uploadData.tags);
     formData.append('eventId', uploadData.eventId);
+    if (uploadData.sharedAccountId) {
+      formData.append('sharedAccountId', uploadData.sharedAccountId);
+    }
     formData.append('isPublic', uploadData.isPublic.toString());
 
     try {
@@ -121,6 +144,7 @@ const SharedGallery: React.FC = () => {
         caption: '',
         tags: '',
         eventId: '',
+        sharedAccountId: '',
         isPublic: false
       });
       setShowUploadModal(false);
@@ -147,12 +171,14 @@ const SharedGallery: React.FC = () => {
 
   const filteredImages = images.filter(image => {
     const matchesEvent = filterEvent === 'all' || image.eventId === filterEvent;
+    const matchesSharedAccount = filterSharedAccount === 'all' || image.sharedAccountId === filterSharedAccount;
     const matchesSearch = searchTerm === '' || 
       image.caption.toLowerCase().includes(searchTerm.toLowerCase()) ||
       image.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      image.eventTitle?.toLowerCase().includes(searchTerm.toLowerCase());
+      image.eventTitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      image.sharedAccountName?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    return matchesEvent && matchesSearch;
+    return matchesEvent && matchesSharedAccount && matchesSearch;
   });
 
   const formatFileSize = (bytes: number): string => {
@@ -215,7 +241,7 @@ const SharedGallery: React.FC = () => {
 
       {/* Filters */}
       <div className="card">
-        <div className="grid grid-2">
+        <div className="grid grid-3">
           <div className="form-group">
             <label className="form-label">Filter by Event</label>
             <select
@@ -233,13 +259,29 @@ const SharedGallery: React.FC = () => {
           </div>
 
           <div className="form-group">
+            <label className="form-label">Filter by Shared Account</label>
+            <select
+              className="form-input"
+              value={filterSharedAccount}
+              onChange={(e) => setFilterSharedAccount(e.target.value)}
+            >
+              <option value="all">All Accounts</option>
+              {sharedAccounts.map(account => (
+                <option key={account._id} value={account._id}>
+                  {account.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
             <label className="form-label">Search</label>
             <input
               type="text"
               className="form-input"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by caption, tags, or event..."
+              placeholder="Search by caption, tags, event, or account..."
             />
           </div>
         </div>
@@ -328,7 +370,13 @@ const SharedGallery: React.FC = () => {
                   
                   {image.eventTitle && (
                     <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: '#666' }}>
-                      {image.eventTitle}
+                      Event: {image.eventTitle}
+                    </p>
+                  )}
+                  
+                  {image.sharedAccountName && (
+                    <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: '#667eea', fontWeight: '500' }}>
+                      Shared Account: {image.sharedAccountName}
                     </p>
                   )}
                   
@@ -449,6 +497,25 @@ const SharedGallery: React.FC = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Shared Account (Optional)</label>
+                <select
+                  className="form-input"
+                  value={uploadData.sharedAccountId}
+                  onChange={(e) => setUploadData({ ...uploadData, sharedAccountId: e.target.value })}
+                >
+                  <option value="">No shared account</option>
+                  {sharedAccounts.map(account => (
+                    <option key={account._id} value={account._id}>
+                      {account.name}
+                    </option>
+                  ))}
+                </select>
+                <p style={{ fontSize: '0.85rem', color: '#4a5568', marginTop: '0.25rem' }}>
+                  Link this image to a shared account so all participants can see it
+                </p>
               </div>
 
               <div className="form-group">

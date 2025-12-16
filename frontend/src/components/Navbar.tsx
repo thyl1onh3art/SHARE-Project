@@ -65,6 +65,9 @@ const Navbar: React.FC = () => {
             <Link to="/gallery" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
               Gallery
             </Link>
+            <Link to="/map" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
+              Map
+            </Link>
           </div>
           
           {/* Profile Dropdown */}

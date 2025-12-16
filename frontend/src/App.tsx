@@ -10,6 +10,7 @@ import SharedAccountDetail from './components/SharedAccountDetail';
 import Invitations from './components/Invitations';
 import EventCountdown from './components/EventCountdown';
 import SharedGallery from './components/SharedGallery';
+import EventMap from './components/EventMap';
 import Profile from './components/Profile';
 import Settings from './components/Settings';
 import Navbar from './components/Navbar';
@@ -80,6 +81,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <SharedGallery />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/map" 
+                element={
+                  <ProtectedRoute>
+                    <EventMap />
                   </ProtectedRoute>
                 } 
               />

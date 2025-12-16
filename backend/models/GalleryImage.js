@@ -8,6 +8,8 @@ const galleryImageSchema = new mongoose.Schema({
   uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   eventId: { type: mongoose.Schema.Types.ObjectId, ref: 'Event' },
   eventTitle: { type: String },
+  sharedAccountId: { type: mongoose.Schema.Types.ObjectId, ref: 'SharedAccount' },
+  sharedAccountName: { type: String },
   caption: { type: String, default: '' },
   tags: [{ type: String }],
   isPublic: { type: Boolean, default: false },
