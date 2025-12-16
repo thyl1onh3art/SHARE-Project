@@ -198,20 +198,30 @@ const startServer = async () => {
         console.log(`Database: MongoDB with Mongoose ODM`);
       });
 
-      // Start HTTPS server
-      try {
-        const httpsOptions = {
-          key: fs.readFileSync('./key.pem'),
-          cert: fs.readFileSync('./cert.pem')
-        };
+      // Start HTTPS server (only in local development if certificates exist)
+      // Railway handles HTTPS termination at the load balancer, so we don't need HTTPS here
+      const isProduction = process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT;
+      const keyExists = fs.existsSync('./key.pem');
+      const certExists = fs.existsSync('./cert.pem');
+      
+      if (!isProduction && keyExists && certExists) {
+        try {
+          const httpsOptions = {
+            key: fs.readFileSync('./key.pem'),
+            cert: fs.readFileSync('./cert.pem')
+          };
 
-        https.createServer(httpsOptions, app).listen(HTTPS_PORT, () => {
-          console.log(`HTTPS server running on port ${HTTPS_PORT}`);
-          console.log(`Secure health check: https://localhost:${HTTPS_PORT}/health`);
-        });
-      } catch (sslError) {
-        console.warn('HTTPS server not started:', sslError.message);
-        console.log('Run "node generateCert.js" to generate SSL certificates');
+          https.createServer(httpsOptions, app).listen(HTTPS_PORT, () => {
+            console.log(`HTTPS server running on port ${HTTPS_PORT}`);
+            console.log(`Secure health check: https://localhost:${HTTPS_PORT}/health`);
+          });
+        } catch (sslError) {
+          console.warn('HTTPS server not started:', sslError.message);
+        }
+      } else if (!isProduction && (!keyExists || !certExists)) {
+        console.log('HTTPS server skipped: SSL certificates not found (run "node generateCert.js" for local HTTPS)');
+      } else if (isProduction) {
+        console.log('HTTPS server skipped: Railway handles HTTPS termination at the load balancer');
       }
     } else {
       console.log('Running in Vercel serverless environment');
