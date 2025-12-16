@@ -57,6 +57,7 @@ const SharedAccountDetail: React.FC = () => {
     if (accountId) {
       fetchAccountDetails();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId]);
 
   const fetchAccountDetails = async () => {
@@ -132,6 +133,7 @@ const SharedAccountDetail: React.FC = () => {
       const available = calculateAvailableWithdrawal(userId);
       setAvailableWithdrawal(available);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, transactions]);
 
   const handleWithdrawClick = () => {

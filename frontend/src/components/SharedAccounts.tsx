@@ -791,7 +791,6 @@ const SharedAccounts: React.FC = () => {
 
                       if (!accountPaymentRequest) return null;
 
-                      const currentUserId = (user as any)?._id || (user as any)?.id;
                       const allParticipants = [
                         typeof account.owner === 'object' ? account.owner._id : account.owner,
                         ...(Array.isArray(account.members) 
