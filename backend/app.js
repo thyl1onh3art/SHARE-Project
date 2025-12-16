@@ -15,6 +15,8 @@ const sharedAccountRoutes = require('./routes/sharedAccountRoutes');
 const financeRoutes = require('./routes/financeRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 const galleryRoutes = require('./routes/galleryRoutes');
+const accommodationRoutes = require('./routes/accommodationRoutes');
+const recommendationRoutes = require('./routes/recommendationRoutes');
 // const emailVerificationRoutes = require('./routes/emailVerificationRoutes');
 const twoFactorRoutes = require('./routes/twoFactorRoutes');
 const backupRoutes = require('./routes/backupRoutes');
@@ -146,6 +148,8 @@ app.use('/api/shared-accounts', sharedAccountRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/gallery', galleryRoutes);
+app.use('/api/accommodations', accommodationRoutes);
+app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/payment-requests', paymentRequestRoutes);
 // app.use('/api/email-verification', emailVerificationRoutes);
 

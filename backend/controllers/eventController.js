@@ -158,3 +158,46 @@ exports.getUpcomingEvents = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
+
+// Get events shared with the user
+exports.getSharedEvents = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const User = require('../models/User');
+    const currentUser = await User.findById(userId);
+    
+    if (!currentUser) {
+      return res.json([]);
+    }
+    
+    // Get events explicitly shared with this user (by user ID)
+    const eventsSharedById = await Event.find({
+      isShared: true,
+      sharedWith: userId
+    })
+      .populate('user', 'firstName lastName email')
+      .sort({ eventDate: 1, eventTime: 1 });
+    
+    // Get events from users who have shared their calendar with this user (by email)
+    const usersWithSharedCalendars = await User.find({
+      'calendarSettings.privacy': 'shared',
+      'calendarSettings.sharedWith': currentUser.email
+    }).select('_id');
+    
+    const sharedUserIds = usersWithSharedCalendars.map(u => u._id);
+    
+    const eventsFromSharedCalendars = await Event.find({
+      user: { $in: sharedUserIds },
+      user: { $ne: userId } // Exclude own events
+    })
+      .populate('user', 'firstName lastName email')
+      .sort({ eventDate: 1, eventTime: 1 });
+    
+    // Combine both types of shared events
+    const allSharedEvents = [...eventsSharedById, ...eventsFromSharedCalendars];
+    
+    res.json(allSharedEvents);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};

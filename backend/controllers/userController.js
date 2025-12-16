@@ -162,3 +162,57 @@ exports.deleteAccount = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
+
+// Get calendar settings
+exports.getCalendarSettings = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select('calendarSettings');
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.json({
+      privacy: user.calendarSettings?.privacy || 'private',
+      sharedWith: user.calendarSettings?.sharedWith || []
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+// Update calendar settings
+exports.updateCalendarSettings = async (req, res) => {
+  try {
+    const { privacy, sharedWith } = req.body;
+    
+    if (privacy && !['private', 'shared'].includes(privacy)) {
+      return res.status(400).json({ message: 'Invalid privacy setting. Must be "private" or "shared"' });
+    }
+    
+    const updateData = {};
+    if (privacy) {
+      updateData['calendarSettings.privacy'] = privacy;
+    }
+    if (sharedWith && Array.isArray(sharedWith)) {
+      updateData['calendarSettings.sharedWith'] = sharedWith;
+    }
+    
+    const user = await User.findByIdAndUpdate(
+      req.user.userId,
+      { $set: updateData },
+      { new: true }
+    ).select('calendarSettings');
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.json({
+      privacy: user.calendarSettings?.privacy || 'private',
+      sharedWith: user.calendarSettings?.sharedWith || []
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};

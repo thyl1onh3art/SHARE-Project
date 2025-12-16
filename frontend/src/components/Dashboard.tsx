@@ -19,10 +19,22 @@ interface SharedAccount {
   financeRecords: any[];
 }
 
+interface EventRecommendation {
+  type: string;
+  title: string;
+  category?: string;
+  location?: string;
+  suggestedDate?: string;
+  suggestedBudget?: number;
+  reason: string;
+  confidence: 'high' | 'medium' | 'low';
+}
+
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const [financialRecords, setFinancialRecords] = useState<FinancialRecord[]>([]);
   const [sharedAccounts, setSharedAccounts] = useState<SharedAccount[]>([]);
+  const [recommendations, setRecommendations] = useState<EventRecommendation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -36,13 +48,15 @@ const Dashboard: React.FC = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const [financeResponse, accountsResponse] = await Promise.all([
+      const [financeResponse, accountsResponse, recommendationsResponse] = await Promise.all([
         axios.get('/finance'),
-        axios.get('/shared-accounts')
+        axios.get('/shared-accounts'),
+        axios.get('/recommendations/events').catch(() => ({ data: { recommendations: [] } })) // Optional, don't fail if endpoint doesn't exist
       ]);
       
       setFinancialRecords(financeResponse.data);
       setSharedAccounts(accountsResponse.data);
+      setRecommendations(recommendationsResponse.data.recommendations || []);
     } catch (err: any) {
       setError('Failed to load dashboard data');
     } finally {
@@ -129,6 +143,66 @@ const Dashboard: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* Event Recommendations */}
+      {recommendations.length > 0 && (
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <div className="card-header">
+            <h2 className="card-title">Event Recommendations for You</h2>
+            <Link to="/events" className="btn btn-primary">
+              View All Events
+            </Link>
+          </div>
+          <div className="grid grid-2">
+            {recommendations.slice(0, 4).map((rec, index) => (
+              <div key={index} className="card" style={{ margin: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
+                  <h3 style={{ margin: 0, fontSize: '1rem', color: '#2d3748' }}>{rec.title}</h3>
+                  <span style={{
+                    fontSize: '0.75rem',
+                    padding: '0.25rem 0.5rem',
+                    borderRadius: '4px',
+                    background: rec.confidence === 'high' ? '#c6f6d5' : rec.confidence === 'medium' ? '#fef3c7' : '#fed7d7',
+                    color: rec.confidence === 'high' ? '#22543d' : rec.confidence === 'medium' ? '#92400e' : '#742a2a'
+                  }}>
+                    {rec.confidence}
+                  </span>
+                </div>
+                <p style={{ color: '#4a5568', fontSize: '0.85rem', margin: '0.25rem 0' }}>
+                  {rec.reason}
+                </p>
+                {rec.category && (
+                  <p style={{ color: '#667eea', fontSize: '0.8rem', margin: '0.25rem 0' }}>
+                    Category: {rec.category}
+                  </p>
+                )}
+                {rec.location && (
+                  <p style={{ color: '#667eea', fontSize: '0.8rem', margin: '0.25rem 0' }}>
+                    Location: {rec.location}
+                  </p>
+                )}
+                {rec.suggestedDate && (
+                  <p style={{ color: '#4a5568', fontSize: '0.8rem', margin: '0.25rem 0' }}>
+                    Suggested: {new Date(rec.suggestedDate).toLocaleDateString()}
+                  </p>
+                )}
+                {rec.suggestedBudget && (
+                  <p style={{ color: '#2b6cb0', fontSize: '0.9rem', fontWeight: '600', margin: '0.5rem 0 0 0' }}>
+                    Budget: £{rec.suggestedBudget.toFixed(2)}
+                  </p>
+                )}
+                <Link
+                  to="/events"
+                  className="btn btn-secondary"
+                  style={{ width: '100%', marginTop: '0.5rem', textAlign: 'center', fontSize: '0.85rem' }}
+                >
+                  Create Event
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Recent Financial Records */}
       <div className="card">

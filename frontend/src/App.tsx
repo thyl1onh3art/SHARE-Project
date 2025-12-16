@@ -9,8 +9,10 @@ import SharedAccounts from './components/SharedAccounts';
 import SharedAccountDetail from './components/SharedAccountDetail';
 import Invitations from './components/Invitations';
 import EventCountdown from './components/EventCountdown';
+import Calendar from './components/Calendar';
 import SharedGallery from './components/SharedGallery';
 import EventMap from './components/EventMap';
+import Accommodations from './components/Accommodations';
 import Profile from './components/Profile';
 import Settings from './components/Settings';
 import Navbar from './components/Navbar';
@@ -77,6 +79,14 @@ function App() {
                 } 
               />
               <Route 
+                path="/calendar" 
+                element={
+                  <ProtectedRoute>
+                    <Calendar />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
                 path="/gallery" 
                 element={
                   <ProtectedRoute>
@@ -89,6 +99,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <EventMap />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/accommodations" 
+                element={
+                  <ProtectedRoute>
+                    <Accommodations />
                   </ProtectedRoute>
                 } 
               />

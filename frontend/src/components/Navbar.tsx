@@ -62,11 +62,17 @@ const Navbar: React.FC = () => {
             <Link to="/events" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
               Events
             </Link>
+            <Link to="/calendar" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
+              Calendar
+            </Link>
             <Link to="/gallery" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
               Gallery
             </Link>
             <Link to="/map" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
               Map
+            </Link>
+            <Link to="/accommodations" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
+              Accommodations
             </Link>
           </div>
           

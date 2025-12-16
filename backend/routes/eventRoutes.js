@@ -13,6 +13,9 @@ router.get('/', auth, asyncHandler(eventController.getUserEvents));
 // Get upcoming events (next 30 days)
 router.get('/upcoming', auth, asyncHandler(eventController.getUpcomingEvents));
 
+// Get events shared with the user
+router.get('/shared', auth, asyncHandler(eventController.getSharedEvents));
+
 // Get a specific event
 router.get('/:id', auth, asyncHandler(eventController.getEvent));
 

@@ -20,4 +20,10 @@ router.put('/profile', auth, asyncHandler(userController.updateProfile));
 // Delete user account
 router.delete('/account', auth, asyncHandler(userController.deleteAccount));
 
+// Get calendar settings
+router.get('/calendar-settings', auth, asyncHandler(userController.getCalendarSettings));
+
+// Update calendar settings
+router.put('/calendar-settings', auth, asyncHandler(userController.updateCalendarSettings));
+
 module.exports = router; 
