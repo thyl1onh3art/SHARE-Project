@@ -353,3 +353,114 @@ exports.deleteSharedAccount = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
+
+// Withdraw funds from shared account (participant can withdraw their contributions)
+exports.withdrawFunds = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+    const { amount, description } = req.body;
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ message: 'Valid withdrawal amount is required' });
+    }
+
+    // Get the shared account
+    const sharedAccount = await SharedAccount.findById(id);
+    if (!sharedAccount) {
+      return res.status(404).json({ message: 'Shared account not found' });
+    }
+
+    // Check if user is owner or member
+    const ownerId = typeof sharedAccount.owner === 'object' 
+      ? sharedAccount.owner._id.toString() 
+      : sharedAccount.owner.toString();
+    const isOwner = ownerId === userId;
+    const isMember = sharedAccount.members.some((m) => {
+      const memberId = typeof m === 'object' ? m._id.toString() : m.toString();
+      return memberId === userId;
+    });
+
+    if (!isOwner && !isMember) {
+      return res.status(403).json({ message: 'Access denied. You must be a member of this account.' });
+    }
+
+    // Calculate user's total contributions (input records only)
+    const userInputRecords = await FinanceRecord.find({
+      sharedAccount: id,
+      user: userId,
+      type: 'input'
+    });
+
+    const totalContributions = userInputRecords.reduce((sum, record) => sum + (record.amount || 0), 0);
+
+    // Calculate user's total withdrawals (output records)
+    const userOutputRecords = await FinanceRecord.find({
+      sharedAccount: id,
+      user: userId,
+      type: 'output'
+    });
+
+    const totalWithdrawals = userOutputRecords.reduce((sum, record) => sum + (record.amount || 0), 0);
+
+    // Calculate available withdrawal amount
+    const availableAmount = totalContributions - totalWithdrawals;
+
+    if (amount > availableAmount) {
+      return res.status(400).json({ 
+        message: `Insufficient funds. You can withdraw up to £${availableAmount.toFixed(2)} (your total contributions: £${totalContributions.toFixed(2)}, already withdrawn: £${totalWithdrawals.toFixed(2)})` 
+      });
+    }
+
+    // Check account balance
+    const allRecords = await FinanceRecord.find({ sharedAccount: id });
+    const accountBalance = allRecords.reduce((sum, record) => {
+      return sum + (record.type === 'input' ? record.amount : -record.amount);
+    }, 0);
+
+    if (amount > accountBalance) {
+      return res.status(400).json({ 
+        message: `Insufficient account balance. Account has £${accountBalance.toFixed(2)}` 
+      });
+    }
+
+    // Create withdrawal record (output from shared account)
+    const withdrawalRecord = new FinanceRecord({
+      user: userId,
+      type: 'output',
+      amount: parseFloat(amount),
+      date: new Date(),
+      description: description || `Withdrawal from ${sharedAccount.name}`,
+      sharedAccount: id
+    });
+
+    await withdrawalRecord.save();
+
+    // Add finance record to shared account
+    if (!sharedAccount.financeRecords) {
+      sharedAccount.financeRecords = [];
+    }
+    sharedAccount.financeRecords.push(withdrawalRecord._id);
+    await sharedAccount.save();
+
+    // Create input record in user's personal account (add to personal balance)
+    const personalInputRecord = new FinanceRecord({
+      user: userId,
+      type: 'input',
+      amount: parseFloat(amount),
+      date: new Date(),
+      description: `Withdrawal from shared account: ${sharedAccount.name}`,
+      sharedAccount: null // This is a personal account record
+    });
+
+    await personalInputRecord.save();
+
+    res.status(201).json({
+      message: 'Withdrawal successful',
+      withdrawalRecord,
+      availableAmount: availableAmount - amount
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};

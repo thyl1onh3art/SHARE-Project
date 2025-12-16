@@ -14,4 +14,7 @@ router.get('/', auth, asyncHandler(sharedAccountController.getUserSharedAccounts
 // Get details of a shared account
 router.get('/:id', auth, asyncHandler(sharedAccountController.getSharedAccountDetails));
 
+// Withdraw funds from shared account
+router.post('/:id/withdraw', auth, asyncHandler(sharedAccountController.withdrawFunds));
+
 module.exports = router;

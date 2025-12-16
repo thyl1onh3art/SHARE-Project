@@ -6,6 +6,7 @@ import Register from './components/Register';
 import FinancialRecords from './components/FinancialRecords';
 import PersonalFinance from './components/PersonalFinance';
 import SharedAccounts from './components/SharedAccounts';
+import SharedAccountDetail from './components/SharedAccountDetail';
 import Invitations from './components/Invitations';
 import EventCountdown from './components/EventCountdown';
 import SharedGallery from './components/SharedGallery';
@@ -47,6 +48,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <SharedAccounts />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/shared-accounts/:accountId" 
+                element={
+                  <ProtectedRoute>
+                    <SharedAccountDetail />
                   </ProtectedRoute>
                 } 
               />

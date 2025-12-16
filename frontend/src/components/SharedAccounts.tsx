@@ -779,6 +779,104 @@ const SharedAccounts: React.FC = () => {
                     }}>
                       <strong>Balance:</strong> £{balance.toFixed(2)}
                     </p>
+
+                    {/* Payment Request Status */}
+                    {(() => {
+                      const accountPaymentRequest = paymentRequests.find((pr: any) => {
+                        const accountId = typeof pr.sharedAccount === 'object' 
+                          ? pr.sharedAccount._id 
+                          : pr.sharedAccount;
+                        return accountId === account._id && pr.status === 'pending';
+                      });
+
+                      if (!accountPaymentRequest) return null;
+
+                      const currentUserId = (user as any)?._id || (user as any)?.id;
+                      const allParticipants = [
+                        typeof account.owner === 'object' ? account.owner._id : account.owner,
+                        ...(Array.isArray(account.members) 
+                          ? account.members.map((m: any) => typeof m === 'object' ? m._id : m)
+                          : []
+                        )
+                      ];
+
+                      const approvals = accountPaymentRequest.approvals || [];
+                      const rejections = accountPaymentRequest.rejections || [];
+                      const approvedUserIds = approvals.map((a: any) => {
+                        const userId = typeof a.user === 'object' ? a.user._id : a.user;
+                        return userId?.toString();
+                      });
+                      const rejectedUserIds = rejections.map((r: any) => {
+                        const userId = typeof r.user === 'object' ? r.user._id : r.user;
+                        return userId?.toString();
+                      });
+                      const pendingUserIds = allParticipants.filter((id: string) => {
+                        const idStr = id?.toString();
+                        return !approvedUserIds.includes(idStr) && !rejectedUserIds.includes(idStr);
+                      });
+
+                      return (
+                        <div style={{
+                          background: '#fef3c7',
+                          border: '1px solid #f59e0b',
+                          borderRadius: '6px',
+                          padding: '0.75rem',
+                          marginTop: '0.5rem'
+                        }}>
+                          <p style={{ color: '#92400e', fontSize: '0.85rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
+                            Payment Request Pending: £{accountPaymentRequest.amount?.toFixed(2)}
+                          </p>
+                          <div style={{ fontSize: '0.8rem', color: '#92400e' }}>
+                            <p style={{ margin: '0.25rem 0', fontWeight: '600' }}>
+                              Status: {approvals.length} / {accountPaymentRequest.requiredApprovals} approved
+                            </p>
+                            {approvedUserIds.length > 0 && (
+                              <div style={{ marginTop: '0.5rem' }}>
+                                <strong>✓ Approved:</strong>
+                                <ul style={{ margin: '0.25rem 0', paddingLeft: '1.25rem' }}>
+                                  {approvals.map((a: any, idx: number) => {
+                                    const userName = typeof a.user === 'object' 
+                                      ? `${a.user.firstName || ''} ${a.user.lastName || ''}`.trim() || a.user.email
+                                      : 'Unknown';
+                                    return <li key={idx} style={{ fontSize: '0.75rem' }}>{userName}</li>;
+                                  })}
+                                </ul>
+                              </div>
+                            )}
+                            {pendingUserIds.length > 0 && (
+                              <div style={{ marginTop: '0.5rem' }}>
+                                <strong>⏳ Pending:</strong>
+                                <ul style={{ margin: '0.25rem 0', paddingLeft: '1.25rem' }}>
+                                  {pendingUserIds.map((id: string, idx: number) => {
+                                    const participant = allParticipants.find((p: any) => {
+                                      const pId = typeof p === 'object' ? p._id : p;
+                                      return pId?.toString() === id?.toString();
+                                    });
+                                    const userName = typeof participant === 'object' && participant
+                                      ? `${participant.firstName || ''} ${participant.lastName || ''}`.trim() || participant.email
+                                      : 'Unknown';
+                                    return <li key={idx} style={{ fontSize: '0.75rem' }}>{userName}</li>;
+                                  })}
+                                </ul>
+                              </div>
+                            )}
+                            {rejectedUserIds.length > 0 && (
+                              <div style={{ marginTop: '0.5rem' }}>
+                                <strong style={{ color: '#dc2626' }}>✗ Declined:</strong>
+                                <ul style={{ margin: '0.25rem 0', paddingLeft: '1.25rem' }}>
+                                  {rejections.map((r: any, idx: number) => {
+                                    const userName = typeof r.user === 'object' 
+                                      ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() || r.user.email
+                                      : 'Unknown';
+                                    return <li key={idx} style={{ fontSize: '0.75rem', color: '#dc2626' }}>{userName}</li>;
+                                  })}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                 {/* Action Buttons Section */}
@@ -805,6 +903,22 @@ const SharedAccounts: React.FC = () => {
                     marginBottom: '0.5rem' 
                   }}>
                     <button 
+                      className="btn btn-primary" 
+                      style={{ 
+                        fontSize: '13px', 
+                        padding: '10px 12px', 
+                        fontWeight: '500',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.25rem'
+                      }}
+                      onClick={() => navigate(`/shared-accounts/${account._id}`)}
+                      title="View full account details and transaction history"
+                    >
+                      View Account
+                    </button>
+                    <button 
                       className="btn btn-secondary" 
                       style={{ 
                         fontSize: '13px', 
@@ -816,9 +930,9 @@ const SharedAccounts: React.FC = () => {
                         gap: '0.25rem'
                       }}
                       onClick={() => handleEditClick(account)}
-                      title="View and edit account details"
+                      title="Edit account settings"
                     >
-                      View/Edit Details
+                      Edit Settings
                     </button>
                     <button 
                       className="btn btn-outline" 
@@ -1298,7 +1412,68 @@ const SharedAccounts: React.FC = () => {
                   </p>
                 )}
 
-                {/* Time Remaining */}
+                {/* Payment Calculations */}
+                {selectedAccount.targetAmount && selectedAccount.targetAmount > 0 && (() => {
+                  const participantCount = getParticipantCount(selectedAccount);
+                  const perPersonAmount = selectedAccount.targetAmount / participantCount;
+                  const timeRemaining = selectedAccount.targetDate 
+                    ? Math.max(0, new Date(selectedAccount.targetDate).getTime() - new Date().getTime())
+                    : 0;
+                  const daysRemaining = Math.ceil(timeRemaining / (1000 * 60 * 60 * 24));
+                  const weeksRemaining = Math.ceil(daysRemaining / 7);
+                  const monthsRemaining = Math.ceil(daysRemaining / 30);
+                  const weeklyAmount = weeksRemaining > 0 ? perPersonAmount / weeksRemaining : perPersonAmount;
+                  const monthlyAmount = monthsRemaining > 0 ? perPersonAmount / monthsRemaining : perPersonAmount;
+
+                  return (
+                    <div style={{ 
+                      background: '#fef3c7',
+                      border: '1px solid #f59e0b',
+                      borderRadius: '6px',
+                      padding: '0.75rem',
+                      marginTop: '0.5rem'
+                    }}>
+                      <p style={{ color: '#92400e', fontSize: '0.85rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
+                        Payment Breakdown:
+                      </p>
+                      <div style={{ fontSize: '0.85rem', color: '#92400e', marginBottom: '0.5rem' }}>
+                        <p style={{ margin: '0.25rem 0' }}>
+                          <strong>Total Needed:</strong> £{selectedAccount.targetAmount.toFixed(2)}
+                        </p>
+                        <p style={{ margin: '0.25rem 0' }}>
+                          <strong>Participants:</strong> {participantCount}
+                        </p>
+                        <p style={{ margin: '0.25rem 0', fontWeight: 'bold', color: '#78350f' }}>
+                          <strong>Per Person:</strong> £{perPersonAmount.toFixed(2)}
+                        </p>
+                      </div>
+                      {daysRemaining > 0 && (
+                        <div style={{ 
+                          borderTop: '1px solid #f59e0b', 
+                          paddingTop: '0.5rem', 
+                          marginTop: '0.5rem' 
+                        }}>
+                          <p style={{ color: '#92400e', fontSize: '0.8rem', margin: '0 0 0.25rem 0', fontWeight: 'bold' }}>
+                            Payment Options:
+                          </p>
+                          <div style={{ fontSize: '0.8rem', color: '#92400e' }}>
+                            <p style={{ margin: '0.25rem 0' }}>
+                              <strong>Weekly:</strong> £{weeklyAmount.toFixed(2)}/week for {weeksRemaining} week{weeksRemaining !== 1 ? 's' : ''}
+                            </p>
+                            <p style={{ margin: '0.25rem 0' }}>
+                              <strong>Monthly:</strong> £{monthlyAmount.toFixed(2)}/month for {monthsRemaining} month{monthsRemaining !== 1 ? 's' : ''}
+                            </p>
+                            <p style={{ margin: '0.25rem 0', fontStyle: 'italic' }}>
+                              <strong>Or:</strong> Single payment of £{perPersonAmount.toFixed(2)} anytime
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Time Remaining - Simplified */}
                 {selectedAccount.targetDate && (
                   <div style={{ 
                     background: '#f0f9ff',
@@ -1311,27 +1486,15 @@ const SharedAccounts: React.FC = () => {
                       Time Remaining:
                     </p>
                     {countdowns[selectedAccount._id] ? (
-                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
-                        {countdowns[selectedAccount._id].days > 0 && (
-                          <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>
-                            {countdowns[selectedAccount._id].days}d
-                          </span>
-                        )}
-                        <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>
-                          {countdowns[selectedAccount._id].hours}h
-                        </span>
-                        <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>
-                          {countdowns[selectedAccount._id].minutes}m
-                        </span>
-                        <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>
-                          {countdowns[selectedAccount._id].seconds}s
-                        </span>
-                      </div>
+                      <p style={{ color: '#0369a1', fontSize: '1rem', margin: 0, fontWeight: '600' }}>
+                        {countdowns[selectedAccount._id].days > 0 && `${countdowns[selectedAccount._id].days} day${countdowns[selectedAccount._id].days !== 1 ? 's' : ''}, `}
+                        {countdowns[selectedAccount._id].hours}h {countdowns[selectedAccount._id].minutes}m
+                      </p>
                     ) : (
                       <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>Calculating...</span>
                     )}
                     <p style={{ color: '#0369a1', fontSize: '0.75rem', margin: '0.5rem 0 0 0' }}>
-                      Target: {new Date(selectedAccount.targetDate).toLocaleString()}
+                      Target: {new Date(selectedAccount.targetDate).toLocaleDateString()}
                     </p>
                   </div>
                 )}
