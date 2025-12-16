@@ -781,113 +781,6 @@ const SharedAccounts: React.FC = () => {
                     }}>
                       <strong>Balance:</strong> £{balance.toFixed(2)}
                     </p>
-                    {account.targetDate && (
-                      <div style={{ 
-                        background: '#f0f9ff',
-                        border: '1px solid #bae6fd',
-                        borderRadius: '6px',
-                        padding: '0.75rem',
-                        marginTop: '0.5rem'
-                      }}>
-                        <p style={{ color: '#0369a1', fontSize: '0.85rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
-                          Time Remaining:
-                        </p>
-                        {countdowns[account._id] ? (
-                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
-                            {countdowns[account._id].days > 0 && (
-                              <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>
-                                {countdowns[account._id].days}d
-                              </span>
-                            )}
-                            <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>
-                              {countdowns[account._id].hours}h
-                            </span>
-                            <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>
-                              {countdowns[account._id].minutes}m
-                            </span>
-                            <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>
-                              {countdowns[account._id].seconds}s
-                            </span>
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>Calculating...</span>
-                        )}
-                        <p style={{ color: '#0369a1', fontSize: '0.75rem', margin: '0.5rem 0 0 0' }}>
-                          Target: {new Date(account.targetDate).toLocaleString()}
-                        </p>
-                      </div>
-                    )}
-                    <div 
-                      style={{ 
-                        color: '#4a5568', 
-                        fontSize: '0.9rem', 
-                        margin: '0.25rem 0',
-                        position: 'relative',
-                        display: 'inline-block'
-                      }}
-                      onMouseEnter={() => setHoveredAccountId(account._id)}
-                      onMouseLeave={() => setHoveredAccountId(null)}
-                    >
-                      <strong>Participants:</strong>{' '}
-                      <span style={{ 
-                        cursor: 'pointer', 
-                        textDecoration: 'underline',
-                        textDecorationStyle: 'dotted',
-                        color: '#2b6cb0'
-                      }}>
-                        {participantCount} {participantCount === 1 ? 'person' : 'people'} (invited and accepted)
-                      </span>
-                      {hoveredAccountId === account._id && (
-                        <div style={{
-                          position: 'absolute',
-                          bottom: '100%',
-                          left: 0,
-                          marginBottom: '8px',
-                          background: 'white',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '8px',
-                          padding: '12px',
-                          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                          zIndex: 1000,
-                          minWidth: '200px',
-                          maxWidth: '300px'
-                        }}>
-                          <div style={{
-                            fontSize: '0.85rem',
-                            fontWeight: '600',
-                            marginBottom: '8px',
-                            color: '#2d3748',
-                            borderBottom: '1px solid #e2e8f0',
-                            paddingBottom: '6px'
-                          }}>
-                            Participants:
-                          </div>
-                          <ul style={{
-                            listStyle: 'none',
-                            padding: 0,
-                            margin: 0
-                          }}>
-                            {getParticipantNames(account).map((name, index) => (
-                              <li key={index} style={{
-                                padding: '4px 0',
-                                fontSize: '0.85rem',
-                                color: '#4a5568'
-                              }}>
-                                • {name}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                    <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
-                      <strong>Records:</strong> {account.financeRecords?.length || 0}
-                    </p>
-                    {account.createdAt && (
-                      <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
-                        <strong>Created:</strong> {new Date(account.createdAt).toLocaleDateString()}
-                      </p>
-                    )}
                   </div>
 
                 {/* Action Buttons Section */}
@@ -1327,7 +1220,7 @@ const SharedAccounts: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>Edit Shared Account</h2>
+              <h2 style={{ margin: 0 }}>View/Edit Shared Account</h2>
               <button
                 onClick={() => {
                   setShowEditModal(false);
@@ -1344,6 +1237,107 @@ const SharedAccounts: React.FC = () => {
               >
                 ×
               </button>
+            </div>
+
+            {/* Account Details Section */}
+            <div style={{
+              background: '#f7fafc',
+              borderRadius: '8px',
+              padding: '1rem',
+              marginBottom: '1.5rem',
+              border: '1px solid #e2e8f0'
+            }}>
+              <h3 style={{ 
+                fontSize: '1rem', 
+                fontWeight: '600', 
+                color: '#2d3748', 
+                marginBottom: '1rem',
+                borderBottom: '2px solid #e2e8f0',
+                paddingBottom: '0.5rem'
+              }}>
+                Account Information
+              </h3>
+              
+              <div style={{ display: 'grid', gap: '0.75rem' }}>
+                {/* Participants */}
+                <div style={{ 
+                  color: '#4a5568', 
+                  fontSize: '0.9rem'
+                }}>
+                  <strong>Participants:</strong>{' '}
+                  <span style={{ color: '#2b6cb0' }}>
+                    {getParticipantCount(selectedAccount)} {getParticipantCount(selectedAccount) === 1 ? 'person' : 'people'} (invited and accepted)
+                  </span>
+                  {getParticipantNames(selectedAccount).length > 0 && (
+                    <ul style={{
+                      listStyle: 'none',
+                      padding: 0,
+                      margin: '0.5rem 0 0 0',
+                      paddingLeft: '1rem'
+                    }}>
+                      {getParticipantNames(selectedAccount).map((name, index) => (
+                        <li key={index} style={{
+                          padding: '2px 0',
+                          fontSize: '0.85rem',
+                          color: '#4a5568'
+                        }}>
+                          • {name}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {/* Records */}
+                <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>
+                  <strong>Records:</strong> {selectedAccount.financeRecords?.length || 0}
+                </p>
+
+                {/* Created Date */}
+                {selectedAccount.createdAt && (
+                  <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>
+                    <strong>Created:</strong> {new Date(selectedAccount.createdAt).toLocaleDateString()}
+                  </p>
+                )}
+
+                {/* Time Remaining */}
+                {selectedAccount.targetDate && (
+                  <div style={{ 
+                    background: '#f0f9ff',
+                    border: '1px solid #bae6fd',
+                    borderRadius: '6px',
+                    padding: '0.75rem',
+                    marginTop: '0.5rem'
+                  }}>
+                    <p style={{ color: '#0369a1', fontSize: '0.85rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
+                      Time Remaining:
+                    </p>
+                    {countdowns[selectedAccount._id] ? (
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                        {countdowns[selectedAccount._id].days > 0 && (
+                          <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>
+                            {countdowns[selectedAccount._id].days}d
+                          </span>
+                        )}
+                        <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>
+                          {countdowns[selectedAccount._id].hours}h
+                        </span>
+                        <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>
+                          {countdowns[selectedAccount._id].minutes}m
+                        </span>
+                        <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>
+                          {countdowns[selectedAccount._id].seconds}s
+                        </span>
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: '0.8rem', color: '#0369a1' }}>Calculating...</span>
+                    )}
+                    <p style={{ color: '#0369a1', fontSize: '0.75rem', margin: '0.5rem 0 0 0' }}>
+                      Target: {new Date(selectedAccount.targetDate).toLocaleString()}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
             <form onSubmit={handleEditSubmit}>
