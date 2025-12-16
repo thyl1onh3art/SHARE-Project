@@ -44,7 +44,6 @@ const SharedAccounts: React.FC = () => {
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [hoveredAccountId, setHoveredAccountId] = useState<string | null>(null);
   const [paymentRequests, setPaymentRequests] = useState<any[]>([]);
-  const [loadingPaymentRequests, setLoadingPaymentRequests] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -362,13 +361,10 @@ const SharedAccounts: React.FC = () => {
   // Fetch payment requests
   const fetchPaymentRequests = async () => {
     try {
-      setLoadingPaymentRequests(true);
       const response = await axios.get('/payment-requests');
       setPaymentRequests(response.data);
     } catch (err: any) {
       console.error('Failed to fetch payment requests:', err);
-    } finally {
-      setLoadingPaymentRequests(false);
     }
   };
 
