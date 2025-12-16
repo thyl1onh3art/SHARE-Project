@@ -42,7 +42,6 @@ const SharedAccounts: React.FC = () => {
   const [paySubmitting, setPaySubmitting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
-  const [hoveredAccountId, setHoveredAccountId] = useState<string | null>(null);
   const [paymentRequests, setPaymentRequests] = useState<any[]>([]);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -683,7 +682,6 @@ const SharedAccounts: React.FC = () => {
           <div className="grid grid-2">
             {accounts.map((account) => {
               const balance = calculateAccountBalance(account);
-              const participantCount = getParticipantCount(account);
               return (
                 <div key={account._id} className="card" style={{ margin: 0 }}>
                   {/* Account Details */}
