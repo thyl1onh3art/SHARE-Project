@@ -102,7 +102,7 @@ app.get('/health', async (req, res) => {
       message: 'SHARE Project API is running',
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || 'development',
-      version: '1.0.6', // FORCE REBUILD - MongoDB connection fix
+      version: '2.0.0', // Phase 2 Complete - Calendar, Accommodations, Recommendations
       database: dbHealth
     });
   } catch (error) {
@@ -122,7 +122,7 @@ app.get('/', (req, res) => {
     message: 'SHARE Project API is running',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    version: '1.0.6',
+    version: '2.0.0',
     endpoints: {
       health: '/health',
       users: '/api/users',
