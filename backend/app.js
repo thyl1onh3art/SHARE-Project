@@ -19,7 +19,7 @@ const accommodationRoutes = require('./routes/accommodationRoutes');
 const recommendationRoutes = require('./routes/recommendationRoutes');
 // const emailVerificationRoutes = require('./routes/emailVerificationRoutes');
 const twoFactorRoutes = require('./routes/twoFactorRoutes');
-const backupRoutes = require('./routes/backupRoutes');
+// const backupRoutes = require('./routes/backupRoutes'); // Disabled - backupController missing
 const paymentRequestRoutes = require('./routes/paymentRequestRoutes');
 
 // Import middleware
@@ -35,7 +35,7 @@ const {
 } = require('./middleware/waf');
 
 // Import services
-const backupService = require('./services/backupService');
+// const backupService = require('./services/backupService'); // Disabled - backupController missing
 const mongodbService = require('./services/mongodb');
 
 const app = express();
@@ -142,7 +142,7 @@ app.use('/api/two-factor/send-code', twoFactorRateLimit, twoFactorRoutes);
 app.use('/api/two-factor/verify-code', twoFactorRateLimit, twoFactorRoutes);
 app.use('/api/two-factor', twoFactorRoutes);
 
-app.use('/api/backup', backupRoutes);
+// app.use('/api/backup', backupRoutes); // Disabled - backupController missing
 app.use('/api/invites', inviteRoutes);
 app.use('/api/shared-accounts', sharedAccountRoutes);
 app.use('/api/finance', financeRoutes);
