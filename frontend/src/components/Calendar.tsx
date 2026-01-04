@@ -148,6 +148,7 @@ const Calendar: React.FC = () => {
             {dayEvents.slice(0, 3).map((event, idx) => (
               <div
                 key={idx}
+                title={event.title}
                 style={{
                   background: '#667eea',
                   color: 'white',
@@ -157,8 +158,7 @@ const Calendar: React.FC = () => {
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
-                  cursor: 'pointer',
-                  title: event.title
+                  cursor: 'pointer'
                 }}
               >
                 {event.title}
