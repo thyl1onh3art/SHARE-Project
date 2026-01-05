@@ -233,21 +233,21 @@ const SharedAccounts: React.FC = () => {
     await fetchPersonalBalance();
   };
 
-  // Edit Account Handlers
-  const handleEditClick = (account: SharedAccount) => {
-    setSelectedAccount(account);
-    setEditForm({
-      name: account.name,
-      description: account.description || '',
-      targetAmount: account.targetAmount?.toString() || '',
-      targetDate: account.targetDate ? new Date(account.targetDate).toISOString().slice(0, 16) : ''
-    });
-    setShowEditModal(true);
-  };
+  // Edit Account Handlers (removed - UI simplified to clickable cards only)
+  // const handleEditClick = (account: SharedAccount) => {
+  //   setSelectedAccount(account);
+  //   setEditForm({
+  //     name: account.name,
+  //     description: account.description || '',
+  //     targetAmount: account.targetAmount?.toString() || '',
+  //     targetDate: account.targetDate ? new Date(account.targetDate).toISOString().slice(0, 16) : ''
+  //   });
+  //   setShowEditModal(true);
+  // };
 
-  const handleNavigateToInvitations = (account: SharedAccount) => {
-    navigate(`/invitations?account=${account._id}`);
-  };
+  // const handleNavigateToInvitations = (account: SharedAccount) => {
+  //   navigate(`/invitations?account=${account._id}`);
+  // };
 
   // Calculate participant count for an account (owner + members who accepted invitations)
   const getParticipantCount = (account: SharedAccount): number => {
@@ -303,16 +303,17 @@ const SharedAccounts: React.FC = () => {
     return names;
   };
 
-  const handlePayClick = (account: SharedAccount) => {
-    const balance = calculateAccountBalance(account);
-    if (balance <= 0) {
-      setError('No balance to pay. The shared account balance is £0.00 or negative.');
-      return;
-    }
-    setSelectedAccount(account);
-    setShowPayModal(true);
-    fetchPersonalBalance();
-  };
+  // handlePayClick removed - UI simplified to clickable cards only
+  // const handlePayClick = (account: SharedAccount) => {
+  //   const balance = calculateAccountBalance(account);
+  //   if (balance <= 0) {
+  //     setError('No balance to pay. The shared account balance is £0.00 or negative.');
+  //     return;
+  //   }
+  //   setSelectedAccount(account);
+  //   setShowPayModal(true);
+  //   fetchPersonalBalance();
+  // };
 
   const handlePaySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -393,10 +394,11 @@ const SharedAccounts: React.FC = () => {
     }
   };
 
-  const handleDeleteClick = (account: SharedAccount) => {
-    setSelectedAccount(account);
-    setShowDeleteModal(true);
-  };
+  // handleDeleteClick removed - UI simplified to clickable cards only
+  // const handleDeleteClick = (account: SharedAccount) => {
+  //   setSelectedAccount(account);
+  //   setShowDeleteModal(true);
+  // };
 
   const handleDeleteSubmit = async () => {
     if (!selectedAccount) return;
@@ -461,17 +463,17 @@ const SharedAccounts: React.FC = () => {
     }
   };
 
-  // Transfer Funds UI Handlers
-  const handleTransferClick = async (account: SharedAccount) => {
-    setSelectedAccount(account);
-    setShowTransferModal(true);
-    setTransferForm({
-      amount: '',
-      description: `Transfer to ${account.name}`
-    });
-    // Fetch personal balance when opening modal
-    await fetchPersonalBalance();
-  };
+  // Transfer Funds UI Handlers (removed - UI simplified to clickable cards only)
+  // const handleTransferClick = async (account: SharedAccount) => {
+  //   setSelectedAccount(account);
+  //   setShowTransferModal(true);
+  //   setTransferForm({
+  //     amount: '',
+  //     description: `Transfer to ${account.name}`
+  //   });
+  //   // Fetch personal balance when opening modal
+  //   await fetchPersonalBalance();
+  // };
 
   const handleTransferSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
