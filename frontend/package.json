@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "0.1.0",
+  "version": "2.0.3",
   "private": true,
   "dependencies": {
     "@paypal/react-paypal-js": "^8.9.2",
@@ -46,5 +46,8 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@types/google.maps": "^3.58.1"
   }
 }
