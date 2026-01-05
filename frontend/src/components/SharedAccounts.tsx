@@ -695,7 +695,11 @@ const SharedAccounts: React.FC = () => {
               return (
                 <div
                   key={account._id}
-                  onClick={() => navigate(`/shared-accounts/${account._id}`)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    navigate(`/shared-accounts/${account._id}`);
+                  }}
                   style={{
                     background: 'white',
                     border: '1px solid #e2e8f0',
@@ -703,17 +707,20 @@ const SharedAccounts: React.FC = () => {
                     padding: '1rem',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                    width: '100%'
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.borderColor = '#667eea';
                     e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
                     e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.background = '#f7fafc';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.borderColor = '#e2e8f0';
                     e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
                     e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.background = 'white';
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -775,13 +782,6 @@ const SharedAccounts: React.FC = () => {
                           </div>
                         )}
                       </div>
-                    </div>
-                    <div style={{ 
-                      color: '#a0aec0',
-                      fontSize: '1.5rem',
-                      marginLeft: '1rem'
-                    }}>
-                      →
                     </div>
                   </div>
                 </div>
