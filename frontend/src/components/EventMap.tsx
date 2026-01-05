@@ -23,6 +23,36 @@ const EventMap: React.FC = () => {
   const [mapLoaded, setMapLoaded] = useState(false);
 
   useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const response = await axios.get('/events');
+        const eventsData = response.data;
+
+        // Geocode events that don't have coordinates
+        const eventsWithCoords = await Promise.all(
+          eventsData.map(async (event: Event) => {
+            if (event.latitude && event.longitude) {
+              return event;
+            }
+            if (event.location || event.address) {
+              const coords = await geocodeAddress(event.location || event.address || '');
+              return { ...event, ...coords };
+            }
+            return event;
+          })
+        );
+
+        setEvents(eventsWithCoords);
+        setFilteredEvents(eventsWithCoords);
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'Failed to load events');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchEvents();
     loadGoogleMaps();
   }, []);
@@ -39,40 +69,6 @@ const EventMap: React.FC = () => {
       setFilteredEvents(events);
     }
   }, [searchTerm, events]);
-
-  const fetchEvents = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const response = await axios.get('/events');
-      const eventsData = response.data;
-      
-      // Geocode events that don't have coordinates
-      const eventsWithCoords = await Promise.all(
-        eventsData.map(async (event: Event) => {
-          if (event.latitude && event.longitude) {
-            return event;
-          }
-          if (event.address || event.location) {
-            try {
-              const coords = await geocodeAddress(event.address || event.location || '');
-              return { ...event, ...coords };
-            } catch {
-              return event;
-            }
-          }
-          return event;
-        })
-      );
-      
-      setEvents(eventsWithCoords);
-      setFilteredEvents(eventsWithCoords);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load events');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadGoogleMaps = () => {
     if (window.google && window.google.maps) {
@@ -117,7 +113,7 @@ const EventMap: React.FC = () => {
       
       if (eventsWithCoords.length === 0) {
         // Center on default location (London, UK)
-        const map = new window.google.maps.Map(mapRef.current, {
+        new window.google.maps.Map(mapRef.current, {
           zoom: 6,
           center: { lat: 51.5074, lng: -0.1278 }
         });

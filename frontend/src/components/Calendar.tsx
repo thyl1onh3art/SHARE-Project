@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useAuth } from '../contexts/AuthContext';
 import EventCountdown from './EventCountdown';
 
 interface Event {
@@ -25,7 +24,6 @@ interface CalendarView {
 }
 
 const Calendar: React.FC = () => {
-  const { user } = useAuth();
   const [view, setView] = useState<CalendarView['type']>('month');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<Event[]>([]);
