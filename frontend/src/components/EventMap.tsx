@@ -97,7 +97,7 @@ const EventMap: React.FC = () => {
 
     return new Promise((resolve) => {
       const geocoder = new window.google.maps.Geocoder();
-      geocoder.geocode({ address }, (results: google.maps.GeocoderResult[] | null, status: google.maps.GeocoderStatus) => {
+      geocoder.geocode({ address }, (results: any, status: string) => {
         if (status === 'OK' && results && results[0]) {
           const location = results[0].geometry.location;
           resolve({
