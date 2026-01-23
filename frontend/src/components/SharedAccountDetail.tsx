@@ -225,7 +225,7 @@ const SharedAccountDetail: React.FC = () => {
         
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
           <div>
-            <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Current Balance</p>
+            <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Shared Account Total</p>
             <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0.25rem 0 0 0' }}>
               £{balance.toFixed(2)}
             </p>
