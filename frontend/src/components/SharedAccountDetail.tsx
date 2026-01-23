@@ -510,9 +510,25 @@ const SharedAccountDetail: React.FC = () => {
           )}
         </div>
 
+        {/* Account Actions */}
+        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+          <h3 style={{ margin: '0 0 0.75rem 0', color: '#2d3748' }}>Account Actions</h3>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <button className="btn btn-secondary" onClick={handleEditClick}>
+              Edit / View Details
+            </button>
+            <button className="btn btn-primary" onClick={handleTransferClick}>
+              Transfer Payment
+            </button>
+            <button className="btn btn-success" onClick={handlePayClick}>
+              Pay
+            </button>
+          </div>
+        </div>
+
         {/* Withdrawal Button */}
         {user && availableWithdrawal > 0 && (
-          <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+          <div style={{ marginTop: '1rem' }}>
             <button
               className="btn btn-success"
               onClick={handleWithdrawClick}
@@ -522,21 +538,6 @@ const SharedAccountDetail: React.FC = () => {
             </button>
           </div>
         )}
-      </div>
-
-      <div className="card" style={{ marginBottom: '1.5rem' }}>
-        <h2 className="card-title">Account Actions</h2>
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={handleEditClick}>
-            Edit / View Details
-          </button>
-          <button className="btn btn-primary" onClick={handleTransferClick}>
-            Transfer Payment
-          </button>
-          <button className="btn btn-success" onClick={handlePayClick}>
-            Pay
-          </button>
-        </div>
       </div>
 
       {/* Transaction History */}
