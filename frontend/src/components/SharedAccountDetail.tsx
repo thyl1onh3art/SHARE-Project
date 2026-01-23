@@ -423,23 +423,6 @@ const SharedAccountDetail: React.FC = () => {
           ← Back to Shared Accounts
         </button>
         <h1 style={{ margin: 0 }}>{account.name}</h1>
-        <div style={{ marginLeft: 'auto' }}>
-          <button
-            onClick={() => setShowRemoveModal(true)}
-            aria-label="Remove shared account"
-            title="Remove shared account"
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#e53e3e',
-              fontSize: '1.25rem',
-              cursor: 'pointer',
-              lineHeight: 1
-            }}
-          >
-            ×
-          </button>
-        </div>
       </div>
 
       {error && (
@@ -449,7 +432,25 @@ const SharedAccountDetail: React.FC = () => {
       )}
 
       {/* Account Summary */}
-      <div className="card" style={{ marginBottom: '1.5rem' }}>
+      <div className="card" style={{ marginBottom: '1.5rem', position: 'relative' }}>
+        <button
+          onClick={() => setShowRemoveModal(true)}
+          aria-label="Remove shared account"
+          title="Remove shared account"
+          style={{
+            position: 'absolute',
+            top: '12px',
+            right: '12px',
+            background: 'transparent',
+            border: 'none',
+            color: '#e53e3e',
+            fontSize: '1.25rem',
+            cursor: 'pointer',
+            lineHeight: 1
+          }}
+        >
+          ×
+        </button>
         <h2 className="card-title">Account Summary</h2>
         {account.description && (
           <p style={{ color: '#4a5568', marginBottom: '1rem' }}>
