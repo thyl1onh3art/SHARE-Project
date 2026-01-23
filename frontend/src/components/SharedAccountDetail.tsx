@@ -193,6 +193,11 @@ const SharedAccountDetail: React.FC = () => {
   const userId = user ? (user as any)._id || (user as any).id || '' : '';
   const userContribution = user ? calculateUserContribution(userId) : 0;
   const allParticipants = [account.owner, ...account.members];
+  const last24HoursCutoff = Date.now() - 24 * 60 * 60 * 1000;
+  const recentTransactions = transactions.filter((transaction) => {
+    const transactionTime = new Date(transaction.date).getTime();
+    return Number.isFinite(transactionTime) && transactionTime >= last24HoursCutoff;
+  });
 
   return (
     <div>
@@ -293,9 +298,14 @@ const SharedAccountDetail: React.FC = () => {
 
       {/* Transaction History */}
       <div className="card">
-        <h2 className="card-title">Transaction History</h2>
+        <h2 className="card-title">Transaction History (Last 24 Hours)</h2>
+        <p style={{ color: '#4a5568', fontSize: '0.9rem', marginTop: '-0.25rem' }}>
+          Showing {recentTransactions.length} of {transactions.length} total transaction{transactions.length !== 1 ? 's' : ''}. Full history will be available in Account Settings.
+        </p>
         {transactions.length === 0 ? (
           <p style={{ color: '#4a5568' }}>No transactions yet.</p>
+        ) : recentTransactions.length === 0 ? (
+          <p style={{ color: '#4a5568' }}>No transactions in the last 24 hours.</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -309,7 +319,7 @@ const SharedAccountDetail: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {transactions.map((transaction) => (
+                {recentTransactions.map((transaction) => (
                   <tr key={transaction._id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                     <td style={{ padding: '0.75rem', color: '#4a5568' }}>
                       {new Date(transaction.date).toLocaleString()}
