@@ -102,13 +102,6 @@ const SharedAccountDetail: React.FC = () => {
     }
   };
 
-  const calculateBalance = () => {
-    if (!transactions.length) return 0;
-    return transactions.reduce((sum, record) => {
-      return sum + (record.type === 'input' ? record.amount : -record.amount);
-    }, 0);
-  };
-
   const calculateUserContribution = (userId: string) => {
     return transactions
       .filter(record => record.user._id === userId && record.type === 'input')
@@ -189,7 +182,6 @@ const SharedAccountDetail: React.FC = () => {
     );
   }
 
-  const balance = calculateBalance();
   const userId = user ? (user as any)._id || (user as any).id || '' : '';
   const userContribution = user ? calculateUserContribution(userId) : 0;
   const allParticipants = [account.owner, ...account.members];
@@ -224,12 +216,6 @@ const SharedAccountDetail: React.FC = () => {
         )}
         
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-          <div>
-            <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Shared Account Total</p>
-            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0.25rem 0 0 0' }}>
-              £{balance.toFixed(2)}
-            </p>
-          </div>
           {account.targetAmount && (
             <div>
               <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Target Amount</p>
