@@ -36,9 +36,28 @@ exports.createRecord = async (req, res) => {
   }
 };
 
-// Get all finance records for the logged-in user
+// Get finance records for the logged-in user (optionally scoped to a shared account)
 exports.getUserRecords = async (req, res) => {
   try {
+    const { sharedAccount } = req.query;
+
+    if (sharedAccount) {
+      const account = await SharedAccount.findById(sharedAccount);
+      if (!account) {
+        return res.status(404).json({ message: 'Shared account not found' });
+      }
+
+      const isOwner = account.owner.toString() === req.user.userId;
+      const isMember = account.members.some((m) => m.toString() === req.user.userId);
+
+      if (!isOwner && !isMember) {
+        return res.status(403).json({ message: 'Access denied. You must be a member of this account.' });
+      }
+
+      const records = await FinanceRecord.find({ sharedAccount });
+      return res.json(records);
+    }
+
     const records = await FinanceRecord.find({ user: req.user.userId });
     res.json(records);
   } catch (err) {
