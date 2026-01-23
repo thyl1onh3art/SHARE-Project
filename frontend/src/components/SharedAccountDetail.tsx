@@ -52,6 +52,27 @@ const SharedAccountDetail: React.FC = () => {
   const [withdrawDescription, setWithdrawDescription] = useState('');
   const [withdrawSubmitting, setWithdrawSubmitting] = useState(false);
   const [availableWithdrawal, setAvailableWithdrawal] = useState(0);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    description: '',
+    targetAmount: '',
+    targetDate: ''
+  });
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferForm, setTransferForm] = useState({
+    amount: '',
+    description: ''
+  });
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
+  const [personalBalance, setPersonalBalance] = useState<number | null>(null);
+  const [loadingPersonalBalance, setLoadingPersonalBalance] = useState(false);
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [paySubmitting, setPaySubmitting] = useState(false);
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [removeSubmitting, setRemoveSubmitting] = useState(false);
+  const [newOwnerId, setNewOwnerId] = useState('');
 
   useEffect(() => {
     if (accountId) {
@@ -102,6 +123,17 @@ const SharedAccountDetail: React.FC = () => {
     }
   };
 
+  const getCurrentUserId = () => {
+    return (user as any)?._id || (user as any)?.id || '';
+  };
+
+  const calculateBalance = () => {
+    if (!transactions.length) return 0;
+    return transactions.reduce((sum, record) => {
+      return sum + (record.type === 'input' ? record.amount : -record.amount);
+    }, 0);
+  };
+
   const calculateUserContribution = (userId: string) => {
     return transactions
       .filter(record => record.user._id === userId && record.type === 'input')
@@ -122,7 +154,7 @@ const SharedAccountDetail: React.FC = () => {
 
   useEffect(() => {
     if (user && transactions.length > 0) {
-      const userId = (user as any)._id || (user as any).id || '';
+      const userId = getCurrentUserId();
       const available = calculateAvailableWithdrawal(userId);
       setAvailableWithdrawal(available);
     }
@@ -131,7 +163,7 @@ const SharedAccountDetail: React.FC = () => {
 
   const handleWithdrawClick = () => {
     if (user) {
-      const userId = (user as any)._id || (user as any).id || '';
+      const userId = getCurrentUserId();
       const available = calculateAvailableWithdrawal(userId);
       setAvailableWithdrawal(available);
       setWithdrawAmount(available.toFixed(2));
@@ -163,6 +195,197 @@ const SharedAccountDetail: React.FC = () => {
     }
   };
 
+  const fetchPersonalBalance = async () => {
+    try {
+      setLoadingPersonalBalance(true);
+      const personalRecordsResponse = await axios.get('/finance');
+      const personalRecords = personalRecordsResponse.data.filter((record: any) => !record.sharedAccount);
+      const personalIncome = personalRecords
+        .filter((record: any) => record.type === 'input')
+        .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
+      const personalExpenses = personalRecords
+        .filter((record: any) => record.type === 'output')
+        .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
+      setPersonalBalance(personalIncome - personalExpenses);
+    } catch {
+      setPersonalBalance(null);
+    } finally {
+      setLoadingPersonalBalance(false);
+    }
+  };
+
+  const handleEditClick = () => {
+    if (!account) return;
+    setEditForm({
+      name: account.name || '',
+      description: account.description || '',
+      targetAmount: account.targetAmount ? account.targetAmount.toString() : '',
+      targetDate: account.targetDate ? new Date(account.targetDate).toISOString().slice(0, 16) : ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!accountId) return;
+    setEditSubmitting(true);
+    setError('');
+
+    try {
+      const updateData: any = {};
+      if (editForm.name.trim()) updateData.name = editForm.name.trim();
+      if (editForm.description.trim()) updateData.description = editForm.description.trim();
+      if (editForm.targetAmount) updateData.targetAmount = parseFloat(editForm.targetAmount);
+      if (editForm.targetDate) updateData.targetDate = new Date(editForm.targetDate).toISOString();
+
+      await axios.put(`/shared-accounts/${accountId}`, updateData);
+      setShowEditModal(false);
+      await fetchAccountDetails();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to update account details');
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  const handleTransferClick = async () => {
+    setTransferForm({ amount: '', description: '' });
+    setError('');
+    setShowTransferModal(true);
+    await fetchPersonalBalance();
+  };
+
+  const handleTransferSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!account || !accountId) return;
+
+    const amount = parseFloat(transferForm.amount);
+    if (isNaN(amount) || amount <= 0) {
+      setError('Please enter a valid amount greater than 0');
+      return;
+    }
+
+    if (personalBalance !== null && amount > personalBalance) {
+      setError('Insufficient funds in your personal account');
+      return;
+    }
+
+    if (account.targetAmount && account.targetAmount > 0) {
+      const currentBalance = calculateBalance();
+      const newBalance = currentBalance + amount;
+      if (newBalance > account.targetAmount) {
+        const remaining = account.targetAmount - currentBalance;
+        setError(
+          `Transfer would exceed the account limit of £${account.targetAmount.toFixed(2)}. ` +
+          `Maximum transfer allowed: £${remaining.toFixed(2)}`
+        );
+        return;
+      }
+    }
+
+    setTransferSubmitting(true);
+    setError('');
+    const date = new Date().toISOString();
+    const transferDescription = transferForm.description || `Transfer to ${account.name}`;
+
+    try {
+      await axios.post('/finance', {
+        type: 'output',
+        amount,
+        date,
+        description: transferDescription
+      });
+      await axios.post('/finance', {
+        type: 'input',
+        amount,
+        date,
+        description: transferDescription,
+        sharedAccount: accountId
+      });
+      setShowTransferModal(false);
+      setTransferForm({ amount: '', description: '' });
+      await fetchAccountDetails();
+      await fetchPersonalBalance();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to transfer funds');
+    } finally {
+      setTransferSubmitting(false);
+    }
+  };
+
+  const handlePayClick = async () => {
+    setError('');
+    setShowPayModal(true);
+    await fetchPersonalBalance();
+  };
+
+  const handlePaySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!account || !accountId) return;
+
+    const balance = calculateBalance();
+    if (balance <= 0) {
+      setError('No balance to pay. The shared account balance is £0.00 or negative.');
+      return;
+    }
+
+    if (personalBalance !== null && balance > personalBalance) {
+      setError('Insufficient funds in your personal account to pay the full balance.');
+      return;
+    }
+
+    setPaySubmitting(true);
+    setError('');
+
+    try {
+      await axios.post('/payment-requests', {
+        sharedAccountId: accountId,
+        amount: balance,
+        description: `Full payment for ${account.name}`
+      });
+      setShowPayModal(false);
+      alert('Payment request created! All participants will be notified and must approve before the payment is processed.');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to create payment request');
+    } finally {
+      setPaySubmitting(false);
+    }
+  };
+
+  const handleRemoveAccount = async () => {
+    if (!account || !accountId) return;
+    const currentUserId = getCurrentUserId();
+    const ownerId = typeof account.owner === 'object' ? account.owner._id : account.owner;
+    const isOwner = ownerId === currentUserId;
+
+    if (isOwner && !newOwnerId) {
+      setError('Please select a new owner before removing this account.');
+      return;
+    }
+
+    setRemoveSubmitting(true);
+    setError('');
+
+    try {
+      if (isOwner) {
+        await axios.post(`/shared-accounts/${accountId}/transfer-ownership`, {
+          newOwnerId,
+          removeCurrentOwner: true
+        });
+      } else {
+        await axios.post('/invites/remove-member', {
+          sharedAccountId: accountId,
+          memberId: currentUserId
+        });
+      }
+      navigate('/shared-accounts');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to remove account');
+    } finally {
+      setRemoveSubmitting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="card">
@@ -182,9 +405,11 @@ const SharedAccountDetail: React.FC = () => {
     );
   }
 
-  const userId = user ? (user as any)._id || (user as any).id || '' : '';
+  const userId = user ? getCurrentUserId() : '';
   const userContribution = user ? calculateUserContribution(userId) : 0;
   const allParticipants = [account.owner, ...account.members];
+  const ownerId = typeof account.owner === 'object' ? account.owner._id : account.owner;
+  const isOwner = ownerId === userId;
   const last24HoursCutoff = Date.now() - 24 * 60 * 60 * 1000;
   const recentTransactions = transactions.filter((transaction) => {
     const transactionTime = new Date(transaction.date).getTime();
@@ -198,6 +423,23 @@ const SharedAccountDetail: React.FC = () => {
           ← Back to Shared Accounts
         </button>
         <h1 style={{ margin: 0 }}>{account.name}</h1>
+        <div style={{ marginLeft: 'auto' }}>
+          <button
+            onClick={() => setShowRemoveModal(true)}
+            aria-label="Remove shared account"
+            title="Remove shared account"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#e53e3e',
+              fontSize: '1.25rem',
+              cursor: 'pointer',
+              lineHeight: 1
+            }}
+          >
+            ×
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -282,6 +524,21 @@ const SharedAccountDetail: React.FC = () => {
         )}
       </div>
 
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <h2 className="card-title">Account Actions</h2>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary" onClick={handleEditClick}>
+            Edit / View Details
+          </button>
+          <button className="btn btn-primary" onClick={handleTransferClick}>
+            Transfer Payment
+          </button>
+          <button className="btn btn-success" onClick={handlePayClick}>
+            Pay
+          </button>
+        </div>
+      </div>
+
       {/* Transaction History */}
       <div className="card">
         <h2 className="card-title">Transaction History (Last 24 Hours)</h2>
@@ -343,6 +600,424 @@ const SharedAccountDetail: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Edit Details Modal */}
+      {showEditModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div className="card" style={{ 
+            width: '90%', 
+            maxWidth: '520px', 
+            maxHeight: '90vh', 
+            overflow: 'auto',
+            position: 'relative'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              marginBottom: '1rem' 
+            }}>
+              <h2 style={{ margin: 0 }}>Edit / View Details</h2>
+              <button
+                onClick={() => setShowEditModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#4a5568'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {error && (
+              <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleEditSubmit}>
+              <div className="form-group">
+                <label className="form-label">Account Name</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Description</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Target Amount (£)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="form-input"
+                  value={editForm.targetAmount}
+                  onChange={(e) => setEditForm({ ...editForm, targetAmount: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Target Date</label>
+                <input
+                  type="datetime-local"
+                  className="form-input"
+                  value={editForm.targetDate}
+                  onChange={(e) => setEditForm({ ...editForm, targetDate: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="btn btn-secondary"
+                  style={{ flex: 1 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={editSubmitting}
+                  style={{ flex: 1 }}
+                >
+                  {editSubmitting ? <span className="spinner"></span> : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer Payment Modal */}
+      {showTransferModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div className="card" style={{ 
+            width: '90%', 
+            maxWidth: '520px', 
+            maxHeight: '90vh', 
+            overflow: 'auto',
+            position: 'relative'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              marginBottom: '1rem' 
+            }}>
+              <h2 style={{ margin: 0 }}>Transfer Payment</h2>
+              <button
+                onClick={() => setShowTransferModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#4a5568'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {loadingPersonalBalance ? (
+              <p style={{ color: '#4a5568' }}>Loading personal balance...</p>
+            ) : personalBalance !== null ? (
+              <p style={{ color: '#4a5568', marginTop: 0 }}>
+                Personal balance: <strong>£{personalBalance.toFixed(2)}</strong>
+              </p>
+            ) : (
+              <p style={{ color: '#4a5568', marginTop: 0 }}>
+                Personal balance unavailable.
+              </p>
+            )}
+
+            {error && (
+              <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleTransferSubmit}>
+              <div className="form-group">
+                <label className="form-label">Amount (£)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  className="form-input"
+                  value={transferForm.amount}
+                  onChange={(e) => setTransferForm({ ...transferForm, amount: e.target.value })}
+                  required
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Description (Optional)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={transferForm.description}
+                  onChange={(e) => setTransferForm({ ...transferForm, description: e.target.value })}
+                  placeholder="Transfer description"
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowTransferModal(false)}
+                  className="btn btn-secondary"
+                  style={{ flex: 1 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={transferSubmitting}
+                  style={{ flex: 1 }}
+                >
+                  {transferSubmitting ? <span className="spinner"></span> : 'Transfer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Pay Modal */}
+      {showPayModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div className="card" style={{ 
+            width: '90%', 
+            maxWidth: '520px', 
+            maxHeight: '90vh', 
+            overflow: 'auto',
+            position: 'relative'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              marginBottom: '1rem' 
+            }}>
+              <h2 style={{ margin: 0 }}>Pay Shared Account</h2>
+              <button
+                onClick={() => setShowPayModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#4a5568'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <p style={{ color: '#4a5568', marginTop: 0 }}>
+              Payment amount: <strong>£{calculateBalance().toFixed(2)}</strong>
+            </p>
+
+            {loadingPersonalBalance ? (
+              <p style={{ color: '#4a5568' }}>Loading personal balance...</p>
+            ) : personalBalance !== null ? (
+              <p style={{ color: '#4a5568' }}>
+                Personal balance: <strong>£{personalBalance.toFixed(2)}</strong>
+              </p>
+            ) : (
+              <p style={{ color: '#4a5568' }}>
+                Personal balance unavailable.
+              </p>
+            )}
+
+            {error && (
+              <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handlePaySubmit}>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowPayModal(false)}
+                  className="btn btn-secondary"
+                  style={{ flex: 1 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-success"
+                  disabled={paySubmitting}
+                  style={{ flex: 1 }}
+                >
+                  {paySubmitting ? <span className="spinner"></span> : 'Request Payment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Account Modal */}
+      {showRemoveModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div className="card" style={{ 
+            width: '90%', 
+            maxWidth: '520px', 
+            maxHeight: '90vh', 
+            overflow: 'auto',
+            position: 'relative'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              marginBottom: '1rem' 
+            }}>
+              <h2 style={{ margin: 0 }}>Remove Shared Account</h2>
+              <button
+                onClick={() => setShowRemoveModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#4a5568'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {isOwner ? (
+              <p style={{ color: '#4a5568', marginTop: 0 }}>
+                You are the creator. Select a new owner to transfer creator rights before you leave this account.
+              </p>
+            ) : (
+              <p style={{ color: '#4a5568', marginTop: 0 }}>
+                This will remove you from the shared account.
+              </p>
+            )}
+
+            {isOwner && account.members.length === 0 && (
+              <p style={{ color: '#e53e3e' }}>
+                You need at least one member to transfer ownership.
+              </p>
+            )}
+
+            {isOwner && account.members.length > 0 && (
+              <div className="form-group">
+                <label className="form-label">New Owner</label>
+                <select
+                  className="form-input"
+                  value={newOwnerId}
+                  onChange={(e) => setNewOwnerId(e.target.value)}
+                  required
+                >
+                  <option value="">Select member</option>
+                  {account.members.map((member) => (
+                    <option key={member._id} value={member._id}>
+                      {member.firstName} {member.lastName} ({member.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {error && (
+              <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
+                {error}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+              <button
+                type="button"
+                onClick={() => setShowRemoveModal(false)}
+                className="btn btn-secondary"
+                style={{ flex: 1 }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRemoveAccount}
+                className="btn btn-danger"
+                disabled={removeSubmitting || (isOwner && account.members.length === 0)}
+                style={{ flex: 1 }}
+              >
+                {removeSubmitting ? <span className="spinner"></span> : 'Remove'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Withdrawal Modal */}
       {showWithdrawModal && (

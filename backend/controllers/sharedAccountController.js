@@ -320,6 +320,58 @@ exports.updateSharedAccount = async (req, res) => {
   }
 };
 
+// Transfer ownership of a shared account (owner only)
+exports.transferOwnership = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+    const { newOwnerId, removeCurrentOwner } = req.body;
+
+    if (!newOwnerId) {
+      return res.status(400).json({ message: 'New owner ID is required' });
+    }
+
+    const account = await SharedAccount.findById(id);
+    if (!account) {
+      return res.status(404).json({ message: 'Shared account not found' });
+    }
+
+    if (!account.owner.equals(userId)) {
+      return res.status(403).json({ message: 'Only the account owner can transfer ownership' });
+    }
+
+    const memberIds = account.members.map((member) => member.toString());
+    if (!memberIds.includes(newOwnerId)) {
+      return res.status(400).json({ message: 'New owner must be an existing member of the account' });
+    }
+
+    const previousOwnerId = account.owner.toString();
+    account.owner = newOwnerId;
+    account.members = account.members.filter((member) => member.toString() !== newOwnerId);
+
+    if (!removeCurrentOwner) {
+      if (!account.members.some((member) => member.toString() === previousOwnerId)) {
+        account.members.push(previousOwnerId);
+      }
+    } else {
+      account.members = account.members.filter((member) => member.toString() !== previousOwnerId);
+    }
+
+    await account.save();
+
+    const updatedAccount = await SharedAccount.findById(id)
+      .populate('owner', 'firstName lastName email')
+      .populate('members', 'firstName lastName email');
+
+    res.json({
+      message: 'Ownership transferred successfully',
+      account: updatedAccount
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
 // Delete a shared account (owner only)
 exports.deleteSharedAccount = async (req, res) => {
   try {
