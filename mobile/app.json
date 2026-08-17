@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "SHARE Mobile",
+    "slug": "share-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.shareproject.app"
+    },
+    "extra": {
+      "apiBaseUrl": "https://share-project-production.up.railway.app/api",
+      "eas": {
+        "projectId": "00000000-0000-0000-0000-000000000000"
+      }
+    }
+  }
+}
