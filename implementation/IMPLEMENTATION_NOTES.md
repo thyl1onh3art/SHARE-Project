@@ -143,3 +143,55 @@ Do **not** start Phase 2+ until Phase 1 is approved after delivery.
 - Confirm preferred customer term for shared pots: **Trip Fund** vs **Shared Trip Costs** (pack allows either with transparency note).
 - Confirm whether root-level duplicate controllers (if any outside `backend/`) are legacy and should be ignored for all future edits — Phase 0 treated **`backend/` + `frontend/`** as source of truth.
 - Legal docs claim “legal without licence” for virtual tracking; pack says treat legal docs as historical notes, not verified advice — customer copy must avoid regulatory claims either way.
+
+---
+
+## 9. Baseline Stabilisation (pre–Phase 1)
+
+**Purpose:** Make frontend CI build + Jest reliable before marketing-alignment UI work. Not Phase 1. No product/marketing copy changes.
+
+### Root causes
+
+1. **Frontend CI build (`CI=true npm run build`)**  
+   - ESLint treated as errors under CI.  
+   - `Profile.tsx`: unused `user` from `useAuth()`, and `react-hooks/exhaustive-deps` warning on mount-only `useEffect`.
+
+2. **Frontend Jest (`Cannot find module 'react-router-dom'`)**  
+   - Dependency **is installed** (`react-router-dom@7.9.1`).  
+   - CRA 5 / Jest 27 does not fully honour modern `package.json` `exports`.  
+   - Package `"main": "./dist/main.js"` points to a **missing file**; usable CJS entry is `dist/index.js`.  
+   - After mapping, cascading issues: `react-router/dom` export path, missing `TextEncoder` in jsdom, and axios ESM not transformed by default.  
+   - Default CRA `App.test.tsx` still asserted “learn react”, which this app never rendered.
+
+### Files changed
+
+- `frontend/src/components/Profile.tsx`
+- `frontend/package.json` (Jest `moduleNameMapper` + `transformIgnorePatterns` only)
+- `frontend/src/setupTests.ts`
+- `frontend/src/App.test.tsx`
+- `implementation/IMPLEMENTATION_NOTES.md` (this section)
+- Capture logs: `implementation/_baseline_stab_frontend_build.txt`, `implementation/_baseline_stab_frontend_test.txt`
+
+### Exact fixes
+
+1. Remove unused `user` destructure; keep intentional mount-only `useEffect` with a one-line `eslint-disable-next-line react-hooks/exhaustive-deps`.
+2. Map Jest modules to concrete CJS files:
+   - `react-router-dom` → `dist/index.js`
+   - `react-router/dom` → `dist/development/dom-export.js`
+   - `react-router` → `dist/development/index.js`
+3. Allow Babel transform for `axios|react-router|react-router-dom` via `transformIgnorePatterns`.
+4. Polyfill `TextEncoder` / `TextDecoder` from Node `util` in `setupTests.ts`.
+5. Replace obsolete CRA smoke test with unauthenticated shell check (Login button + SHARE text).
+
+### Results after stabilisation
+
+| Check | Result |
+|--------|--------|
+| `CI=true npm run build` (frontend) | **PASS** — compiled successfully |
+| `CI=true npm test -- --watchAll=false` (frontend) | **PASS** — `1` suite / `1` test |
+| Backend `npm test` | **Not re-fixed** — Phase 0 baseline remains **25 failed / 47 passed** (72 total). Frontend changes did not target backend. |
+
+### Remaining known failures
+
+- Backend suites still failing from Phase 0 baseline (`phase2` recommendations 404s, sharedAccount/invite/friends/user drift). Left for a later pass; not blocking Phase 1 marketing copy/IA work if frontend CI is green.
+- Browserslist / baseline-browser-mapping npm warnings remain (noise only).

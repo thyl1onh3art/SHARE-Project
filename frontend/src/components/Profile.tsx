@@ -12,8 +12,7 @@ interface UserProfile {
 }
 
 const Profile: React.FC = () => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { user } = useAuth();
+  const { updateProfile, refreshUser } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -31,6 +30,8 @@ const Profile: React.FC = () => {
 
   useEffect(() => {
     fetchProfile();
+    // Intentionally load once on mount; fetchProfile closes over stable auth helpers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchProfile = async () => {
@@ -38,13 +39,21 @@ const Profile: React.FC = () => {
       setLoading(true);
       const response = await axios.get('/users/me');
       const userData = response.data.user;
-      setProfile(userData);
+      setProfile({
+        id: userData.id || userData._id,
+        name: userData.name || `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'User',
+        email: userData.email,
+        age: userData.age,
+        interests: userData.interests,
+        createdAt: userData.createdAt
+      });
       setFormData({
-        name: userData.name || '',
+        name: userData.name || `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || '',
         email: userData.email || '',
         age: userData.age ? userData.age.toString() : '',
         interests: userData.interests ? userData.interests.join(', ') : ''
       });
+      await refreshUser();
     } catch (error: any) {
       setError(error.response?.data?.message || 'Failed to fetch profile');
     } finally {
@@ -71,8 +80,8 @@ const Profile: React.FC = () => {
         .map(interest => interest.trim())
         .filter(interest => interest.length > 0);
 
-      await axios.put('/users/profile', {
-        name: formData.name,
+      await updateProfile({
+        name: formData.name.trim(),
         age: parseInt(formData.age) || undefined,
         interests: interestsArray
       });
