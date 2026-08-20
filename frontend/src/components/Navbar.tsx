@@ -9,12 +9,12 @@ const primaryLinks = [
 ];
 
 const moreLinks = [
-  { to: '/personal-finance', label: 'Personal Finance' },
-  { to: '/financial-records', label: 'Financial Records' },
-  { to: '/calendar', label: 'Calendar' },
-  { to: '/gallery', label: 'Gallery' },
-  { to: '/map', label: 'Map' },
-  { to: '/accommodations', label: 'Accommodations' },
+  { to: '/personal-finance', label: 'Personal tracking' },
+  { to: '/financial-records', label: 'Activity history' },
+  { to: '/calendar', label: 'Trip calendar' },
+  { to: '/gallery', label: 'Trip photos' },
+  { to: '/map', label: 'Trip map' },
+  { to: '/accommodations', label: 'Places to stay' },
 ];
 
 const dropdownLinkStyle: React.CSSProperties = {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 import EventCountdown from './EventCountdown';
 
 interface Event {
@@ -348,9 +349,24 @@ const Calendar: React.FC = () => {
   return (
     <div>
       <div className="card">
-        <div className="card-header">
-          <h1 className="card-title">Calendar</h1>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        <div className="card-header" style={{ alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
+          <div>
+            <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#718096' }}>
+              Secondary · More menu
+            </p>
+            <h1 className="card-title" style={{ marginBottom: '0.35rem' }}>Trip calendar</h1>
+            <p style={{ margin: 0, color: '#4a5568', fontSize: '0.95rem' }}>
+              See trip dates and group plans at a glance. Organise the trip itself from Trips; coordinate costs in Trip Money.
+            </p>
+            <p style={{ margin: '0.65rem 0 0', fontSize: '0.9rem' }}>
+              <Link to="/events" style={{ color: '#2b6cb0' }}>Trips</Link>
+              {' · '}
+              <Link to="/shared-accounts" style={{ color: '#2b6cb0' }}>Trip Money</Link>
+              {' · '}
+              <Link to="/invitations" style={{ color: '#2b6cb0' }}>Invitations</Link>
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <button
               onClick={() => setShowSharingSettings(true)}
               className="btn btn-secondary"
@@ -363,7 +379,7 @@ const Calendar: React.FC = () => {
               className="btn btn-primary"
               style={{ padding: '8px 16px', fontSize: '14px' }}
             >
-              Countdown View
+              Trip countdown
             </button>
           </div>
         </div>

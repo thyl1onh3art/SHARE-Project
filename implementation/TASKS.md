@@ -68,10 +68,10 @@ Cursor: complete these in order. Update `[ ]` to `[x]` only after code is change
 - Mobile share/copy action is easy to find.
 
 ## Phase 6 — De-emphasise accounting and secondary lifestyle features
-- [ ] Keep `PersonalFinance` and generic `FinancialRecords` functional, but remove them from the primary conversion journey.
-- [ ] Do not delete Gallery, Map, Accommodation or Calendar.
-- [ ] Ensure no secondary page becomes the default post-login route.
-- [ ] Where easy, adjust page descriptions so they feel attached to a trip rather than a generic social network.
+- [x] Keep `PersonalFinance` and generic `FinancialRecords` functional, but remove them from the primary conversion journey.
+- [x] Do not delete Gallery, Map, Accommodation or Calendar.
+- [x] Ensure no secondary page becomes the default post-login route.
+- [x] Where easy, adjust page descriptions so they feel attached to a trip rather than a generic social network.
 
 ## Phase 7 — Add a prototype close-out summary (non-custodial)
 - [ ] Inspect existing shared-account data to determine whether a reliable close-out summary can be computed without schema changes.

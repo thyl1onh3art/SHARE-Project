@@ -166,7 +166,7 @@ const Register: React.FC = () => {
     }}>
       <div className="card" style={{ width: '100%', maxWidth: '500px' }}>
         <div className="card-header">
-          <h2 className="card-title">Join SHARE Project</h2>
+          <h2 className="card-title">Join SHARE</h2>
         </div>
         
         {error && (

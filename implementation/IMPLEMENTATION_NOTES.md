@@ -606,3 +606,59 @@ No real-money / wallet / PSP functionality added.
 Pack Phase 6 — further de-emphasise Personal Finance / secondary lifestyle framing in page copy (nav already under More).
 
 **STOP:** Do not start Pack Phase 6 without approval.
+
+---
+
+## 16. Pack Phase 6 — De-emphasise secondary finance and lifestyle features
+
+**Branch:** `marketing-alignment`  
+**Stash:** `stash@{0}` left untouched.  
+**Not pushed.** Backend unchanged (copy/presentation only).
+
+### Hierarchy protected
+Primary remains **Trips → Trip Money → Invitations** (nav + post-login `/events`). Secondary tools stay under **More** with trip-oriented labels and page intros that point back to the core journey.
+
+### Per-feature changes
+
+| Feature | Change |
+|---------|--------|
+| **Personal Finance** | Reframed as **Personal tracking**; secondary badge; tracked-total wording; links to Trips/Trip Money/Invitations; empty state points to Trip Money |
+| **Financial Records** | **Activity history**; personal tracked total; Record personal activity; transparency note; core links; form labels de-banked |
+| **Gallery** | **Trip photos**; Trip Money pot filters/labels; empty state → Trips |
+| **Calendar** | **Trip calendar**; trip-date framing; core links; Trip countdown button |
+| **Map** | **Trip map**; search trips; empty → Add a trip |
+| **Accommodation** | **Places to stay**; select trip; Trip Money/Invitations links |
+| **More menu** | Labels: Personal tracking, Activity history, Trip calendar/photos/map, Places to stay |
+| **Login/Register** | SHARE branding + trip coordination tagline on login |
+
+### BEFORE → AFTER examples
+- Personal Financial Records / Total Balance → **Personal tracking** / **Personal tracked total**
+- My Accounts / Add Money → **Activity history** / **Record personal activity**
+- Shared Gallery / Shared Account → **Trip photos** / **Trip Money pot**
+- Event Locations Map → **Trip map**
+- Accommodations Recommendations → **Places to stay**
+
+### Deliberately left unchanged
+- Feature routes, APIs, models, ledger behaviour
+- Dashboard.tsx (not mounted in App.tsx)
+- Card-input UI in Financial Records (existing prototype UI; not expanded)
+- Mock accommodation search behaviour
+- Primary nav structure from Phase 2
+
+### Confirmation
+- Nothing deleted
+- No real-money / PSP / wallet functionality added
+
+### Desktop / mobile
+Secondary headers wrap; core links remain text links; More menu labels shorter/clearer on narrow screens.
+
+### Build / tests
+| Check | Result |
+|--------|--------|
+| `CI=true npm run build` | **PASS** |
+| Frontend tests | **PASS** (1/1) |
+
+### Recommendation for Pack Phase 7
+Prototype non-custodial **Trip Close-out** summary from existing shared-account/ledger data (no automatic refunds; no claim of returning real bank balances).
+
+**STOP:** Do not start Pack Phase 7 without approval.

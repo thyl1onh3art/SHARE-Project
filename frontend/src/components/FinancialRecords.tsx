@@ -149,8 +149,26 @@ const FinancialRecords: React.FC = () => {
   return (
     <div>
       <div className="card">
-        <div className="card-header">
-          <h1 className="card-title">My Accounts</h1>
+        <div className="card-header" style={{ alignItems: 'flex-start', gap: '1rem' }}>
+          <div>
+            <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#718096' }}>
+              Secondary · More menu
+            </p>
+            <h1 className="card-title" style={{ marginBottom: '0.35rem' }}>Activity history</h1>
+            <p style={{ margin: 0, color: '#4a5568', fontSize: '0.95rem' }}>
+              A secondary view of personal tracked activity and recent Trip Money pots. Coordinate the group from Trips, Trip Money, and Invitations.
+            </p>
+            <p style={{ margin: '0.65rem 0 0', fontSize: '0.9rem' }}>
+              <Link to="/events" style={{ color: '#2b6cb0' }}>Trips</Link>
+              {' · '}
+              <Link to="/shared-accounts" style={{ color: '#2b6cb0' }}>Trip Money</Link>
+              {' · '}
+              <Link to="/invitations" style={{ color: '#2b6cb0' }}>Invitations</Link>
+            </p>
+          </div>
+        </div>
+        <div className="trip-money-transparency" style={{ marginTop: '1rem' }}>
+          SHARE records activity here for coordination. It does not hold these amounts in a SHARE bank account.
         </div>
       </div>
 
@@ -166,9 +184,9 @@ const FinancialRecords: React.FC = () => {
         color: 'white',
         marginBottom: '1.5rem'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ flex: 1 }}>
-            <h2 style={{ margin: 0, marginBottom: '0.5rem', fontSize: '1.25rem', opacity: 0.9 }}>Total Balance</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ flex: 1, minWidth: '200px' }}>
+            <h2 style={{ margin: 0, marginBottom: '0.5rem', fontSize: '1.25rem', opacity: 0.9 }}>Personal tracked total</h2>
             <p style={{ 
               fontSize: '3rem', 
               fontWeight: 'bold', 
@@ -178,11 +196,11 @@ const FinancialRecords: React.FC = () => {
               £{totalBalance.toFixed(2)}
             </p>
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', fontSize: '0.9rem', opacity: 0.9, flexWrap: 'wrap' }}>
-              <span>Income: £{totalIncome.toFixed(2)} ({incomeCount} transaction{incomeCount !== 1 ? 's' : ''})</span>
-              <span>Expenses: £{totalExpenses.toFixed(2)} ({expenseCount} transaction{expenseCount !== 1 ? 's' : ''})</span>
+              <span>In: £{totalIncome.toFixed(2)} ({incomeCount})</span>
+              <span>Out: £{totalExpenses.toFixed(2)} ({expenseCount})</span>
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', marginLeft: '2rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
             <button 
               onClick={() => setShowForm(!showForm)}
               style={{
@@ -206,7 +224,7 @@ const FinancialRecords: React.FC = () => {
                 e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
               }}
             >
-              {showForm ? 'Cancel' : 'Add Money'}
+              {showForm ? 'Cancel' : 'Record personal activity'}
             </button>
           </div>
         </div>
@@ -371,7 +389,7 @@ const FinancialRecords: React.FC = () => {
           onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h2 style={{ margin: 0 }}>Add Money Transaction</h2>
+              <h2 style={{ margin: 0 }}>Record personal activity</h2>
               <button
                 type="button"
                 onClick={() => {
@@ -411,7 +429,7 @@ const FinancialRecords: React.FC = () => {
                 }}
                 required
               >
-                <option value="personal">Personal Account</option>
+                <option value="personal">Personal tracking</option>
                 <option value="card">Debit/Credit Card</option>
               </select>
             </div>
@@ -424,7 +442,7 @@ const FinancialRecords: React.FC = () => {
                   value={formData.sharedAccount}
                   onChange={(e) => setFormData({ ...formData, sharedAccount: e.target.value })}
                 >
-                  <option value="">Personal Account</option>
+                  <option value="">Personal tracking</option>
                   {sharedAccounts.map((account) => (
                     <option key={account._id} value={account._id}>
                       {account.name}
@@ -495,7 +513,7 @@ const FinancialRecords: React.FC = () => {
                 disabled={submitting || (formData.fromAccount === 'card' && !cardData.cardNumber)}
                 style={{ flex: 1 }}
               >
-                {submitting ? <span className="spinner"></span> : 'Add Money'}
+                {submitting ? <span className="spinner"></span> : 'Save record'}
               </button>
             </div>
           </form>
