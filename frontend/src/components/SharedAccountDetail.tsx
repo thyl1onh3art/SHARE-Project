@@ -36,6 +36,7 @@ interface SharedAccount {
   financeRecords: FinanceRecord[];
   targetAmount?: number;
   targetDate?: string;
+  perPersonAmount?: number;
   createdAt: string;
 }
 
@@ -136,8 +137,14 @@ const SharedAccountDetail: React.FC = () => {
 
   const calculateUserContribution = (userId: string) => {
     return transactions
-      .filter(record => record.user._id === userId && record.type === 'input')
+      .filter(record => String(record.user._id) === String(userId) && record.type === 'input')
       .reduce((sum, record) => sum + record.amount, 0);
+  };
+
+  const calculateUserNetRecorded = (userId: string) => {
+    return transactions
+      .filter(record => String(record.user._id) === String(userId))
+      .reduce((sum, record) => sum + (record.type === 'input' ? record.amount : -record.amount), 0);
   };
 
   const calculateAvailableWithdrawal = (userId: string) => {
@@ -407,22 +414,55 @@ const SharedAccountDetail: React.FC = () => {
 
   const userId = user ? getCurrentUserId() : '';
   const userContribution = user ? calculateUserContribution(userId) : 0;
-  const allParticipants = [account.owner, ...account.members];
+  const allParticipants = [account.owner, ...account.members].filter(Boolean);
   const ownerId = typeof account.owner === 'object' ? account.owner._id : account.owner;
-  const isOwner = ownerId === userId;
+  const isOwner = String(ownerId) === String(userId);
+  const recordedTotal = calculateBalance();
+  const hasTarget = !!(account.targetAmount && account.targetAmount > 0);
+  const remainingToContribute = hasTarget
+    ? Math.max(0, (account.targetAmount as number) - recordedTotal)
+    : null;
+  const percentComplete = hasTarget
+    ? Math.min(100, Math.max(0, (recordedTotal / (account.targetAmount as number)) * 100))
+    : 0;
+  const suggestedEqualShare =
+    hasTarget
+      ? (account.perPersonAmount && account.perPersonAmount > 0
+          ? account.perPersonAmount
+          : (account.targetAmount as number) / Math.max(1, allParticipants.length))
+      : null;
+  const contributionCount = transactions.filter((t) => t.type === 'input').length;
   const last24HoursCutoff = Date.now() - 24 * 60 * 60 * 1000;
   const recentTransactions = transactions.filter((transaction) => {
     const transactionTime = new Date(transaction.date).getTime();
     return Number.isFinite(transactionTime) && transactionTime >= last24HoursCutoff;
   });
 
+  let organiserNextStep = 'Record a contribution when money has been committed for this trip.';
+  if (!hasTarget && isOwner) {
+    organiserNextStep = 'Set a contribution target so travellers can see what the group is aiming for.';
+  } else if (allParticipants.length <= 1) {
+    organiserNextStep = 'Invite travellers so everyone can record their share of the trip costs.';
+  } else if (hasTarget && remainingToContribute !== null && remainingToContribute > 0) {
+    organiserNextStep = `£${remainingToContribute.toFixed(2)} still to contribute toward the group target.`;
+  } else if (hasTarget && remainingToContribute === 0) {
+    organiserNextStep = 'Contribution target reached on the ledger. Request a settlement record when the group is ready to close out.';
+  }
+
   return (
-    <div>
-      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+    <div className="trip-money-detail">
+      <div className="trip-money-detail-header">
         <button className="btn btn-secondary" onClick={() => navigate('/shared-accounts')}>
           ← Back to Trip Money
         </button>
-        <h1 style={{ margin: 0 }}>{account.name}</h1>
+        <button
+          onClick={() => setShowRemoveModal(true)}
+          aria-label="Remove shared trip costs"
+          title="Remove shared trip costs"
+          className="trip-money-remove-btn"
+        >
+          ×
+        </button>
       </div>
 
       {error && (
@@ -431,143 +471,248 @@ const SharedAccountDetail: React.FC = () => {
         </div>
       )}
 
-      {/* Account Summary */}
-      <div className="card" style={{ marginBottom: '1.5rem', position: 'relative' }}>
-        <button
-          onClick={() => setShowRemoveModal(true)}
-          aria-label="Remove shared trip costs"
-          title="Remove shared trip costs"
-          style={{
-            position: 'absolute',
-            top: '12px',
-            right: '12px',
-            background: 'transparent',
-            border: 'none',
-            color: '#e53e3e',
-            fontSize: '1.25rem',
-            cursor: 'pointer',
-            lineHeight: 1
-          }}
-        >
-          ×
-        </button>
-        <h2 className="card-title">Trip money summary</h2>
-        {account.description && (
-          <p style={{ color: '#4a5568', marginBottom: '1rem' }}>
-            <strong>What this is for:</strong> {account.description}
+      {/* Contribution progress hero */}
+      <div className="card trip-money-hero">
+        <p className="trip-money-kicker">Shared trip costs</p>
+        <h1 className="trip-money-title">{account.name}</h1>
+        {account.description ? (
+          <p className="trip-money-purpose">
+            <strong>What the group is coordinating:</strong> {account.description}
+          </p>
+        ) : (
+          <p className="trip-money-purpose trip-money-empty-hint">
+            No description yet. Add what these shared costs are for (for example accommodation deposit or tickets).
           </p>
         )}
-        
-        <div style={{
-          marginBottom: '1rem',
-          padding: '0.75rem 1rem',
-          background: '#f7fafc',
-          border: '1px solid #e2e8f0',
-          borderRadius: '8px',
-          color: '#4a5568',
-          fontSize: '0.9rem'
-        }}>
+
+        <div className="trip-money-transparency">
           SHARE records and coordinates group contributions. It does not hold this tracked amount in a SHARE bank account.
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-          <div>
-            <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Recorded total</p>
-            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0.25rem 0 0 0' }}>
-              £{calculateBalance().toFixed(2)}
-            </p>
-          </div>
-          {account.targetAmount && (
-            <div>
-              <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Contribution target</p>
-              <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0.25rem 0 0 0' }}>
-                £{account.targetAmount.toFixed(2)}
-              </p>
+        {hasTarget ? (
+          <div className="trip-money-progress-block">
+            <div className="trip-money-progress-meta">
+              <span>
+                <strong>£{recordedTotal.toFixed(2)}</strong> recorded of{' '}
+                <strong>£{(account.targetAmount as number).toFixed(2)}</strong>
+              </span>
+              <span>{Math.round(percentComplete)}% complete</span>
             </div>
-          )}
-          <div>
-            <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Travellers</p>
-            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0.25rem 0 0 0' }}>
-              {allParticipants.length}
-            </p>
+            <div
+              className="trip-money-progress-track"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(percentComplete)}
+              aria-label="Contribution progress"
+            >
+              <div
+                className="trip-money-progress-fill"
+                style={{ width: `${percentComplete}%` }}
+              />
+            </div>
+            <div className="trip-money-stat-grid">
+              <div>
+                <p className="trip-money-stat-label">Contribution target</p>
+                <p className="trip-money-stat-value">£{(account.targetAmount as number).toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="trip-money-stat-label">Recorded total</p>
+                <p className="trip-money-stat-value">£{recordedTotal.toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="trip-money-stat-label">Remaining to contribute</p>
+                <p className="trip-money-stat-value">
+                  £{(remainingToContribute as number).toFixed(2)}
+                </p>
+              </div>
+              <div>
+                <p className="trip-money-stat-label">Travellers</p>
+                <p className="trip-money-stat-value">{allParticipants.length}</p>
+              </div>
+            </div>
+            {account.targetDate && (
+              <p className="trip-money-target-date">
+                Target date: {new Date(account.targetDate).toLocaleDateString()}
+              </p>
+            )}
+            {suggestedEqualShare !== null && (
+              <p className="trip-money-equal-share">
+                Suggested equal share (illustrative, not mandatory): £{suggestedEqualShare.toFixed(2)} each
+              </p>
+            )}
           </div>
-          {user && (
-            <>
-              <div>
-                <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Your contribution</p>
-                <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0.25rem 0 0 0' }}>
-                  £{userContribution.toFixed(2)}
-                </p>
-              </div>
-              <div>
-                <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Available to reverse (recorded)</p>
-                <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#38a169', margin: '0.25rem 0 0 0' }}>
-                  £{availableWithdrawal.toFixed(2)}
-                </p>
-              </div>
-            </>
-          )}
+        ) : (
+          <div className="trip-money-empty-panel">
+            <p className="trip-money-empty-title">No contribution target set</p>
+            <p>
+              Recorded so far: <strong>£{recordedTotal.toFixed(2)}</strong>. Set a target so the group can see what remains.
+            </p>
+            {isOwner && (
+              <button className="btn btn-primary" onClick={handleEditClick}>
+                Set contribution target
+              </button>
+            )}
+          </div>
+        )}
+
+        {contributionCount === 0 && (
+          <div className="trip-money-empty-panel" style={{ marginTop: '1rem' }}>
+            <p className="trip-money-empty-title">No contributions recorded yet</p>
+            <p>When someone commits money toward this trip, record it here so the group position stays clear.</p>
+          </div>
+        )}
+
+        <div className="trip-money-next-step">
+          <strong>{isOwner ? 'Organiser next step:' : 'Next step:'}</strong> {organiserNextStep}
         </div>
 
-        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
-          <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.5rem 0' }}>
-            <strong>Owner:</strong> {account.owner.firstName} {account.owner.lastName} ({account.owner.email})
+        {user && (
+          <p className="trip-money-your-contribution">
+            Your recorded contribution: <strong>£{userContribution.toFixed(2)}</strong>
+            {availableWithdrawal > 0 && (
+              <> · Available to reverse (recorded): <strong>£{availableWithdrawal.toFixed(2)}</strong></>
+            )}
           </p>
-          {account.members.length > 0 && (
-            <div>
-              <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.5rem 0' }}>
-                <strong>Members:</strong>
-              </p>
-              <ul style={{ margin: '0.5rem 0', paddingLeft: '1.5rem' }}>
-                {account.members.map((member) => (
-                  <li key={member._id} style={{ color: '#4a5568', fontSize: '0.9rem' }}>
-                    {member.firstName} {member.lastName} ({member.email})
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+        )}
 
-        {/* Account Actions */}
-        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <button className="btn btn-secondary" onClick={handleEditClick}>
-              Edit / View Details
-            </button>
+        <div className="trip-money-actions">
           <button className="btn btn-primary" onClick={handleTransferClick}>
             Record contribution
           </button>
-            <button className="btn btn-success" onClick={handlePayClick}>
-              Request settlement
+          <button
+            className="btn btn-secondary"
+            onClick={() => navigate(`/invitations?account=${account._id}`)}
+          >
+            Invite traveller
+          </button>
+          {isOwner && (
+            <button className="btn btn-secondary" onClick={handleEditClick}>
+              {hasTarget ? 'Edit details' : 'Set contribution target'}
             </button>
-          </div>
+          )}
+          {!isOwner && (
+            <button className="btn btn-secondary" onClick={handleEditClick}>
+              View details
+            </button>
+          )}
+          <button className="btn btn-secondary" onClick={handlePayClick}>
+            Request settlement
+          </button>
         </div>
 
-        {/* Reverse contribution */}
         {user && availableWithdrawal > 0 && (
-          <div style={{ marginTop: '1rem' }}>
-            <button
-              className="btn btn-success"
-              onClick={handleWithdrawClick}
-              style={{ width: '100%' }}
-            >
+          <div style={{ marginTop: '0.75rem' }}>
+            <button className="btn btn-secondary" onClick={handleWithdrawClick} style={{ width: '100%' }}>
               Reverse recorded contribution (£{availableWithdrawal.toFixed(2)} available)
             </button>
           </div>
         )}
       </div>
 
-      {/* Transaction History */}
+      {/* Traveller contribution status */}
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <h2 className="card-title">Traveller contributions</h2>
+        {allParticipants.length <= 1 ? (
+          <div className="trip-money-empty-panel">
+            <p className="trip-money-empty-title">No other travellers yet</p>
+            <p>Invite friends so everyone can record their share of the trip costs.</p>
+            <button
+              className="btn btn-primary"
+              onClick={() => navigate(`/invitations?account=${account._id}`)}
+            >
+              Invite traveller
+            </button>
+          </div>
+        ) : (
+          <div className="trip-money-member-list">
+            {allParticipants.map((participant) => {
+              const participantId = participant._id;
+              const netRecorded = calculateUserNetRecorded(participantId);
+              const remainingForPerson =
+                suggestedEqualShare !== null
+                  ? Math.max(0, suggestedEqualShare - Math.max(0, netRecorded))
+                  : null;
+              const isComplete =
+                suggestedEqualShare !== null && netRecorded >= suggestedEqualShare - 0.001;
+              const isSelf = String(participantId) === String(userId);
+              const isOrganiser = String(participantId) === String(ownerId);
+
+              return (
+                <div key={participantId} className="trip-money-member-row">
+                  <div className="trip-money-member-main">
+                    <div>
+                      <strong>
+                        {participant.firstName} {participant.lastName}
+                        {isSelf ? ' (you)' : ''}
+                      </strong>
+                      <div className="trip-money-member-meta">
+                        {isOrganiser ? 'Organiser' : 'Traveller'}
+                        {participant.email ? ` · ${participant.email}` : ''}
+                      </div>
+                    </div>
+                    <span
+                      className={`trip-money-status-pill ${
+                        suggestedEqualShare === null
+                          ? 'trip-money-status-neutral'
+                          : isComplete
+                            ? 'trip-money-status-complete'
+                            : 'trip-money-status-pending'
+                      }`}
+                    >
+                      {suggestedEqualShare === null
+                        ? 'Tracking'
+                        : isComplete
+                          ? 'Complete'
+                          : 'Still to contribute'}
+                    </span>
+                  </div>
+                  <div className="trip-money-member-figures">
+                    <div>
+                      <span className="trip-money-stat-label">Recorded</span>
+                      <span className="trip-money-member-amount">£{Math.max(0, netRecorded).toFixed(2)}</span>
+                    </div>
+                    {suggestedEqualShare !== null && (
+                      <div>
+                        <span className="trip-money-stat-label">Suggested share</span>
+                        <span className="trip-money-member-amount">£{suggestedEqualShare.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {remainingForPerson !== null && (
+                      <div>
+                        <span className="trip-money-stat-label">Remaining (vs share)</span>
+                        <span className="trip-money-member-amount">£{remainingForPerson.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {suggestedEqualShare !== null && (
+              <p className="trip-money-equal-share" style={{ marginTop: '0.75rem' }}>
+                Equal-share figures are guidance only. Unequal contributions are allowed.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Recent activity */}
       <div className="card">
-        <h2 className="card-title">Transaction History (Last 24 Hours)</h2>
+        <h2 className="card-title">Group spending record (last 24 hours)</h2>
         <p style={{ color: '#4a5568', fontSize: '0.9rem', marginTop: '-0.25rem' }}>
-          Showing {recentTransactions.length} of {transactions.length} total transaction{transactions.length !== 1 ? 's' : ''}. Full history will be available in Account Settings.
+          Showing {recentTransactions.length} of {transactions.length} total recorded item{transactions.length !== 1 ? 's' : ''}.
         </p>
         {transactions.length === 0 ? (
-          <p style={{ color: '#4a5568' }}>No transactions yet.</p>
+          <div className="trip-money-empty-panel">
+            <p className="trip-money-empty-title">Nothing recorded yet</p>
+            <p>Use Record contribution when someone has committed money toward these shared trip costs.</p>
+            <button className="btn btn-primary" onClick={handleTransferClick}>
+              Record contribution
+            </button>
+          </div>
         ) : recentTransactions.length === 0 ? (
-          <p style={{ color: '#4a5568' }}>No transactions in the last 24 hours.</p>
+          <p style={{ color: '#4a5568' }}>No activity in the last 24 hours.</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -604,8 +749,8 @@ const SharedAccountDetail: React.FC = () => {
                     <td style={{ padding: '0.75rem', color: '#4a5568' }}>
                       {transaction.user.firstName} {transaction.user.lastName}
                     </td>
-                    <td style={{ 
-                      padding: '0.75rem', 
+                    <td style={{
+                      padding: '0.75rem',
                       textAlign: 'right',
                       fontWeight: '600',
                       color: transaction.type === 'input' ? '#38a169' : '#e53e3e'

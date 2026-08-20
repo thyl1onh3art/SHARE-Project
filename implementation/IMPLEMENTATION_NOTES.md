@@ -379,3 +379,77 @@ Make customer-facing group-money UX describe virtual contribution / commitment /
 3. Pack Phase 6 — further de-emphasise Personal Finance / Financial Records copy journey.
 
 **STOP:** Do not start the next pack phase without approval.
+
+---
+
+## 13. Pack Phase 4 — Contribution progress as visual hero
+
+**Branch:** `marketing-alignment`  
+**Stash:** `stash@{0}` left untouched.  
+**Preserved:** Trips-first journey, Trip Money terminology, primary nav (Trips / Trip Money / Invitations / More), APIs/models unchanged.
+
+### Trip Money BEFORE → AFTER
+| Before | After |
+|--------|--------|
+| Detail: flat “summary” grid (recorded total, target, travellers) | Detail: contribution **progress hero** (purpose, bar, %, target/recorded/remaining, organiser next step) |
+| Members listed as emails under owner | **Traveller contributions** scannable rows with recorded / suggested share / remaining / complete status |
+| List: recorded total + traveller count | List: progress bar + remaining + % when target exists |
+| Primary actions mixed | **Record contribution** primary; Invite / Edit target / Settlement secondary |
+| Transaction History title | Group spending record (last 24 hours) |
+
+### Progress information now visible
+- Contribution target, recorded total, remaining to contribute, % complete, progress bar
+- Target date (when present)
+- Suggested equal share from `perPersonAmount` (or target ÷ travellers) — labelled illustrative/not mandatory
+
+### Member contribution information now visible
+- Name, organiser/traveller role, recorded net contribution
+- Suggested share + remaining vs share + Complete / Still to contribute / Tracking (no target)
+- Empty: invite CTA when only the organiser is present
+
+### Primary actions
+- Record contribution (primary)
+- Invite traveller → `/invitations?account=…`
+- Set contribution target / Edit details (organiser; when no target)
+- Request settlement; Reverse recorded contribution (secondary)
+
+### Empty-state changes
+- No target → explain + Set contribution target
+- No contributions → explain next record action
+- No other travellers → Invite traveller
+- List empty → explain pot setup + link to Invitations
+- Activity empty → Record contribution CTA
+
+### Files changed
+- `frontend/src/components/SharedAccountDetail.tsx`
+- `frontend/src/components/SharedAccounts.tsx`
+- `frontend/src/App.css`
+- `implementation/TASKS.md`
+- `implementation/IMPLEMENTATION_NOTES.md`
+
+### Data that could NOT be displayed (backend does not store it)
+- **Per-person mandatory allocations / custom splits** — only equal-share `perPersonAmount` (computed from target ÷ participants) exists; shown as guidance only
+- **Committed-but-unrecorded promises** separate from ledger inputs — only `FinanceRecord` input/output amounts
+- **Real bank settlement status** — not applicable; settlement remains virtual ledger approvals
+
+### Confirmation: no real-money functionality added
+- No Stripe/PayPal/cards/FX/wallets/withdrawals/transfers of real funds
+- Existing virtual ledger actions preserved; UI prioritises progress clarity only
+
+### Desktop / mobile behaviour
+- Progress stats wrap via CSS grid; action buttons stack full-width under 768px
+- Member rows stack status pill under name on narrow widths
+- List progress bar uses full card width
+
+### Build / test results
+| Check | Result |
+|--------|--------|
+| `CI=true npm run build` (frontend) | **PASS** |
+| `CI=true npm test -- --watchAll=false` (frontend) | **PASS** (1/1) |
+
+### Recommendations for next phase (Pack Phase 5)
+1. Strengthen invitations for group travel (named trip context, share/copy for WhatsApp).
+2. Optionally align SharedAccount mongoose schema fields (`description`, `targetAmount`, `targetDate`, `perPersonAmount`) with controller usage so targets always persist reliably.
+3. Pack Phase 6 — keep Personal Finance out of the primary conversion journey (already under More).
+
+**STOP:** Do not start Pack Phase 5 without approval.

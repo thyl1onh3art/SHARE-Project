@@ -696,18 +696,35 @@ const SharedAccounts: React.FC = () => {
         
         {accounts.length === 0 ? (
           <div style={{ color: '#4a5568', textAlign: 'center', padding: '2rem' }}>
-            <p style={{ marginTop: 0 }}>
-              No shared trip costs yet. Create a pot for an accommodation deposit, tickets, or group holiday costs.
+            <p style={{ marginTop: 0, fontSize: '1.05rem', fontWeight: 600, color: '#2d3748' }}>
+              No shared trip costs yet
             </p>
-            <p style={{ marginBottom: 0, fontSize: '0.9rem' }}>
+            <p style={{ marginTop: 0 }}>
+              Set up a pot for an accommodation deposit, tickets, or group holiday costs, then invite travellers and record contributions.
+            </p>
+            <p style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>
               SHARE only records contributions here — it does not hold money in a bank account.
             </p>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => navigate('/invitations')}
+            >
+              Go to Invitations
+            </button>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {accounts.map((account) => {
               const balance = calculateAccountBalance(account);
               const participantCount = getParticipantCount(account);
+              const hasTarget = !!(account.targetAmount && account.targetAmount > 0);
+              const remaining = hasTarget
+                ? Math.max(0, (account.targetAmount as number) - balance)
+                : null;
+              const percent = hasTarget
+                ? Math.min(100, Math.max(0, (balance / (account.targetAmount as number)) * 100))
+                : 0;
               const hasPendingPayment = paymentRequests.some((pr: any) => {
                 const accountId = typeof pr.sharedAccount === 'object' 
                   ? pr.sharedAccount._id 
@@ -723,6 +740,7 @@ const SharedAccounts: React.FC = () => {
                     e.stopPropagation();
                     navigate(`/shared-accounts/${account._id}`);
                   }}
+                  className="trip-money-list-card"
                   style={{
                     background: 'white',
                     border: '1px solid #e2e8f0',
@@ -747,16 +765,16 @@ const SharedAccounts: React.FC = () => {
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div style={{ flex: 1 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <h3 style={{ 
-                        margin: '0 0 0.5rem 0', 
+                        margin: '0 0 0.35rem 0', 
                         color: '#2d3748',
                         fontSize: '1.1rem',
                         fontWeight: '600'
                       }}>
                         {account.name}
                       </h3>
-                      {account.description && (
+                      {account.description ? (
                         <p style={{ 
                           margin: '0 0 0.75rem 0', 
                           color: '#4a5568',
@@ -764,47 +782,58 @@ const SharedAccounts: React.FC = () => {
                         }}>
                           {account.description}
                         </p>
+                      ) : (
+                        <p style={{ margin: '0 0 0.75rem 0', color: '#a0aec0', fontSize: '0.85rem' }}>
+                          No description yet
+                        </p>
                       )}
-                      <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <div>
-                          <span style={{ 
-                            fontSize: '1.5rem', 
-                            fontWeight: 'bold', 
-                            color: '#667eea' 
-                          }}>
-                            £{balance.toFixed(2)}
-                          </span>
-                          <div style={{ 
-                            fontSize: '0.75rem', 
-                            color: '#718096',
-                            marginTop: '0.25rem'
-                          }}>
-                            Recorded total
+
+                      {hasTarget ? (
+                        <div className="trip-money-list-progress">
+                          <div className="trip-money-progress-meta">
+                            <span>
+                              £{balance.toFixed(2)} of £{(account.targetAmount as number).toFixed(2)} recorded
+                            </span>
+                            <span>{Math.round(percent)}%</span>
+                          </div>
+                          <div
+                            className="trip-money-progress-track"
+                            role="progressbar"
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-valuenow={Math.round(percent)}
+                            aria-label={`${account.name} contribution progress`}
+                          >
+                            <div className="trip-money-progress-fill" style={{ width: `${percent}%` }} />
+                          </div>
+                          <div className="trip-money-list-stats">
+                            <span>Remaining £{(remaining as number).toFixed(2)}</span>
+                            <span>{participantCount} {participantCount === 1 ? 'traveller' : 'travellers'}</span>
+                            {hasPendingPayment && (
+                              <span className="trip-money-pending-badge">Settlement pending</span>
+                            )}
                           </div>
                         </div>
-                        <div>
-                          <span style={{ 
-                            fontSize: '0.9rem', 
-                            color: '#4a5568',
-                            fontWeight: '500'
-                          }}>
-                            {participantCount} {participantCount === 1 ? 'traveller' : 'travellers'}
-                          </span>
-                        </div>
-                        {hasPendingPayment && (
-                          <div style={{
-                            background: '#fef3c7',
-                            border: '1px solid #f59e0b',
-                            borderRadius: '4px',
-                            padding: '0.25rem 0.5rem',
-                            fontSize: '0.75rem',
-                            color: '#92400e',
-                            fontWeight: '600'
-                          }}>
-                            Settlement pending
+                      ) : (
+                        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <div>
+                            <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#667eea' }}>
+                              £{balance.toFixed(2)}
+                            </span>
+                            <div style={{ fontSize: '0.75rem', color: '#718096', marginTop: '0.25rem' }}>
+                              Recorded total · no target set
+                            </div>
                           </div>
-                        )}
-                      </div>
+                          <div>
+                            <span style={{ fontSize: '0.9rem', color: '#4a5568', fontWeight: '500' }}>
+                              {participantCount} {participantCount === 1 ? 'traveller' : 'travellers'}
+                            </span>
+                          </div>
+                          {hasPendingPayment && (
+                            <div className="trip-money-pending-badge">Settlement pending</div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

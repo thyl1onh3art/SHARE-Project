@@ -46,11 +46,11 @@ Cursor: complete these in order. Update `[ ]` to `[x]` only after code is change
 - A tester can explain what is real vs tracked after reading the screen.
 
 ## Phase 4 — Make contribution progress the hero
-- [ ] On list/detail views, visually prioritise: trip/cost name, target, amount committed/recorded, remaining amount, member progress, target date.
-- [ ] Show per-person expected share where already supported (`perPersonAmount`) without presenting it as mandatory when unequal contributions are allowed.
-- [ ] Make the main member action a clear contribution/commitment action.
-- [ ] Make organiser controls secondary but discoverable.
-- [ ] Preserve accessible labels and keyboard behaviour.
+- [x] On list/detail views, visually prioritise: trip/cost name, target, amount committed/recorded, remaining amount, member progress, target date.
+- [x] Show per-person expected share where already supported (`perPersonAmount`) without presenting it as mandatory when unequal contributions are allowed.
+- [x] Make the main member action a clear contribution/commitment action.
+- [x] Make organiser controls secondary but discoverable.
+- [x] Preserve accessible labels and keyboard behaviour.
 
 ### Acceptance
 - Contribution status is understandable without reading a finance ledger.
