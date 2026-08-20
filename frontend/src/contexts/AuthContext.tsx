@@ -4,6 +4,8 @@ import axios from 'axios';
 interface User {
   id: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
 }
 
@@ -28,6 +30,32 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://share-project-pro
 // Configure axios defaults
 axios.defaults.baseURL = API_BASE_URL;
 
+/** Normalise login /me /profile user payloads into a stable AuthContext User. */
+const mapUserFromApi = (userData: {
+  id?: string;
+  _id?: string;
+  userId?: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  email: string;
+}): User => {
+  const firstName = userData.firstName?.trim() || undefined;
+  const lastName = userData.lastName?.trim() || undefined;
+  const name =
+    userData.name?.trim() ||
+    `${firstName || ''} ${lastName || ''}`.trim() ||
+    'User';
+
+  return {
+    id: String(userData.id || userData._id || userData.userId || ''),
+    name,
+    firstName,
+    lastName,
+    email: userData.email
+  };
+};
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
@@ -43,11 +71,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           
           // Verify token by getting user profile
           const response = await axios.get('/users/me');
-          setUser({
-            id: response.data.user.userId,
-            name: response.data.user.name || 'User',
-            email: response.data.user.email
-          });
+          setUser(mapUserFromApi(response.data.user));
           setToken(storedToken);
         } catch (error) {
           // Token is invalid, remove it
@@ -73,11 +97,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
       
       setToken(newToken);
-      setUser({
-        id: userData.id,
-        name: userData.name,
-        email: userData.email
-      });
+      setUser(mapUserFromApi(userData));
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Login failed');
     }
@@ -122,31 +142,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const refreshUser = async () => {
+    const response = await axios.get('/users/me');
+    setUser(mapUserFromApi(response.data.user));
+  };
+
   const updateProfile = async (profileData: { name?: string; age?: number; interests?: string[] }) => {
     try {
-      await axios.put('/users/profile', profileData);
-      
-      // Update local user state
-      if (user) {
+      const response = await axios.put('/users/profile', profileData);
+      if (response.data.user) {
+        setUser(mapUserFromApi(response.data.user));
+      } else if (user) {
         setUser({
           ...user,
-          name: profileData.name || user.name,
-          email: user.email // Email cannot be changed
+          name: profileData.name?.trim() || user.name
         });
       }
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Failed to update profile');
     }
-  };
-
-  const refreshUser = async () => {
-    const response = await axios.get('/users/me');
-    const userData = response.data.user;
-    setUser({
-      id: userData.id || userData._id || userData.userId,
-      name: userData.name || `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'User',
-      email: userData.email
-    });
   };
 
   const deleteAccount = async () => {

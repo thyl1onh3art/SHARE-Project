@@ -6,6 +6,27 @@ const Invite = require('../models/Invite');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
+/** Client-safe user shape for auth/profile responses (no password, friends, or security fields). */
+const formatUserForClient = (user) => {
+  if (!user) return null;
+
+  const firstName = user.firstName || '';
+  const lastName = user.lastName || '';
+  const legacyName = typeof user.name === 'string' ? user.name.trim() : '';
+  const name = legacyName || `${firstName} ${lastName}`.trim() || 'User';
+
+  return {
+    id: user._id || user.id,
+    firstName,
+    lastName,
+    name,
+    email: user.email,
+    age: user.age,
+    interests: user.interests || [],
+    createdAt: user.createdAt
+  };
+};
+
 // Register a new user
 exports.register = async (req, res) => {
   try {
@@ -76,7 +97,7 @@ exports.login = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
-    res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
+    res.json({ token, user: formatUserForClient(user) });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -89,7 +110,7 @@ exports.getProfile = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    res.json({ user });
+    res.json({ user: formatUserForClient(user) });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -98,11 +119,17 @@ exports.getProfile = async (req, res) => {
 // Update user profile
 exports.updateProfile = async (req, res) => {
   try {
-    const { name, age, interests } = req.body;
+    const { name, firstName, lastName, age, interests } = req.body;
     const userId = req.user.userId;
 
     const updateData = {};
-    if (name !== undefined) updateData.name = name;
+    if (firstName !== undefined) updateData.firstName = firstName;
+    if (lastName !== undefined) updateData.lastName = lastName;
+    if (name !== undefined) {
+      const parts = String(name).trim().split(/\s+/).filter(Boolean);
+      updateData.firstName = parts[0] || '';
+      updateData.lastName = parts.slice(1).join(' ') || '';
+    }
     if (age !== undefined) updateData.age = age;
     if (interests !== undefined) updateData.interests = interests;
 
@@ -116,9 +143,9 @@ exports.updateProfile = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    res.json({ 
-      message: 'Profile updated successfully', 
-      user 
+    res.json({
+      message: 'Profile updated successfully',
+      user: formatUserForClient(user)
     });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });

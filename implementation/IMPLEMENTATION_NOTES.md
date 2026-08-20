@@ -960,3 +960,60 @@ Prototype coordinates and records; organisers settle real money outside SHARE.
 Integration 2 — Auth user shape is safe to begin (does not depend on unfinished Friends work).  
 **Do not push** this commit unless separately requested.
 
+---
+
+## Integration 2 — Auth user shape (pre-marketing recovery into marketing-aligned SHARE)
+
+**Branch:** `integrate-pre-marketing-features`  
+**Source inspected:** `pre-marketing-wip` (formatter/mapping behaviours extracted only; branch not merged; stash not restored)
+
+### User shape BEFORE → AFTER
+
+| Flow | Before | After |
+|------|--------|--------|
+| Login `user` | `{ id, name: user.name, email }` — `name` usually missing (schema uses firstName/lastName) | `{ id, firstName, lastName, name (computed), email, age, interests, createdAt }` |
+| `GET /users/me` | Raw mongoose doc minus password (could include `friends`, `calendarSettings`, `_id`) | Same formatted client shape as login |
+| Profile update response | Raw doc (and previously wrote non-schema `name` field) | Formatted client shape; `name` input splits into `firstName`/`lastName` |
+| AuthContext init/login/refresh | Ad-hoc mapping; init wrongly read `user.userId` | Shared `mapUserFromApi` with id/name/firstName/lastName/email fallbacks |
+
+### Backend formatter (`formatUserForClient`)
+- Builds display `name` from legacy `user.name` if present, else `firstName` + `lastName`, else `'User'`
+- Applied to login, getProfile, updateProfile
+- Profile updates accept `name` and/or `firstName`/`lastName` and persist to schema fields
+
+### Frontend mapping (`mapUserFromApi`)
+- Resolves `id` from `id` | `_id` | `userId`
+- Resolves `name` from `name` | first+last | `'User'`
+- Optional `firstName` / `lastName` on AuthContext `User`
+- Used by initAuth, login, refreshUser, updateProfile
+
+### Fields exposed to frontend (auth/profile user payload)
+`id`, `firstName`, `lastName`, `name`, `email`, `age`, `interests`, `createdAt`
+
+### Fields deliberately excluded
+`password` / hash, `friends`, `calendarSettings`, tokens, reset/verification secrets, other internal mongoose metadata (`__v`, etc.)
+
+### Name fallback behaviour
+Backend and frontend both prefer an explicit name string when present, then concatenate first/last, then `'User'`. Friends list naming remains via `friendController` (`firstName`/`lastName` → `name`, else email).
+
+### Tests / results
+| Check | Result |
+|--------|--------|
+| Friends `tests/friends.test.js` | **PASS** — 8/8 |
+| `tests/user.test.js` | **FAIL (pre-existing / unrelated)** — expects `success` envelope not returned by controllers; asserts DB `user.name` though schema uses firstName/lastName; registration/login rate-limited (429) when suites run back-to-back. Not introduced by Integration 2 formatter. |
+| Frontend `CI=true npm run build` | **PASS** |
+| Frontend tests | **PASS** — 1 suite / 1 test |
+
+### Regression (code-checked)
+- `/` → `/events`; primary nav Trips / Trip Money / Invitations; Friends under More
+- Trip Close-out unchanged; token localStorage + axios Authorization flow unchanged
+- Login/logout/refresh/updateProfile still present and use normalised user mapping
+
+### Deferred / out of scope
+SharedAccount access helper, soft delete, payment requests, invitation helpers, ParticipantCount, finance changes
+
+### Next
+Integration 3 — SharedAccount access helper is safe to begin.  
+**Do not push** unless separately requested.
+
+
