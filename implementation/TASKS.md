@@ -9,10 +9,10 @@ Cursor: complete these in order. Update `[ ]` to `[x]` only after code is change
 - [x] Run current frontend build/test and available backend tests; record baseline failures without fixing unrelated issues.
 
 ## Phase 1 — Reframe the product around Trips
-- [ ] Change authenticated default route in `frontend/src/App.tsx` away from `/financial-records` to the best existing trip-oriented route (prefer `/events` unless inspection identifies a better existing overview).
-- [ ] Reframe the user-facing Events experience as **Trips** where appropriate while preserving backend route/model compatibility.
-- [ ] Update primary headings, empty states, buttons and explanatory copy in the trip/event component so examples and language suit friend-group travel.
-- [ ] Keep non-travel event compatibility in the data model unless removing it is necessary; the launch UI can still prioritise trips.
+- [x] Change authenticated default route in `frontend/src/App.tsx` away from `/financial-records` to the best existing trip-oriented route (prefer `/events` unless inspection identifies a better existing overview).
+- [x] Reframe the user-facing Events experience as **Trips** where appropriate while preserving backend route/model compatibility.
+- [x] Update primary headings, empty states, buttons and explanatory copy in the trip/event component so examples and language suit friend-group travel.
+- [x] Keep non-travel event compatibility in the data model unless removing it is necessary; the launch UI can still prioritise trips.
 
 ### Acceptance
 - First meaningful authenticated screen is trip-oriented.

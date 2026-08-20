@@ -195,3 +195,55 @@ Do **not** start Phase 2+ until Phase 1 is approved after delivery.
 
 - Backend suites still failing from Phase 0 baseline (`phase2` recommendations 404s, sharedAccount/invite/friends/user drift). Left for a later pass; not blocking Phase 1 marketing copy/IA work if frontend CI is green.
 - Browserslist / baseline-browser-mapping npm warnings remain (noise only).
+
+---
+
+## 10. Phase 1 — Trips as primary product entry
+
+**Branch:** `marketing-alignment` (from `e971ec9`)  
+**Pre-work:** Unrelated WIP stashed as `stash@{0}: WIP: unrelated pre-Phase1 feature work (friends, payments, shared-account deletes, diagnostics)` — not included in this commit.
+
+### Files inspected
+- `frontend/src/App.tsx`, `Login.tsx`, `Navbar.tsx`, `ProtectedRoute.tsx`
+- `frontend/src/components/EventCountdown.tsx` (primary Trips UI)
+- Existing `/api/events` usage (GET/POST/DELETE) — left unchanged
+- Confirmed no suitable alternate trip dashboard beyond `/events`
+
+### Files changed
+- `frontend/src/App.tsx` — default `/` → `/events`
+- `frontend/src/components/Login.tsx` — post-login navigate → `/events`
+- `frontend/src/components/Navbar.tsx` — nav label `Events` → `Trips` (path still `/events`)
+- `frontend/src/components/EventCountdown.tsx` — trip-oriented headings, empty states, form copy, examples, category labels
+- `frontend/src/contexts/AuthContext.tsx` — added missing `refreshUser` so Profile (from stabilisation) typechecks after stash restored clean AuthContext
+- `implementation/TASKS.md`, `implementation/IMPLEMENTATION_NOTES.md`
+
+### Visible behaviour before → after
+| Before | After |
+|--------|--------|
+| `/` and login landed on financial records | `/` and login land on Trips (`/events`) |
+| Navbar said “Events”; page “Event Countdowns” | Navbar/page say **Trips** |
+| Empty state: “No events yet…” | Empty state invites Amsterdam weekend / Ibiza / ski / stag-hen / group holiday |
+| Form placeholders birthday-party style | Trip name, destination, trip type, group-cost framing |
+
+### Terminology changed (customer-facing only)
+Events → Trips; Add Event → Add trip; Location → Destination; Category labels reframed for travel; countdown/stats copy trip-oriented.
+
+### Internal event terminology deliberately retained
+- Route `/events`, API `/api/events`
+- Component name `EventCountdown`, interface `Event`, fields `eventDate` / `eventTime`
+- Category **values** (`holiday`, `travel`, `social`, …) unchanged — only labels/order/default (`holiday`)
+
+### Out of scope (left for Phase 2+)
+- Full nav simplification / More menu
+- Shared Accounts → Trip Fund wording
+- Personal Finance removal from primary journey beyond not being the default landing
+- Messages rename, pooled funds, cards, FX, PayPal group payments
+
+### Build / test results
+- `CI=true npm run build` — **PASS**
+- `CI=true npm test -- --watchAll=false` — **PASS** (1/1)
+
+### Phase 2 should address
+- Primary nav: Trips, Shared Costs/Trip Money, Invitations; move Calendar/Gallery/Map/Accommodations under More
+- Brand label `SHARE Project` → `SHARE`
+- De-emphasise Finance in primary nav without deleting it

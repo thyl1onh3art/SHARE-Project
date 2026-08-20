@@ -60,7 +60,7 @@ const Navbar: React.FC = () => {
               Invitations
             </Link>
             <Link to="/events" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
-              Events
+              Trips
             </Link>
             <Link to="/calendar" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
               Calendar
