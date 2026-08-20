@@ -37,6 +37,8 @@ interface SharedAccount {
   targetAmount?: number;
   targetDate?: string;
   perPersonAmount?: number;
+  isDeleted?: boolean;
+  deletedAt?: string;
   createdAt: string;
 }
 
@@ -75,6 +77,13 @@ const SharedAccountDetail: React.FC = () => {
   const [removeSubmitting, setRemoveSubmitting] = useState(false);
   const [newOwnerId, setNewOwnerId] = useState('');
   const [pendingSettlementRequests, setPendingSettlementRequests] = useState<any[]>([]);
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [archiveSubmitting, setArchiveSubmitting] = useState(false);
+  const [showPermanentDeleteModal, setShowPermanentDeleteModal] = useState(false);
+  const [permanentDeleteSubmitting, setPermanentDeleteSubmitting] = useState(false);
+  const [showOrganiserTransferModal, setShowOrganiserTransferModal] = useState(false);
+  const [organiserTransferId, setOrganiserTransferId] = useState('');
+  const [organiserTransferSubmitting, setOrganiserTransferSubmitting] = useState(false);
 
   useEffect(() => {
     if (accountId) {
@@ -250,6 +259,10 @@ const SharedAccountDetail: React.FC = () => {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!accountId) return;
+    if (account?.isDeleted) {
+      setShowEditModal(false);
+      return;
+    }
     setEditSubmitting(true);
     setError('');
 
@@ -408,6 +421,58 @@ const SharedAccountDetail: React.FC = () => {
     }
   };
 
+  const handleArchiveTripMoney = async () => {
+    if (!accountId) return;
+    setArchiveSubmitting(true);
+    setError('');
+    try {
+      await axios.delete(`/shared-accounts/${accountId}`);
+      setShowArchiveModal(false);
+      await fetchAccountDetails();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to archive Trip Money');
+    } finally {
+      setArchiveSubmitting(false);
+    }
+  };
+
+  const handlePermanentDelete = async () => {
+    if (!accountId) return;
+    setPermanentDeleteSubmitting(true);
+    setError('');
+    try {
+      await axios.delete(`/shared-accounts/${accountId}/permanent`);
+      setShowPermanentDeleteModal(false);
+      navigate('/shared-accounts');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to permanently delete Trip Money');
+    } finally {
+      setPermanentDeleteSubmitting(false);
+    }
+  };
+
+  const handleTransferOrganiserRole = async () => {
+    if (!accountId || !organiserTransferId) {
+      setError('Select a traveller to make organiser.');
+      return;
+    }
+    setOrganiserTransferSubmitting(true);
+    setError('');
+    try {
+      await axios.post(`/shared-accounts/${accountId}/transfer-ownership`, {
+        newOwnerId: organiserTransferId,
+        removeCurrentOwner: false
+      });
+      setShowOrganiserTransferModal(false);
+      setOrganiserTransferId('');
+      await fetchAccountDetails();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to transfer organiser role');
+    } finally {
+      setOrganiserTransferSubmitting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="card">
@@ -416,7 +481,7 @@ const SharedAccountDetail: React.FC = () => {
     );
   }
 
-  if (error || !account) {
+  if (!account) {
     return (
       <div className="card">
         <p style={{ color: '#e53e3e' }}>{error || 'Account not found'}</p>
@@ -432,6 +497,7 @@ const SharedAccountDetail: React.FC = () => {
   const allParticipants = [account.owner, ...account.members].filter(Boolean);
   const ownerId = typeof account.owner === 'object' ? account.owner._id : account.owner;
   const isOwner = String(ownerId) === String(userId);
+  const isArchived = !!account.isDeleted;
   const recordedTotal = calculateBalance();
   const hasTarget = !!(account.targetAmount && account.targetAmount > 0);
   const remainingToContribute = hasTarget
@@ -476,7 +542,9 @@ const SharedAccountDetail: React.FC = () => {
   }
 
   let organiserNextStep = 'Record a contribution when money has been committed for this trip.';
-  if (!hasTarget && isOwner) {
+  if (isArchived) {
+    organiserNextStep = 'This Trip Money pot is archived. Review recorded history only.';
+  } else if (!hasTarget && isOwner) {
     organiserNextStep = 'Set a contribution target so travellers can see what the group is aiming for.';
   } else if (allParticipants.length <= 1) {
     organiserNextStep = 'Invite travellers so everyone can record their share of the trip costs.';
@@ -492,19 +560,37 @@ const SharedAccountDetail: React.FC = () => {
         <button className="btn btn-secondary" onClick={() => navigate('/shared-accounts')}>
           ← Back to Trip Money
         </button>
-        <button
-          onClick={() => setShowRemoveModal(true)}
-          aria-label="Remove shared trip costs"
-          title="Remove shared trip costs"
-          className="trip-money-remove-btn"
-        >
-          ×
-        </button>
+        {!isArchived && (
+          <button
+            onClick={() => setShowRemoveModal(true)}
+            aria-label="Leave shared trip costs"
+            title="Leave shared trip costs"
+            className="trip-money-remove-btn"
+          >
+            ×
+          </button>
+        )}
       </div>
 
       {error && (
         <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
           {error}
+        </div>
+      )}
+
+      {isArchived && (
+        <div
+          className="card"
+          style={{
+            marginBottom: '1rem',
+            background: '#edf2f7',
+            border: '1px solid #cbd5e0'
+          }}
+        >
+          <h2 className="card-title" style={{ marginBottom: '0.35rem' }}>Archived Trip Money</h2>
+          <p style={{ margin: 0, color: '#4a5568' }}>
+            This record is kept for your trip history. New contribution activity cannot be recorded.
+          </p>
         </div>
       )}
 
@@ -585,7 +671,7 @@ const SharedAccountDetail: React.FC = () => {
             <p>
               Recorded so far: <strong>£{recordedTotal.toFixed(2)}</strong>. Set a target so the group can see what remains.
             </p>
-            {isOwner && (
+            {isOwner && !isArchived && (
               <button className="btn btn-primary" onClick={handleEditClick}>
                 Set contribution target
               </button>
@@ -614,31 +700,40 @@ const SharedAccountDetail: React.FC = () => {
         )}
 
         <div className="trip-money-actions">
-          <button className="btn btn-primary" onClick={handleTransferClick}>
-            Record contribution
-          </button>
-          <button
-            className="btn btn-secondary"
-            onClick={() => navigate(`/invitations?account=${account._id}`)}
-          >
-            Invite traveller
-          </button>
-          {isOwner && (
-            <button className="btn btn-secondary" onClick={handleEditClick}>
-              {hasTarget ? 'Edit details' : 'Set contribution target'}
-            </button>
+          {!isArchived && (
+            <>
+              <button className="btn btn-primary" onClick={handleTransferClick}>
+                Record contribution
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => navigate(`/invitations?account=${account._id}`)}
+              >
+                Invite traveller
+              </button>
+              {isOwner && (
+                <button className="btn btn-secondary" onClick={handleEditClick}>
+                  {hasTarget ? 'Edit details' : 'Set contribution target'}
+                </button>
+              )}
+              {!isOwner && (
+                <button className="btn btn-secondary" onClick={handleEditClick}>
+                  View details
+                </button>
+              )}
+              <button className="btn btn-secondary" onClick={handlePayClick}>
+                Request settlement record
+              </button>
+            </>
           )}
-          {!isOwner && (
+          {isArchived && (
             <button className="btn btn-secondary" onClick={handleEditClick}>
               View details
             </button>
           )}
-          <button className="btn btn-secondary" onClick={handlePayClick}>
-            Request settlement record
-          </button>
         </div>
 
-        {user && availableWithdrawal > 0 && (
+        {user && availableWithdrawal > 0 && !isArchived && (
           <div style={{ marginTop: '0.75rem' }}>
             <button className="btn btn-secondary" onClick={handleWithdrawClick} style={{ width: '100%' }}>
               Reverse recorded contribution (£{availableWithdrawal.toFixed(2)} available)
@@ -654,12 +749,14 @@ const SharedAccountDetail: React.FC = () => {
           <div className="trip-money-empty-panel">
             <p className="trip-money-empty-title">No other travellers yet</p>
             <p>Invite friends so everyone can record their share of the trip costs.</p>
-            <button
-              className="btn btn-primary"
-              onClick={() => navigate(`/invitations?account=${account._id}`)}
-            >
-              Invite traveller
-            </button>
+            {!isArchived && (
+              <button
+                className="btn btn-primary"
+                onClick={() => navigate(`/invitations?account=${account._id}`)}
+              >
+                Invite traveller
+              </button>
+            )}
           </div>
         ) : (
           <div className="trip-money-member-list">
@@ -964,52 +1061,97 @@ const SharedAccountDetail: React.FC = () => {
           </div>
         )}
 
-        <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1.05rem', color: '#2d3748' }}>
-          Organiser next steps
-        </h3>
-        <div className="trip-money-actions">
-          {!hasTarget && isOwner && (
-            <button className="btn btn-primary" onClick={handleEditClick}>
-              Set contribution target
-            </button>
-          )}
-          {closeOutStatus === 'still_collecting' && (
-            <button className="btn btn-primary" onClick={handleTransferClick}>
-              Record contribution
-            </button>
-          )}
-          {(closeOutStatus === 'ready_to_review' || closeOutStatus === 'review_difference') && (
-            <button className="btn btn-primary" onClick={handlePayClick}>
-              Request settlement record
-            </button>
-          )}
-          <button
-            className="btn btn-secondary"
-            onClick={() => {
-              document.getElementById('traveller-contributions')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }}
-          >
-            Review traveller contributions
-          </button>
-          {isOwner && (
-            <button className="btn btn-secondary" onClick={handleEditClick}>
-              Edit contribution target
-            </button>
-          )}
-          <button
-            className="btn btn-secondary"
-            onClick={() => {
-              document.getElementById('group-activity')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }}
-          >
-            Review activity history
-          </button>
-        </div>
+        {!isArchived && (
+          <>
+            <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1.05rem', color: '#2d3748' }}>
+              Organiser next steps
+            </h3>
+            <div className="trip-money-actions">
+              {!hasTarget && isOwner && (
+                <button className="btn btn-primary" onClick={handleEditClick}>
+                  Set contribution target
+                </button>
+              )}
+              {closeOutStatus === 'still_collecting' && (
+                <button className="btn btn-primary" onClick={handleTransferClick}>
+                  Record contribution
+                </button>
+              )}
+              {(closeOutStatus === 'ready_to_review' || closeOutStatus === 'review_difference') && (
+                <button className="btn btn-primary" onClick={handlePayClick}>
+                  Request settlement record
+                </button>
+              )}
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  document.getElementById('traveller-contributions')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+              >
+                Review traveller contributions
+              </button>
+              {isOwner && (
+                <button className="btn btn-secondary" onClick={handleEditClick}>
+                  Edit contribution target
+                </button>
+              )}
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  document.getElementById('group-activity')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+              >
+                Review activity history
+              </button>
+            </div>
+          </>
+        )}
         <p style={{ marginTop: '0.85rem', fontSize: '0.85rem', color: '#718096' }}>
           There is no “close account” or automatic refund action in SHARE today. When the group is finished reviewing,
           use your own bank apps or cash to settle any real-world differences you agree on.
         </p>
       </div>
+
+      {isOwner && (
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#718096' }}>
+            Organiser actions
+          </p>
+          <h2 className="card-title" style={{ marginBottom: '0.35rem' }}>Trip Money settings</h2>
+          <p style={{ color: '#718096', fontSize: '0.9rem', marginTop: 0 }}>
+            Administration only — this does not move money or change recorded history totals.
+          </p>
+          <div className="trip-money-actions" style={{ flexWrap: 'wrap' }}>
+            {!isArchived && account.members.length > 0 && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  setOrganiserTransferId('');
+                  setShowOrganiserTransferModal(true);
+                }}
+              >
+                Transfer organiser role
+              </button>
+            )}
+            {!isArchived && (
+              <button type="button" className="btn btn-secondary" onClick={() => setShowArchiveModal(true)}>
+                Archive Trip Money
+              </button>
+            )}
+            {isArchived && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ color: '#c53030' }}
+                onClick={() => setShowPermanentDeleteModal(true)}
+              >
+                Delete permanently
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Edit Details Modal */}
       {showEditModal && (
@@ -1110,16 +1252,18 @@ const SharedAccountDetail: React.FC = () => {
                   className="btn btn-secondary"
                   style={{ flex: 1 }}
                 >
-                  Cancel
+                  {isArchived ? 'Close' : 'Cancel'}
                 </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={editSubmitting}
-                  style={{ flex: 1 }}
-                >
-                  {editSubmitting ? <span className="spinner"></span> : 'Save Changes'}
-                </button>
+                {!isArchived && (
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={editSubmitting}
+                    style={{ flex: 1 }}
+                  >
+                    {editSubmitting ? <span className="spinner"></span> : 'Save Changes'}
+                  </button>
+                )}
               </div>
             </form>
           </div>
@@ -1560,6 +1704,96 @@ const SharedAccountDetail: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showOrganiserTransferModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex',
+          justifyContent: 'center', alignItems: 'center', zIndex: 1000
+        }}>
+          <div className="card" style={{ width: '90%', maxWidth: '480px' }}>
+            <h2 style={{ marginTop: 0 }}>Transfer organiser role</h2>
+            <p style={{ color: '#4a5568', fontSize: '0.9rem' }}>
+              Choose a current traveller to become organiser. This transfers administration only — not money or recorded totals.
+            </p>
+            <div className="form-group">
+              <label className="form-label">Make organiser</label>
+              <select
+                className="form-input"
+                value={organiserTransferId}
+                onChange={(e) => setOrganiserTransferId(e.target.value)}
+              >
+                <option value="">Select traveller</option>
+                {account.members.map((member) => (
+                  <option key={member._id} value={member._id}>
+                    {member.firstName} {member.lastName} ({member.email})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowOrganiserTransferModal(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ flex: 1 }}
+                disabled={organiserTransferSubmitting || !organiserTransferId}
+                onClick={handleTransferOrganiserRole}
+              >
+                {organiserTransferSubmitting ? <span className="spinner"></span> : 'Transfer organiser role'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showArchiveModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex',
+          justifyContent: 'center', alignItems: 'center', zIndex: 1000
+        }}>
+          <div className="card" style={{ width: '90%', maxWidth: '480px' }}>
+            <h2 style={{ marginTop: 0 }}>Archive Trip Money</h2>
+            <p style={{ color: '#4a5568' }}>
+              Archive <strong>{account.name}</strong>? It will leave the active list. Recorded history stays available as read-only. SHARE does not hold or move money.
+            </p>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowArchiveModal(false)} disabled={archiveSubmitting}>
+                Cancel
+              </button>
+              <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={handleArchiveTripMoney} disabled={archiveSubmitting}>
+                {archiveSubmitting ? <span className="spinner"></span> : 'Archive Trip Money'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPermanentDeleteModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex',
+          justifyContent: 'center', alignItems: 'center', zIndex: 1000
+        }}>
+          <div className="card" style={{ width: '90%', maxWidth: '480px' }}>
+            <h2 style={{ marginTop: 0, color: '#c53030' }}>Delete permanently</h2>
+            <p style={{ color: '#4a5568' }}>
+              Permanently remove the archived pot <strong>{account.name}</strong>? Recorded activity rows are kept with the pot name for history. The Trip Money pot itself will no longer open.
+            </p>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowPermanentDeleteModal(false)} disabled={permanentDeleteSubmitting}>
+                Cancel
+              </button>
+              <button type="button" className="btn btn-danger" style={{ flex: 1 }} onClick={handlePermanentDelete} disabled={permanentDeleteSubmitting}>
+                {permanentDeleteSubmitting ? <span className="spinner"></span> : 'Delete permanently'}
+              </button>
+            </div>
           </div>
         </div>
       )}

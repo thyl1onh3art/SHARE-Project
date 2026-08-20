@@ -46,6 +46,11 @@ exports.sendInvite = async (req, res) => {
     const senderId = req.user.userId;
     const sharedAccount = await SharedAccount.findById(sharedAccountId);
     if (!sharedAccount) return res.status(404).json({ message: 'Shared account not found' });
+    if (sharedAccount.isDeleted) {
+      return res.status(400).json({
+        message: 'This Trip Money pot is archived. New invitations cannot be sent.'
+      });
+    }
     const senderIdStr = senderId.toString();
     const isOwner = sharedAccount.owner && sharedAccount.owner.toString() === senderIdStr;
     const isMember = Array.isArray(sharedAccount.members) && sharedAccount.members.some(
@@ -108,6 +113,12 @@ exports.acceptInvite = async (req, res) => {
     if (invite.expiresAt && invite.expiresAt < now) return res.status(400).json({ message: 'Invite has expired' });
     // Add user to shared account
     const sharedAccount = await SharedAccount.findById(invite.sharedAccount);
+    if (!sharedAccount) return res.status(404).json({ message: 'Shared account not found' });
+    if (sharedAccount.isDeleted) {
+      return res.status(400).json({
+        message: 'This Trip Money pot is archived. Invitations can no longer be accepted.'
+      });
+    }
     if (!sharedAccount.members.includes(req.user.userId)) {
       sharedAccount.members.push(req.user.userId);
       await sharedAccount.save();
@@ -186,6 +197,11 @@ exports.removeMember = async (req, res) => {
     const userId = req.user.userId;
     const sharedAccount = await SharedAccount.findById(sharedAccountId);
     if (!sharedAccount) return res.status(404).json({ message: 'Shared account not found' });
+    if (sharedAccount.isDeleted) {
+      return res.status(400).json({
+        message: 'This Trip Money pot is archived. Membership cannot be changed.'
+      });
+    }
     // Only owner or the member themselves can remove
     if (!(sharedAccount.owner.equals(userId) || memberId === userId)) {
       return res.status(403).json({ message: 'Not authorized' });

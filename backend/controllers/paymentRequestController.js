@@ -22,6 +22,12 @@ exports.createPaymentRequest = async (req, res) => {
       return res.status(404).json({ message: 'Shared account not found' });
     }
 
+    if (sharedAccount.isDeleted) {
+      return res.status(400).json({
+        message: 'This Trip Money pot is archived. Settlement records cannot be created.'
+      });
+    }
+
     // Populate owner and members
     await sharedAccount.populate('owner', 'firstName lastName email');
     await sharedAccount.populate('members', 'firstName lastName email');

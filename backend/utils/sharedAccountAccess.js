@@ -7,7 +7,10 @@ const resolveUserId = (value) => {
   return value.toString();
 };
 
-/** Current Trip Money participant: owner or current member (mutations require this). */
+/** Soft-archived Trip Money pot (inactive; historical read only). */
+const isArchivedSharedAccount = (account) => Boolean(account && account.isDeleted);
+
+/** Current Trip Money participant: owner or current member. */
 const isAccountParticipant = (account, userId) => {
   if (!account || !userId) return false;
   const userIdStr = userId.toString();
@@ -31,18 +34,26 @@ const hasHistoricalFinanceActivity = async (account, userId) => {
   return !!hasFinanceActivity;
 };
 
-/** Read access: current participant OR former participant with own FinanceRecord on this pot. */
+/** Read access: current participant OR former participant with own FinanceRecord on this pot (including archived). */
 const canReadSharedAccount = async (account, userId) => {
   if (!account || !userId) return false;
   if (isAccountParticipant(account, userId)) return true;
   return hasHistoricalFinanceActivity(account, userId);
 };
 
-/** Write/mutate access: current owner or member only. Historical activity never grants this. */
-const canMutateSharedAccount = (account, userId) => isAccountParticipant(account, userId);
+/**
+ * Write/mutate access for an active pot: current owner/member only.
+ * Archived pots never grant mutate rights (historical read remains separate).
+ */
+const canMutateSharedAccount = (account, userId) => {
+  if (!account || !userId) return false;
+  if (isArchivedSharedAccount(account)) return false;
+  return isAccountParticipant(account, userId);
+};
 
 module.exports = {
   resolveUserId,
+  isArchivedSharedAccount,
   isAccountParticipant,
   hasHistoricalFinanceActivity,
   canReadSharedAccount,

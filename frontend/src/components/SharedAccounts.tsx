@@ -14,10 +14,14 @@ interface SharedAccount {
   members: string[] | Array<{ _id: string; firstName?: string; lastName?: string; email: string }>;
   financeRecords: any[];
   createdAt?: string;
+  isDeleted?: boolean;
+  deletedAt?: string;
 }
 
 const SharedAccounts: React.FC = () => {
   const [accounts, setAccounts] = useState<SharedAccount[]>([]);
+  const [archivedAccounts, setArchivedAccounts] = useState<SharedAccount[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedAccount, setSelectedAccount] = useState<SharedAccount | null>(null);
@@ -99,6 +103,15 @@ const SharedAccounts: React.FC = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchArchivedAccounts = async () => {
+    try {
+      const response = await axios.get('/shared-accounts?archived=true');
+      setArchivedAccounts(response.data);
+    } catch {
+      setArchivedAccounts([]);
     }
   };
 
@@ -411,8 +424,11 @@ const SharedAccounts: React.FC = () => {
       setShowDeleteModal(false);
       setSelectedAccount(null);
       await fetchAccounts();
+      if (showArchived) {
+        await fetchArchivedAccounts();
+      }
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to remove shared trip costs';
+      const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to archive Trip Money';
       setError(errorMessage);
     } finally {
       setDeleteSubmitting(false);
@@ -551,6 +567,22 @@ const SharedAccounts: React.FC = () => {
           fontSize: '0.9rem'
         }}>
           SHARE records and coordinates group contributions. It does not hold this tracked amount in a SHARE bank account.
+        </div>
+        <div style={{ marginTop: '0.85rem' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ padding: '8px 14px', fontSize: '0.85rem' }}
+            onClick={async () => {
+              const next = !showArchived;
+              setShowArchived(next);
+              if (next) {
+                await fetchArchivedAccounts();
+              }
+            }}
+          >
+            {showArchived ? 'Hide archived Trip Money' : 'Show archived Trip Money'}
+          </button>
         </div>
       </div>
 
@@ -842,6 +874,45 @@ const SharedAccounts: React.FC = () => {
           </div>
         )}
       </div>
+
+      {showArchived && (
+        <div className="card" style={{ marginTop: '1.5rem' }}>
+          <h2 style={{ marginTop: 0, marginBottom: '0.35rem' }}>Archived Trip Money</h2>
+          <p style={{ color: '#718096', fontSize: '0.9rem', marginTop: 0 }}>
+            Kept for trip history. New contribution activity cannot be recorded on these pots.
+          </p>
+          {archivedAccounts.length === 0 ? (
+            <p style={{ color: '#718096' }}>No archived Trip Money pots.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {archivedAccounts.map((account) => (
+                <div
+                  key={account._id}
+                  onClick={() => navigate(`/shared-accounts/${account._id}`)}
+                  className="trip-money-list-card"
+                  style={{
+                    background: '#f7fafc',
+                    border: '1px dashed #cbd5e0',
+                    borderRadius: '8px',
+                    padding: '1rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <div>
+                      <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.05rem' }}>{account.name}</h3>
+                      <span style={{ fontSize: '0.75rem', color: '#718096', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                        Archived
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '0.85rem', color: '#4a5568' }}>View history →</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Transfer Funds Modal */}
       {showTransferModal && selectedAccount && (
@@ -1523,7 +1594,7 @@ const SharedAccounts: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0, color: '#dc2626' }}>Delete shared trip costs</h2>
+              <h2 style={{ margin: 0, color: '#2b6cb0' }}>Archive Trip Money</h2>
               <button
                 onClick={() => {
                   setShowDeleteModal(false);
@@ -1542,17 +1613,17 @@ const SharedAccounts: React.FC = () => {
             </div>
 
             <div style={{
-              background: '#fee2e2',
-              border: '1px solid #ef4444',
+              background: '#ebf8ff',
+              border: '1px solid #90cdf4',
               borderRadius: '6px',
               padding: '1rem',
               marginBottom: '1rem'
             }}>
-              <p style={{ color: '#991b1b', fontSize: '1rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
-                Warning: This action cannot be undone!
+              <p style={{ color: '#2c5282', fontSize: '1rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
+                Archive this Trip Money pot?
               </p>
-              <p style={{ color: '#991b1b', fontSize: '0.9rem', margin: 0 }}>
-                You are about to delete the shared trip costs pot <strong>"{selectedAccount.name}"</strong>. Group spending records may remain in history where archived. This action is permanent.
+              <p style={{ color: '#2c5282', fontSize: '0.9rem', margin: 0 }}>
+                <strong>"{selectedAccount.name}"</strong> will leave your active list. Recorded history stays available as read-only. This does not move or delete real-world money.
               </p>
             </div>
 
@@ -1572,11 +1643,11 @@ const SharedAccounts: React.FC = () => {
               <button
                 type="button"
                 onClick={handleDeleteSubmit}
-                className="btn btn-danger"
+                className="btn btn-primary"
                 disabled={deleteSubmitting}
                 style={{ flex: 1 }}
               >
-                {deleteSubmitting ? <span className="spinner"></span> : 'Delete trip pot'}
+                {deleteSubmitting ? <span className="spinner"></span> : 'Archive Trip Money'}
               </button>
             </div>
           </div>

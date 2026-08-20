@@ -7,6 +7,8 @@ const financeRecordSchema = new mongoose.Schema({
   date: { type: Date, default: Date.now },
   description: { type: String },
   sharedAccount: { type: mongoose.Schema.Types.ObjectId, ref: 'SharedAccount' },
+  /** Readable Trip Money pot name after permanent deletion (sharedAccount unset). */
+  archivedAccountName: { type: String },
 }, { timestamps: true });
 
 module.exports = mongoose.model('FinanceRecord', financeRecordSchema);

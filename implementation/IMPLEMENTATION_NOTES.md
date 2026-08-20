@@ -1067,5 +1067,61 @@ plus current `owner` / `members` membership. Client-supplied ownership is never 
 Integration 4 — soft delete/admin is safe to begin (access helper is in place for reads).  
 **Do not push** unless separately requested.
 
+---
+
+## Integration 4 — Trip Money archive / organiser admin
+
+**Branch:** `integrate-pre-marketing-features`  
+**Source:** behaviours extracted from `pre-marketing-wip` (not merged wholesale)
+
+### Administration BEFORE → AFTER
+| Before | After |
+|--------|--------|
+| Hard `DELETE` removed pot + unset finance refs | Default **Archive Trip Money** (`isDeleted` / `deletedAt`) |
+| No archived list | Active list excludes archived; `?archived=true` + Show archived toggle |
+| Ownership transfer existed with “owner” wording | **Transfer organiser role** (current member only; blocked when archived) |
+| Permanent delete + “funds” gate in WIP | Permanent delete only after archive; stamps `archivedAccountName`; no fictional funds check |
+
+### Archive semantics
+- Organiser-only `DELETE /api/shared-accounts/:id` soft-archives
+- Leaves active list; history remains readable via `canReadSharedAccount`
+- Mutations rejected (contributions, target edits, invites, settlements, transfer, withdraw)
+- `canMutateSharedAccount` returns false when archived
+
+### Permanent delete
+- `DELETE /api/shared-accounts/:id/permanent` — organiser only, **must already be archived**
+- Preserves FinanceRecords with `archivedAccountName`; unsets `sharedAccount`
+- Deletes invites (+ payment requests when model available)
+- No “balance/funds” precondition (prototype is non-custodial)
+
+### Organiser transfer
+- Current organiser → current member only
+- Not historical-only readers; not archived pots
+- Does not alter ledger history
+
+### Files
+Models: `SharedAccount.js`, `FinanceRecord.js`  
+Utils: `sharedAccountAccess.js` (`isArchivedSharedAccount`)  
+Controllers: `sharedAccountController.js`, `inviteController.js`, `paymentRequestController.js`  
+Routes: `sharedAccountRoutes.js`  
+FE: surgical `SharedAccounts.tsx`, `SharedAccountDetail.tsx`  
+Tests: `sharedAccountArchive.test.js`
+
+### Tests
+| Suite | Result |
+|-------|--------|
+| `sharedAccountArchive.test.js` | **16/16 PASS** |
+| `sharedAccountAccess.test.js` | **12/12 PASS** |
+| `friends.test.js` | **8/8 PASS** |
+| Frontend build / App.test | **PASS** |
+
+### Deferred
+Payment-request UX extensions; invite helpers; ParticipantCount; full restore of WIP delete UI; un-archive flow.
+
+### Next
+Integration 5 — Payment Request extensions is safe to begin.  
+**Do not push** unless separately requested.
+
+
 
 
