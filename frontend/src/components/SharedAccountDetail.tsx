@@ -597,7 +597,7 @@ const SharedAccountDetail: React.FC = () => {
             </button>
           )}
           <button className="btn btn-secondary" onClick={handlePayClick}>
-            Request settlement
+            Request settlement record
           </button>
         </div>
 

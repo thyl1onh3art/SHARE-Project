@@ -623,14 +623,14 @@ const SharedAccounts: React.FC = () => {
                       onClick={() => handleApprovePayment(request._id)}
                       style={{ flex: 1 }}
                     >
-                      Approve settlement
+                      Approve settlement record
                     </button>
                     <button
                       className="btn btn-danger"
                       onClick={() => handleRejectPayment(request._id)}
                       style={{ flex: 1 }}
                     >
-                      Reject settlement
+                      Reject settlement record
                     </button>
                   </div>
                 )}

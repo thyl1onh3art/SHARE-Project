@@ -449,7 +449,79 @@ Make customer-facing group-money UX describe virtual contribution / commitment /
 
 ### Recommendations for next phase (Pack Phase 5)
 1. Strengthen invitations for group travel (named trip context, share/copy for WhatsApp).
-2. Optionally align SharedAccount mongoose schema fields (`description`, `targetAmount`, `targetDate`, `perPersonAmount`) with controller usage so targets always persist reliably.
-3. Pack Phase 6 — keep Personal Finance out of the primary conversion journey (already under More).
+2. Pack Phase 6 — keep Personal Finance out of the primary conversion journey (already under More).
+
+**Note:** SharedAccount schema alignment for target fields was completed in Phase 4.5 below.
 
 **STOP:** Do not start Pack Phase 5 without approval.
+
+---
+
+## 14. Phase 4.5 — Data integrity (targets + settlement wording)
+
+**Branch:** `marketing-alignment`  
+**Stash:** `stash@{0}` left untouched.  
+**Scope:** Persistence integrity for Trip Money progress hero; settlement copy accuracy. No Pack Phase 5.
+
+### What was inspected
+- `backend/models/SharedAccount.js` vs `backend/controllers/sharedAccountController.js` create/update/list/detail
+- `backend/routes/sharedAccountRoutes.js`
+- `backend/models/FinanceRecord.js` + `paymentRequestController.js` approve path (creates `FinanceRecord` output only — no PayPal/Stripe)
+- Frontend progress math in `SharedAccountDetail.tsx` / list remaining in `SharedAccounts.tsx`
+
+### Mismatch found
+**Yes.** Controller wrote `description`, `targetAmount`, `targetDate`, and `perPersonAmount`, but the live Mongoose schema only declared `owner`, `members`, `name`, `financeRecords`. Under default strict mode those target fields were stripped on save, so the Phase 4 hero could not reliably persist/reload targets.
+
+### Exact fix made
+Added optional schema paths (no redesign, no migration, no required flags):
+
+```js
+description: String
+targetAmount: Number
+targetDate: Date
+perPersonAmount: Number
+```
+
+Existing documents without these fields continue to load; missing/zero target remains a safe “no target” UI state.
+
+### Settlement wording decision
+Payment-request create/approve only writes MongoDB ledger / approval state — **not** real money movement.
+
+| Surface | BEFORE | AFTER |
+|---------|--------|--------|
+| Detail primary secondary button | Request settlement | **Request settlement record** |
+| Detail/list modals | Request settlement record | unchanged (already accurate) |
+| Pending approve/reject | Approve settlement / Reject settlement | **Approve/Reject settlement record** |
+
+### Persistence / calculation checks
+| Check | Result |
+|--------|--------|
+| Schema retains description/targetAmount/targetDate/perPersonAmount on document construct | **PASS** (node verification) |
+| Target / target date survive save once schema includes paths | **PASS** (mismatch removed; no DB migration needed) |
+| Recorded total from ledger inputs − outputs | Unchanged; detail uses `/finance?sharedAccount=` once |
+| Progress % clamped 0–100; remaining `Math.max(0, target − recorded)` | Confirmed in Phase 4 UI code |
+| Missing/zero target → no progress bar / empty target panel | Confirmed |
+| Equal share labelled illustrative / not mandatory | Confirmed |
+| Member totals: one pass per user over transactions (no double-count of same record) | Confirmed |
+| Existing SharedAccounts without target fields | Compatible (optional fields) |
+
+### Test / build results
+| Check | Result |
+|--------|--------|
+| Backend `npm test -- --testPathPattern=sharedAccount` | **Could not complete meaningfully in this environment** — MongoDB connect failed (`Topology is closed` / `process.exit(1)`). Same class of env/baseline failure as Phase 0; **not attributed to Phase 4.5 schema change**. No new assertion failures isolated to this change. |
+| `CI=true npm run build` (frontend) | **PASS** |
+| Frontend tests | **PASS** (1/1) |
+
+### Remaining limitations
+- Root/legacy `models/SharedAccount.js` (outside `backend/`) still minimal — live app uses `backend/models/`.
+- Custom per-person mandatory splits still not stored.
+- Settlement remains virtual ledger only.
+- Backend shared-account suite needs a working Mongo test env to re-run end-to-end.
+
+### Confirmation
+No real-money / PSP / wallet / withdrawal / pooled-funds functionality added.
+
+### Pack Phase 5
+**Safe to begin** after approval (invitation share UX). Schema integrity for targets is addressed.
+
+**STOP:** Do not start Pack Phase 5 in this turn.
