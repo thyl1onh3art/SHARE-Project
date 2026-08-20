@@ -191,7 +191,7 @@ const FinancialRecords: React.FC = () => {
         </div>
       )}
 
-      {/* Total Balance Card */}
+      {/* Personal tracked total */}
       <div className="card" style={{
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         color: 'white',
@@ -243,7 +243,7 @@ const FinancialRecords: React.FC = () => {
         </div>
       </div>
 
-      {/* Shared Accounts Grid - Show only 2 most recent */}
+      {/* Recent Trip Money pots */}
       {sharedAccounts.length > 0 && (
         <div style={{ marginBottom: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>

@@ -4,12 +4,14 @@
 
 ### Required Variables:
 ```
-MONGO_URI=mongodb+srv://shareprojectuser:<crB3uTKYjg3RAZvEa>@shareproject.eibru52.mongodb.net/?retryWrites=true&w=majority&appName=ShareProject
-JWT_SECRET=your_super_secret_jwt_key_here_make_it_long_and_secure_12345
+MONGO_URI=mongodb+srv://<db-user>:<db-password>@<cluster>/<db>?retryWrites=true&w=majority
+JWT_SECRET=<long-random-secret-set-only-in-Railway>
 NODE_ENV=production
 PORT=5000
-CORS_ORIGIN=https://your-frontend-domain.vercel.app
+CORS_ORIGIN=https://your-frontend-domain.example
 ```
+
+> Do not commit real credentials. Prefer `docs/DEPLOYMENT.md` for current monorepo deploy guidance.
 
 ### Optional Variables:
 ```

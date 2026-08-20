@@ -188,11 +188,8 @@ const SharedAccounts: React.FC = () => {
   };
 
   /**
-   * Transfer Funds Function
-   * Transfers money from Personal Account (Total Balance) to a shared account
-   * Creates two records:
-   * 1. Output record in personal account (deducts from total balance)
-   * 2. Input record in shared account (adds to shared account)
+   * Record a contribution from personal tracked activity onto a Trip Money pot ledger.
+   * Creates two FinanceRecord rows (personal output + pot input). SHARE does not move bank funds.
    */
   const transferFundsToSharedAccount = async (
     account: SharedAccount,
