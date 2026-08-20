@@ -20,8 +20,11 @@ router.put('/:id', auth, asyncHandler(sharedAccountController.updateSharedAccoun
 // Transfer ownership of a shared account
 router.post('/:id/transfer-ownership', auth, asyncHandler(sharedAccountController.transferOwnership));
 
-// Delete a shared account
+// Delete a shared account (soft delete)
 router.delete('/:id', auth, asyncHandler(sharedAccountController.deleteSharedAccount));
+
+// Permanently delete a shared account
+router.delete('/:id/permanent', auth, asyncHandler(sharedAccountController.permanentlyDeleteSharedAccount));
 
 // Withdraw funds from shared account
 router.post('/:id/withdraw', auth, asyncHandler(sharedAccountController.withdrawFunds));

@@ -187,8 +187,7 @@ exports.getSharedEvents = async (req, res) => {
     const sharedUserIds = usersWithSharedCalendars.map(u => u._id);
     
     const eventsFromSharedCalendars = await Event.find({
-      user: { $in: sharedUserIds },
-      user: { $ne: userId } // Exclude own events
+      user: { $in: sharedUserIds, $ne: userId } // Events from shared calendars, excluding own events
     })
       .populate('user', 'firstName lastName email')
       .sort({ eventDate: 1, eventTime: 1 });

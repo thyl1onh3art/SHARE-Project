@@ -1,12 +1,36 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import { MESSAGES_UNREAD_CHANGED, fetchUnreadMessageCount as getUnreadMessageCount } from '../utils/messageNotifications';
+interface SharedAccountOption {
+  _id: string;
+  name: string;
+}
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [sharedAccounts, setSharedAccounts] = useState<SharedAccountOption[]>([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const fetchUnreadMessageCount = useCallback(async () => {
+    if (!user?.email) {
+      setUnreadMessageCount(0);
+      return;
+    }
+
+    try {
+      const count = await getUnreadMessageCount(user.email, user.id);
+      setUnreadMessageCount(count);
+    } catch {
+      setUnreadMessageCount(0);
+    }
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -26,6 +50,67 @@ const Navbar: React.FC = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  useEffect(() => {
+    const fetchSharedAccounts = async () => {
+      if (!user || !showProfileDropdown) return;
+      try {
+        setLoadingAccounts(true);
+        const response = await axios.get('/shared-accounts');
+        setSharedAccounts(response.data.map((account: SharedAccountOption) => ({
+          _id: account._id,
+          name: account.name
+        })));
+      } catch {
+        setSharedAccounts([]);
+      } finally {
+        setLoadingAccounts(false);
+      }
+    };
+
+    fetchSharedAccounts();
+  }, [user, showProfileDropdown]);
+
+  useEffect(() => {
+    fetchUnreadMessageCount();
+  }, [fetchUnreadMessageCount, location.pathname]);
+
+  useEffect(() => {
+    if (!user?.email) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      fetchUnreadMessageCount();
+    }, 30000);
+
+    const handleFocus = () => {
+      fetchUnreadMessageCount();
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [fetchUnreadMessageCount, user?.email]);
+
+  useEffect(() => {
+    const handleUnreadChange = () => {
+      fetchUnreadMessageCount();
+    };
+
+    window.addEventListener(MESSAGES_UNREAD_CHANGED, handleUnreadChange);
+    return () => window.removeEventListener(MESSAGES_UNREAD_CHANGED, handleUnreadChange);
+  }, [fetchUnreadMessageCount]);
+
+  const activeAccountId = location.pathname.startsWith('/shared-accounts/')
+    ? location.pathname.split('/')[2]
+    : null;
+
+  const switchToAccount = (accountId: string) => {
+    setShowProfileDropdown(false);
+    navigate(`/shared-accounts/${accountId}`);
+  };
 
   return (
     <nav style={{
@@ -56,8 +141,36 @@ const Navbar: React.FC = () => {
             <Link to="/shared-accounts" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
               Shared Accounts
             </Link>
-            <Link to="/invitations" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
-              Invitations
+            <span style={{ position: 'relative', display: 'inline-block' }}>
+              <Link to="/messages" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
+                Messages
+              </Link>
+              {unreadMessageCount > 0 && (
+                <span
+                  aria-label={`${unreadMessageCount} unread messages`}
+                  style={{
+                    position: 'absolute',
+                    top: '-6px',
+                    right: '-6px',
+                    minWidth: '18px',
+                    height: '18px',
+                    padding: '0 5px',
+                    borderRadius: '999px',
+                    background: '#e53e3e',
+                    color: 'white',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    lineHeight: '18px',
+                    textAlign: 'center',
+                    boxShadow: '0 0 0 2px white'
+                  }}
+                >
+                  {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
+                </span>
+              )}
+            </span>
+            <Link to="/friends" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
+              Friends
             </Link>
             <Link to="/events" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
               Events
@@ -141,6 +254,83 @@ const Navbar: React.FC = () => {
                   >
                     Edit Profile
                   </Link>
+
+                  <div style={{
+                    padding: '0.5rem 1rem 0.25rem',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    color: '#718096',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.03em'
+                  }}>
+                    Switch Account
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowProfileDropdown(false);
+                      navigate('/financial-records');
+                    }}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: '0.6rem 1rem',
+                      background: !activeAccountId ? '#ebf4ff' : 'transparent',
+                      border: 'none',
+                      color: '#2b6cb0',
+                      textAlign: 'left',
+                      fontSize: '0.875rem',
+                      cursor: 'pointer',
+                      fontWeight: !activeAccountId ? 600 : 400
+                    }}
+                  >
+                    Personal Account
+                  </button>
+
+                  {loadingAccounts ? (
+                    <div style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', color: '#718096' }}>
+                      Loading accounts...
+                    </div>
+                  ) : sharedAccounts.length === 0 ? (
+                    <div style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', color: '#718096' }}>
+                      No shared accounts
+                    </div>
+                  ) : (
+                    sharedAccounts.map((account) => (
+                      <button
+                        key={account._id}
+                        type="button"
+                        onClick={() => switchToAccount(account._id)}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          padding: '0.6rem 1rem',
+                          background: activeAccountId === account._id ? '#ebf4ff' : 'transparent',
+                          border: 'none',
+                          color: '#2d3748',
+                          textAlign: 'left',
+                          fontSize: '0.875rem',
+                          cursor: 'pointer',
+                          fontWeight: activeAccountId === account._id ? 600 : 400
+                        }}
+                        onMouseEnter={(e) => {
+                          if (activeAccountId !== account._id) {
+                            e.currentTarget.style.background = '#f7fafc';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (activeAccountId !== account._id) {
+                            e.currentTarget.style.background = 'transparent';
+                          }
+                        }}
+                      >
+                        {account.name}
+                      </button>
+                    ))
+                  )}
+
+                  <div style={{ borderTop: '1px solid #e2e8f0', margin: '0.5rem 0' }}></div>
                   
                   <Link
                     to="/settings"

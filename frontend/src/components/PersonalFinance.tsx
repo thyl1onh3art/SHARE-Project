@@ -8,10 +8,12 @@ interface FinancialRecord {
   description: string;
   date: string;
   sharedAccount?: string;
+  archivedAccountName?: string;
 }
 
 const PersonalFinance: React.FC = () => {
   const [records, setRecords] = useState<FinancialRecord[]>([]);
+  const [archivedRecords, setArchivedRecords] = useState<FinancialRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -22,11 +24,14 @@ const PersonalFinance: React.FC = () => {
   const fetchRecords = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/finance');
-      const allRecords = response.data;
-      // Only show personal records (not shared account records)
+      const [financeResponse, archivedResponse] = await Promise.all([
+        axios.get('/finance'),
+        axios.get('/finance/archived')
+      ]);
+      const allRecords = financeResponse.data;
       const personalRecords = allRecords.filter((record: FinancialRecord) => !record.sharedAccount);
       setRecords(personalRecords);
+      setArchivedRecords(archivedResponse.data);
     } catch (err: any) {
       setError('Failed to load financial records');
     } finally {
@@ -163,6 +168,35 @@ const PersonalFinance: React.FC = () => {
           </div>
         )}
       </div>
+
+      {archivedRecords.length > 0 && (
+        <div className="card" style={{ marginTop: '2rem' }}>
+          <h2 style={{ marginBottom: '0.5rem' }}>Archived Shared Account Transactions</h2>
+          <p style={{ color: '#4a5568', fontSize: '0.85rem', marginBottom: '1rem' }}>
+            These records are from shared accounts that were deleted. Your transaction history has been kept.
+          </p>
+          <div className="list">
+            {archivedRecords.map((record) => (
+              <div key={record._id} className="list-item">
+                <div>
+                  <strong>{record.description}</strong>
+                  <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
+                    {new Date(record.date).toLocaleDateString()} • {record.type === 'input' ? 'Income' : 'Expense'}
+                    {record.archivedAccountName ? ` • Archived: ${record.archivedAccountName}` : ''}
+                  </p>
+                </div>
+                <span style={{
+                  color: record.type === 'input' ? '#38a169' : '#e53e3e',
+                  fontWeight: 'bold',
+                  fontSize: '1.1rem'
+                }}>
+                  {record.type === 'input' ? '+' : '-'}£{record.amount.toFixed(2)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

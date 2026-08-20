@@ -11,6 +11,9 @@ router.post('/', auth, validateFinanceRecord, asyncHandler(financeController.cre
 // Get all finance records for the logged-in user
 router.get('/', auth, asyncHandler(financeController.getUserRecords));
 
+// Get archived transactions from deleted shared accounts
+router.get('/archived', auth, asyncHandler(financeController.getArchivedRecords));
+
 // Update a finance record
 router.put('/:id', auth, validateFinanceRecord, asyncHandler(financeController.updateRecord));
 

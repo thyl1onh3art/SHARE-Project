@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import InviteRecipientsForm, { createEmptyInviteRecipient } from './InviteRecipientsForm';
+import PaymentRequestMessages from './PaymentRequestMessages';
+import {
+  markMessagesAsRead,
+  notifyMessagesUnreadChanged,
+  PaymentRequestItem
+} from '../utils/messageNotifications';
 
 interface SharedAccountRef {
   _id: string;
@@ -24,20 +32,27 @@ interface SharedAccount {
 }
 
 const Invitations: React.FC = () => {
+  const { user } = useAuth();
   const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [paymentRequests, setPaymentRequests] = useState<PaymentRequestItem[]>([]);
   const [accounts, setAccounts] = useState<SharedAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     sharedAccountId: '',
-    recipients: [{ recipientEmail: '', recipientPhone: '' }] // Array of recipients
+    recipients: [createEmptyInviteRecipient()]
   });
   const [submitting, setSubmitting] = useState(false);
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchData();
+  }, []);
+
+  useEffect(() => {
+    markMessagesAsRead();
   }, []);
 
   useEffect(() => {
@@ -46,7 +61,7 @@ const Invitations: React.FC = () => {
     if (accountId && accounts.length > 0) {
       const account = accounts.find(acc => acc._id === accountId);
       if (account) {
-        setFormData(prev => ({ ...prev, sharedAccountId: accountId, recipients: prev.recipients || [{ recipientEmail: '', recipientPhone: '' }] }));
+        setFormData(prev => ({ ...prev, sharedAccountId: accountId, recipients: prev.recipients || [createEmptyInviteRecipient()] }));
         setShowForm(true);
       }
     }
@@ -55,13 +70,15 @@ const Invitations: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [invitesResponse, accountsResponse] = await Promise.all([
+      const [invitesResponse, accountsResponse, paymentResponse] = await Promise.all([
         axios.get('/invites/list'),
-        axios.get('/shared-accounts')
+        axios.get('/shared-accounts'),
+        axios.get('/payment-requests')
       ]);
       
       setInvitations(invitesResponse.data);
       setAccounts(accountsResponse.data);
+      setPaymentRequests(paymentResponse.data);
     } catch (err: any) {
       setError('Failed to load invitations');
     } finally {
@@ -114,7 +131,7 @@ const Invitations: React.FC = () => {
         }
       }
       
-      setFormData({ sharedAccountId: '', recipients: [{ recipientEmail: '', recipientPhone: '' }] });
+      setFormData({ sharedAccountId: '', recipients: [createEmptyInviteRecipient()] });
       setShowForm(false);
       fetchData();
       
@@ -127,31 +144,10 @@ const Invitations: React.FC = () => {
     }
   };
 
-  const addRecipient = () => {
-    setFormData({
-      ...formData,
-      recipients: [...formData.recipients, { recipientEmail: '', recipientPhone: '' }]
-    });
-  };
-
-  const removeRecipient = (index: number) => {
-    if (formData.recipients.length > 1) {
-      setFormData({
-        ...formData,
-        recipients: formData.recipients.filter((_, i) => i !== index)
-      });
-    }
-  };
-
-  const updateRecipient = (index: number, field: 'recipientEmail' | 'recipientPhone', value: string) => {
-    const updatedRecipients = [...formData.recipients];
-    updatedRecipients[index] = { ...updatedRecipients[index], [field]: value };
-    setFormData({ ...formData, recipients: updatedRecipients });
-  };
-
   const handleAccept = async (inviteId: string) => {
     try {
       await axios.post('/invites/accept', { inviteId });
+      notifyMessagesUnreadChanged();
       fetchData();
     } catch (err: any) {
       setError('Failed to accept invitation');
@@ -161,9 +157,43 @@ const Invitations: React.FC = () => {
   const handleCancel = async (inviteId: string) => {
     try {
       await axios.post('/invites/cancel', { inviteId });
+      notifyMessagesUnreadChanged();
       fetchData();
     } catch (err: any) {
       setError('Failed to cancel invitation');
+    }
+  };
+
+  const handleApprovePayment = async (requestId: string) => {
+    try {
+      await axios.post(`/payment-requests/${requestId}/approve`);
+      notifyMessagesUnreadChanged();
+      await fetchData();
+      setError('');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to approve request');
+    }
+  };
+
+  const handleRejectPayment = async (requestId: string) => {
+    try {
+      await axios.post(`/payment-requests/${requestId}/reject`);
+      notifyMessagesUnreadChanged();
+      await fetchData();
+      setError('');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to reject request');
+    }
+  };
+
+  const handleCancelPayment = async (requestId: string) => {
+    try {
+      await axios.post(`/payment-requests/${requestId}/cancel`);
+      notifyMessagesUnreadChanged();
+      await fetchData();
+      setError('');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to cancel request');
     }
   };
 
@@ -193,7 +223,7 @@ const Invitations: React.FC = () => {
     return (
       <div style={{ textAlign: 'center', padding: '2rem' }}>
         <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
-        <p style={{ marginTop: '1rem', color: '#4a5568' }}>Loading invitations...</p>
+        <p style={{ marginTop: '1rem', color: '#4a5568' }}>Loading messages...</p>
       </div>
     );
   }
@@ -202,7 +232,7 @@ const Invitations: React.FC = () => {
     <div>
       <div className="card">
         <div className="card-header">
-          <h1 className="card-title">Invitations</h1>
+          <h1 className="card-title">Messages</h1>
           <button 
             onClick={() => setShowForm(!showForm)}
             className="btn btn-primary"
@@ -274,10 +304,7 @@ const Invitations: React.FC = () => {
                   </p>
                   <button
                     type="button"
-                    onClick={() => {
-                      // Navigate to shared accounts page
-                      window.location.href = '/shared-accounts';
-                    }}
+                    onClick={() => navigate('/shared-accounts?create=true')}
                     className="btn btn-primary"
                     style={{ padding: '8px 16px' }}
                   >
@@ -301,79 +328,12 @@ const Invitations: React.FC = () => {
               )}
             </div>
 
-            <div className="form-group">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <label className="form-label">Recipients</label>
-                <button
-                  type="button"
-                  onClick={addRecipient}
-                  className="btn btn-outline"
-                  style={{ padding: '4px 12px', fontSize: '0.85rem' }}
-                >
-                  + Add Recipient
-                </button>
-              </div>
-
-              {formData.recipients.map((recipient, index) => (
-                <div key={index} style={{
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '6px',
-                  padding: '1rem',
-                  marginBottom: '0.75rem',
-                  background: '#f7fafc',
-                  position: 'relative'
-                }}>
-                  {formData.recipients.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeRecipient(index)}
-                      style={{
-                        position: 'absolute',
-                        top: '0.5rem',
-                        right: '0.5rem',
-                        background: '#fee2e2',
-                        border: 'none',
-                        borderRadius: '4px',
-                        padding: '4px 8px',
-                        cursor: 'pointer',
-                        fontSize: '0.75rem',
-                        color: '#991b1b'
-                      }}
-                      title="Remove recipient"
-                    >
-                      ×
-                    </button>
-                  )}
-                  <p style={{ fontSize: '0.85rem', color: '#4a5568', marginBottom: '0.75rem', fontWeight: 'bold' }}>
-                    Recipient {index + 1}
-                  </p>
-                  <div style={{ marginBottom: '0.5rem' }}>
-                    <label className="form-label" style={{ fontSize: '0.85rem' }}>Email</label>
-                    <input
-                      type="email"
-                      className="form-input"
-                      value={recipient.recipientEmail}
-                      onChange={(e) => updateRecipient(index, 'recipientEmail', e.target.value)}
-                      placeholder="friend@example.com"
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label" style={{ fontSize: '0.85rem' }}>Phone (optional)</label>
-                    <input
-                      type="tel"
-                      className="form-input"
-                      value={recipient.recipientPhone}
-                      onChange={(e) => updateRecipient(index, 'recipientPhone', e.target.value)}
-                      placeholder="+1234567890"
-                    />
-                  </div>
-                </div>
-              ))}
-
-              <p style={{ fontSize: '0.8rem', color: '#4a5568', marginTop: '0.5rem' }}>
-                Tip: Add multiple recipients to invite several people at once. Each recipient needs at least an email or phone number.
-              </p>
-            </div>
+            <InviteRecipientsForm
+              recipients={formData.recipients}
+              onChange={(recipients) => setFormData({ ...formData, recipients })}
+              title="Recipients"
+              description="Choose friends from your list or enter email addresses manually."
+            />
 
             <button
               type="submit"
@@ -386,9 +346,24 @@ const Invitations: React.FC = () => {
         </div>
       )}
 
+      {/* Approval Requests */}
+      <div className="card">
+        <h2 style={{ marginBottom: '0.5rem' }}>Approval Requests</h2>
+        <p style={{ color: '#718096', fontSize: '0.9rem', marginTop: 0, marginBottom: '1rem' }}>
+          Payment and withdrawal requests need approval from other participants before they are processed.
+        </p>
+        <PaymentRequestMessages
+          paymentRequests={paymentRequests}
+          currentUserId={user?.id || ''}
+          onApprove={handleApprovePayment}
+          onReject={handleRejectPayment}
+          onCancel={handleCancelPayment}
+        />
+      </div>
+
       {/* Invitations List */}
       <div className="card">
-        <h2 style={{ marginBottom: '1rem' }}>Your Invitations</h2>
+        <h2 style={{ marginBottom: '1rem' }}>Shared Account Invitations</h2>
         
         {invitations.length === 0 ? (
           <p style={{ color: '#4a5568', textAlign: 'center', padding: '2rem' }}>

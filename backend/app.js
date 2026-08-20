@@ -7,8 +7,6 @@ const rateLimit = require('express-rate-limit');
 const compression = require('compression');
 const morgan = require('morgan');
 require('dotenv').config({ path: './.env' });
-
-// Import routes
 const userRoutes = require('./routes/userRoutes');
 const inviteRoutes = require('./routes/inviteRoutes');
 const sharedAccountRoutes = require('./routes/sharedAccountRoutes');
@@ -21,6 +19,7 @@ const recommendationRoutes = require('./routes/recommendationRoutes');
 const twoFactorRoutes = require('./routes/twoFactorRoutes');
 // const backupRoutes = require('./routes/backupRoutes'); // Disabled - backupController missing
 const paymentRequestRoutes = require('./routes/paymentRequestRoutes');
+const friendRoutes = require('./routes/friendRoutes');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -151,6 +150,7 @@ app.use('/api/gallery', galleryRoutes);
 app.use('/api/accommodations', accommodationRoutes);
 app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/payment-requests', paymentRequestRoutes);
+app.use('/api/friends', friendRoutes);
 // app.use('/api/email-verification', emailVerificationRoutes);
 
 // 404 handler
@@ -254,7 +254,9 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
-// Start the server
-startServer();
+// Start the server (skip in test environment)
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
 
 module.exports = app;

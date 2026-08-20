@@ -8,6 +8,9 @@ const { asyncHandler } = require('../middleware/errorHandler');
 // Send an invite to a user by email/phone
 router.post('/send', auth, validateInvite, asyncHandler(inviteController.sendInvite));
 
+// Send invites to multiple recipients
+router.post('/send-bulk', auth, asyncHandler(inviteController.sendBulkInvite));
+
 // Accept an invite
 router.post('/accept', auth, validateAcceptInvite, asyncHandler(inviteController.acceptInvite));
 
@@ -22,5 +25,11 @@ router.post('/resend', auth, asyncHandler(inviteController.resendInvite));
 
 // List invites for the logged-in user
 router.get('/list', auth, asyncHandler(inviteController.listInvites));
+
+// Unread received invite count for navbar badge
+router.get('/unread-count', auth, asyncHandler(inviteController.getUnreadCount));
+
+// Mark received invites as read when user opens Messages
+router.post('/mark-read', auth, asyncHandler(inviteController.markInvitesRead));
 
 module.exports = router;

@@ -20,6 +20,11 @@ const paymentRequestSchema = new mongoose.Schema({
     type: String, 
     default: 'Full payment from shared account'
   },
+  requestType: {
+    type: String,
+    enum: ['payment', 'withdrawal'],
+    default: 'payment'
+  },
   status: { 
     type: String, 
     enum: ['pending', 'approved', 'rejected', 'executed', 'cancelled'],

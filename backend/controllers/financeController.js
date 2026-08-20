@@ -1,5 +1,6 @@
 const FinanceRecord = require('../models/FinanceRecord');
 const SharedAccount = require('../models/SharedAccount');
+const { hasSharedAccountAccess } = require('../utils/sharedAccountAccess');
 
 // Create a finance record
 exports.createRecord = async (req, res) => {
@@ -47,14 +48,12 @@ exports.getUserRecords = async (req, res) => {
         return res.status(404).json({ message: 'Shared account not found' });
       }
 
-      const isOwner = account.owner.toString() === req.user.userId;
-      const isMember = account.members.some((m) => m.toString() === req.user.userId);
-
-      if (!isOwner && !isMember) {
+      if (!(await hasSharedAccountAccess(account, req.user.userId))) {
         return res.status(403).json({ message: 'Access denied. You must be a member of this account.' });
       }
 
-      const records = await FinanceRecord.find({ sharedAccount });
+      const records = await FinanceRecord.find({ sharedAccount })
+        .populate('user', 'name firstName lastName email');
       return res.json(records);
     }
 
@@ -65,7 +64,19 @@ exports.getUserRecords = async (req, res) => {
   }
 };
 
-// Update a finance record
+// Get transaction history from deleted shared accounts
+exports.getArchivedRecords = async (req, res) => {
+  try {
+    const records = await FinanceRecord.find({
+      user: req.user.userId,
+      archivedAccountName: { $exists: true, $ne: null }
+    }).sort({ date: -1 });
+
+    res.json(records);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
 exports.updateRecord = async (req, res) => {
   try {
     const { id } = req.params;

@@ -13,7 +13,9 @@ class MongoDBService {
         return this.connection;
       }
 
-      const mongoUri = process.env.MONGODB_URI || process.env.MONGO_PUBLIC_URL || process.env.MONGO_URL || process.env.DATABASE_URL || 'mongodb://mongo:AbApbotdPOfNYmfGeQJwVaDruEBJXdBM@mongodb.railway.internal:27017';
+      const mongoUri = process.env.NODE_ENV === 'test'
+        ? (process.env.MONGO_URI_TEST || process.env.MONGO_URI || process.env.MONGODB_URI)
+        : (process.env.MONGO_URI || process.env.MONGODB_URI || process.env.MONGO_PUBLIC_URL || process.env.MONGO_URL || process.env.DATABASE_URL);
       
       if (!mongoUri) {
         throw new Error('MongoDB URI not found. Please set MONGODB_URI or DATABASE_URL environment variable');

@@ -8,6 +8,7 @@ import PersonalFinance from './components/PersonalFinance';
 import SharedAccounts from './components/SharedAccounts';
 import SharedAccountDetail from './components/SharedAccountDetail';
 import Invitations from './components/Invitations';
+import Friends from './components/Friends';
 import EventCountdown from './components/EventCountdown';
 import Calendar from './components/Calendar';
 import SharedGallery from './components/SharedGallery';
@@ -63,12 +64,21 @@ function App() {
                 } 
               />
               <Route 
-                path="/invitations" 
+                path="/messages" 
                 element={
                   <ProtectedRoute>
                     <Invitations />
                   </ProtectedRoute>
                 } 
+              />
+              <Route path="/invitations" element={<Navigate to="/messages" replace />} />
+              <Route
+                path="/friends"
+                element={
+                  <ProtectedRoute>
+                    <Friends />
+                  </ProtectedRoute>
+                }
               />
               <Route 
                 path="/events" 

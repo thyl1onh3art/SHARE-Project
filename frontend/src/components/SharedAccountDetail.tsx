@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import ParticipantCount, { getParticipants } from './ParticipantCount';
+import InviteRecipientsForm, { createEmptyInviteRecipient, InviteRecipient } from './InviteRecipientsForm';
+import { sendInvitesForAccount } from '../utils/inviteHelpers';
+import { notifyMessagesUnreadChanged } from '../utils/messageNotifications';
 
 interface FinanceRecord {
   _id: string;
@@ -23,14 +27,16 @@ interface SharedAccount {
   description?: string;
   owner: {
     _id: string;
-    firstName: string;
-    lastName: string;
+    firstName?: string;
+    lastName?: string;
+    name?: string;
     email: string;
   };
   members: Array<{
     _id: string;
-    firstName: string;
-    lastName: string;
+    firstName?: string;
+    lastName?: string;
+    name?: string;
     email: string;
   }>;
   financeRecords: FinanceRecord[];
@@ -73,6 +79,12 @@ const SharedAccountDetail: React.FC = () => {
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [removeSubmitting, setRemoveSubmitting] = useState(false);
   const [newOwnerId, setNewOwnerId] = useState('');
+  const [editInviteRecipients, setEditInviteRecipients] = useState<InviteRecipient[]>([createEmptyInviteRecipient()]);
+  const [inviteSubmitting, setInviteSubmitting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [permanentDeleteSubmitting, setPermanentDeleteSubmitting] = useState(false);
+  const [transferOwnershipSubmitting, setTransferOwnershipSubmitting] = useState(false);
 
   useEffect(() => {
     if (accountId) {
@@ -86,38 +98,41 @@ const SharedAccountDetail: React.FC = () => {
       setLoading(true);
       setError('');
 
-      // Fetch account details
       const accountResponse = await axios.get(`/shared-accounts/${accountId}`);
       const accountData = accountResponse.data;
 
-      // Fetch all finance records for this account
       const recordsResponse = await axios.get(`/finance?sharedAccount=${accountId}`);
       const records = recordsResponse.data;
 
-      // Populate user details for each record
-      const populatedRecords = await Promise.all(
-        records.map(async (record: any) => {
-          try {
-            const userResponse = await axios.get(`/users/${record.user}`);
-            return {
-              ...record,
-              user: userResponse.data
-            };
-          } catch {
-            return {
-              ...record,
-              user: { _id: record.user, firstName: 'Unknown', lastName: 'User', email: '' }
-            };
+      const populatedRecords = records.map((record: any) => {
+        const recordUser = record.user;
+        if (recordUser && typeof recordUser === 'object' && recordUser._id) {
+          return record as FinanceRecord;
+        }
+
+        return {
+          ...record,
+          user: {
+            _id: typeof recordUser === 'string' ? recordUser : '',
+            firstName: 'Unknown',
+            lastName: 'User',
+            email: ''
           }
-        })
-      );
+        };
+      });
 
       setAccount(accountData);
-      setTransactions(populatedRecords.sort((a, b) => 
+      setTransactions(populatedRecords.sort((a: FinanceRecord, b: FinanceRecord) => 
         new Date(b.date).getTime() - new Date(a.date).getTime()
       ));
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load account details');
+      if (err.response?.status === 403) {
+        setError('You do not have access to this shared account. You may have been removed as a member, or you may need to log in with a different profile.');
+      } else if (err.response?.status === 404) {
+        setError('This shared account was not found. It may have been deleted.');
+      } else {
+        setError(err.response?.data?.message || 'Failed to load account details');
+      }
     } finally {
       setLoading(false);
     }
@@ -187,6 +202,8 @@ const SharedAccountDetail: React.FC = () => {
       setShowWithdrawModal(false);
       setWithdrawAmount('');
       setWithdrawDescription('');
+      notifyMessagesUnreadChanged();
+      alert('Withdrawal request sent! Other participants can approve or reject it in Messages before funds are moved.');
       await fetchAccountDetails();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to process withdrawal');
@@ -222,7 +239,99 @@ const SharedAccountDetail: React.FC = () => {
       targetAmount: account.targetAmount ? account.targetAmount.toString() : '',
       targetDate: account.targetDate ? new Date(account.targetDate).toISOString().slice(0, 16) : ''
     });
+    setEditInviteRecipients([createEmptyInviteRecipient()]);
     setShowEditModal(true);
+  };
+
+  const handleSendInvitesFromEdit = async () => {
+    if (!accountId) return;
+
+    setInviteSubmitting(true);
+    setError('');
+
+    try {
+      const sentCount = await sendInvitesForAccount(accountId, editInviteRecipients);
+      if (sentCount === 0) {
+        setError('Please add at least one email or phone number to invite.');
+        return;
+      }
+      setEditInviteRecipients([createEmptyInviteRecipient()]);
+      alert(`${sentCount} invitation(s) sent successfully!`);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to send invitations');
+    } finally {
+      setInviteSubmitting(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!accountId) return;
+
+    setDeleteSubmitting(true);
+    setError('');
+
+    try {
+      await axios.delete(`/shared-accounts/${accountId}`);
+      setShowDeleteModal(false);
+      navigate('/financial-records');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to delete shared account');
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  };
+
+  const handlePermanentDeleteAccount = async () => {
+    if (!accountId || !account) return;
+
+    const confirmed = window.confirm(
+      `Permanently delete "${account.name}"? This cannot be undone. Transaction history will be archived only.`
+    );
+    if (!confirmed) return;
+
+    setPermanentDeleteSubmitting(true);
+    setError('');
+
+    try {
+      await axios.delete(`/shared-accounts/${accountId}/permanent`);
+      setShowDeleteModal(false);
+      navigate('/financial-records');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to permanently delete shared account');
+    } finally {
+      setPermanentDeleteSubmitting(false);
+    }
+  };
+
+  const handleTransferOwnershipFromDelete = async () => {
+    if (!accountId || !newOwnerId) {
+      setError('Please select a member to transfer administration to.');
+      return;
+    }
+
+    setTransferOwnershipSubmitting(true);
+    setError('');
+
+    try {
+      await axios.post(`/shared-accounts/${accountId}/transfer-ownership`, {
+        newOwnerId,
+        removeCurrentOwner: true
+      });
+      setShowDeleteModal(false);
+      setNewOwnerId('');
+      navigate('/shared-accounts');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to transfer administration');
+    } finally {
+      setTransferOwnershipSubmitting(false);
+    }
+  };
+
+  const openDeleteModal = () => {
+    setShowEditModal(false);
+    setNewOwnerId('');
+    setError('');
+    setShowDeleteModal(true);
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -341,10 +450,12 @@ const SharedAccountDetail: React.FC = () => {
       await axios.post('/payment-requests', {
         sharedAccountId: accountId,
         amount: balance,
-        description: `Full payment for ${account.name}`
+        description: `Full payment for ${account.name}`,
+        requestType: 'payment'
       });
       setShowPayModal(false);
-      alert('Payment request created! All participants will be notified and must approve before the payment is processed.');
+      notifyMessagesUnreadChanged();
+      alert('Payment request sent! Other participants can approve or reject it in Messages.');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create payment request');
     } finally {
@@ -407,7 +518,6 @@ const SharedAccountDetail: React.FC = () => {
 
   const userId = user ? getCurrentUserId() : '';
   const userContribution = user ? calculateUserContribution(userId) : 0;
-  const allParticipants = [account.owner, ...account.members];
   const ownerId = typeof account.owner === 'object' ? account.owner._id : account.owner;
   const isOwner = ownerId === userId;
   const last24HoursCutoff = Date.now() - 24 * 60 * 60 * 1000;
@@ -476,7 +586,13 @@ const SharedAccountDetail: React.FC = () => {
           <div>
             <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Participants</p>
             <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0.25rem 0 0 0' }}>
-              {allParticipants.length}
+              <ParticipantCount
+                owner={account.owner}
+                members={account.members}
+                currentUser={user}
+                scrollTargetId="participants-list"
+                style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2b6cb0' }}
+              />
             </p>
           </div>
           {user && (
@@ -497,24 +613,29 @@ const SharedAccountDetail: React.FC = () => {
           )}
         </div>
 
-        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
-          <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.5rem 0' }}>
-            <strong>Owner:</strong> {account.owner.firstName} {account.owner.lastName} ({account.owner.email})
+        <div id="participants-list" style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+          <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0 0 0.5rem 0' }}>
+            <strong>Participants</strong>
           </p>
-          {account.members.length > 0 && (
-            <div>
-              <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.5rem 0' }}>
-                <strong>Members:</strong>
-              </p>
-              <ul style={{ margin: '0.5rem 0', paddingLeft: '1.5rem' }}>
-                {account.members.map((member) => (
-                  <li key={member._id} style={{ color: '#4a5568', fontSize: '0.9rem' }}>
-                    {member.firstName} {member.lastName} ({member.email})
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+            {getParticipants(account.owner, account.members, user).map((participant, index, list) => (
+              <li
+                key={`${participant.name}-${index}`}
+                style={{
+                  padding: '0.5rem 0',
+                  borderBottom: index < list.length - 1 ? '1px solid #e2e8f0' : 'none',
+                  color: '#4a5568',
+                  fontSize: '0.9rem'
+                }}
+              >
+                <strong>{participant.name}</strong>
+                <span style={{ color: '#718096' }}>
+                  {' '}· {participant.role}
+                  {participant.email ? ` · ${participant.email}` : ''}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
 
         {/* Account Actions */}
@@ -700,6 +821,21 @@ const SharedAccountDetail: React.FC = () => {
                 />
               </div>
 
+              <InviteRecipientsForm
+                recipients={editInviteRecipients}
+                onChange={setEditInviteRecipients}
+              />
+
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleSendInvitesFromEdit}
+                disabled={inviteSubmitting}
+                style={{ width: '100%', marginTop: '0.75rem' }}
+              >
+                {inviteSubmitting ? <span className="spinner"></span> : 'Send Invitations'}
+              </button>
+
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
                 <button
                   type="button"
@@ -718,10 +854,153 @@ const SharedAccountDetail: React.FC = () => {
                   {editSubmitting ? <span className="spinner"></span> : 'Save Changes'}
                 </button>
               </div>
+
+              {isOwner && (
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={openDeleteModal}
+                  style={{ width: '100%', marginTop: '0.75rem' }}
+                >
+                  Delete or Transfer Account
+                </button>
+              )}
             </form>
           </div>
         </div>
       )}
+
+      {showDeleteModal && account && (() => {
+        const accountBalance = calculateBalance();
+        const hasFunds = accountBalance > 0;
+        const isBusy = deleteSubmitting || permanentDeleteSubmitting || transferOwnershipSubmitting;
+
+        return (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div className="card" style={{ width: '90%', maxWidth: '500px' }}>
+            <h2 style={{ margin: '0 0 1rem 0', color: '#dc2626' }}>
+              {hasFunds ? 'Transfer Administration' : 'Delete or Transfer Account'}
+            </h2>
+            <p style={{ color: '#4a5568', marginBottom: '0.75rem' }}>
+              Account balance: <strong>£{accountBalance.toFixed(2)}</strong>
+            </p>
+
+            {hasFunds ? (
+              <p style={{ color: '#92400e', background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '6px', padding: '1rem', marginBottom: '1rem' }}>
+                This account still has funds. You cannot delete it — transfer administration to another joined member instead.
+              </p>
+            ) : (
+              <>
+                <p style={{ color: '#4a5568', marginBottom: '0.75rem' }}>
+                  <strong>{account.name}</strong> has no remaining balance. You can delete it or transfer administration to another member.
+                </p>
+                <ul style={{ color: '#4a5568', marginBottom: '1rem', paddingLeft: '1.25rem' }}>
+                  <li style={{ marginBottom: '0.35rem' }}>
+                    <strong>Archive</strong> — hides the account but keeps transaction records in your history.
+                  </li>
+                  <li style={{ marginBottom: '0.35rem' }}>
+                    <strong>Delete permanently</strong> — removes the account from the database. This cannot be undone.
+                  </li>
+                  <li>
+                    <strong>Transfer administration</strong> — hand the account to another member and leave.
+                  </li>
+                </ul>
+              </>
+            )}
+
+            {account.members.length > 0 && (
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label">
+                  {hasFunds ? 'New administrator (required)' : 'Transfer administration to (optional)'}
+                </label>
+                <select
+                  className="form-input"
+                  value={newOwnerId}
+                  onChange={(e) => setNewOwnerId(e.target.value)}
+                >
+                  <option value="">Select member</option>
+                  {account.members.map((member) => (
+                    <option key={member._id} value={member._id}>
+                      {member.firstName} {member.lastName} ({member.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {hasFunds && account.members.length === 0 && (
+              <p style={{ color: '#e53e3e', marginBottom: '1rem' }}>
+                Invite at least one member before you can transfer administration.
+              </p>
+            )}
+
+            {error && (
+              <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
+                {error}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setNewOwnerId('');
+                }}
+                disabled={isBusy}
+              >
+                Cancel
+              </button>
+
+              {account.members.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleTransferOwnershipFromDelete}
+                  disabled={isBusy || !newOwnerId}
+                >
+                  {transferOwnershipSubmitting ? <span className="spinner"></span> : 'Transfer Administration'}
+                </button>
+              )}
+
+              {!hasFunds && (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    onClick={handleDeleteAccount}
+                    disabled={isBusy}
+                  >
+                    {deleteSubmitting ? <span className="spinner"></span> : 'Archive Account (Keep History)'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    onClick={handlePermanentDeleteAccount}
+                    disabled={isBusy}
+                    style={{ backgroundColor: '#7f1d1d', borderColor: '#7f1d1d' }}
+                  >
+                    {permanentDeleteSubmitting ? <span className="spinner"></span> : 'Delete Permanently'}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+        );
+      })()}
 
       {/* Transfer Payment Modal */}
       {showTransferModal && (
@@ -1087,7 +1366,7 @@ const SharedAccountDetail: React.FC = () => {
                 £{availableWithdrawal.toFixed(2)}
               </p>
               <p style={{ fontSize: '0.75rem', color: '#0369a1', margin: '0.5rem 0 0 0' }}>
-                This is the amount you've contributed minus any previous withdrawals.
+                Other participants must approve this withdrawal in Messages before funds are moved. You can cancel the request there if you change your mind.
               </p>
             </div>
 
@@ -1147,7 +1426,7 @@ const SharedAccountDetail: React.FC = () => {
                   disabled={withdrawSubmitting || !withdrawAmount || parseFloat(withdrawAmount) <= 0 || parseFloat(withdrawAmount) > availableWithdrawal}
                   style={{ flex: 1 }}
                 >
-                  {withdrawSubmitting ? <span className="spinner"></span> : 'Withdraw Funds'}
+                  {withdrawSubmitting ? <span className="spinner"></span> : 'Request Withdrawal'}
                 </button>
               </div>
             </form>

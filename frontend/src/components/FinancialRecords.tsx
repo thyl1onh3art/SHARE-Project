@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import ParticipantCount from './ParticipantCount';
 
 interface FinancialRecord {
   _id: string;
@@ -15,12 +17,13 @@ interface SharedAccount {
   _id: string;
   name: string;
   description?: string;
-  owner: string | { _id: string; name: string; email: string };
-  members: string[] | Array<{ _id: string; name: string; email: string }>;
+  owner: string | { _id: string; name?: string; firstName?: string; lastName?: string; email: string };
+  members: string[] | Array<{ _id: string; name?: string; firstName?: string; lastName?: string; email: string }>;
   financeRecords: FinancialRecord[];
 }
 
 const FinancialRecords: React.FC = () => {
+  const { user } = useAuth();
   const [records, setRecords] = useState<FinancialRecord[]>([]);
   const [sharedAccounts, setSharedAccounts] = useState<SharedAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -224,12 +227,11 @@ const FinancialRecords: React.FC = () => {
           <div className="grid grid-2" style={{ gap: '1rem' }}>
             {sharedAccounts.slice(0, 2).map((account) => {
               const balance = calculateAccountBalance(account);
-              const memberCount = Array.isArray(account.members) ? account.members.length : 0;
               
               return (
                 <Link
                   key={account._id}
-                  to={`/shared-accounts`}
+                  to={`/shared-accounts/${account._id}`}
                   style={{
                     textDecoration: 'none',
                     color: 'inherit'
@@ -314,7 +316,12 @@ const FinancialRecords: React.FC = () => {
                       display: 'flex',
                       justifyContent: 'space-between'
                     }}>
-                      <span>{memberCount + 1} member{memberCount !== 0 ? 's' : ''}</span>
+                      <ParticipantCount
+                        owner={account.owner}
+                        members={account.members}
+                        currentUser={user}
+                        style={{ fontSize: '0.85rem', color: '#4a5568', textDecoration: 'underline dotted' }}
+                      />
                       <span>{account.financeRecords?.length || 0} transaction{(account.financeRecords?.length || 0) !== 1 ? 's' : ''}</span>
                     </div>
                   </div>
@@ -330,7 +337,7 @@ const FinancialRecords: React.FC = () => {
           <p style={{ color: '#4a5568', marginBottom: '1rem' }}>
             You don't have any shared accounts yet.
           </p>
-          <Link to="/shared-accounts" className="btn btn-primary">
+          <Link to="/shared-accounts?create=true" className="btn btn-primary">
             Create Shared Account
           </Link>
         </div>

@@ -1,8 +1,17 @@
 const SharedAccount = require('../models/SharedAccount');
 const FinanceRecord = require('../models/FinanceRecord');
 const Invite = require('../models/Invite');
+const PaymentRequest = require('../models/PaymentRequest');
+const User = require('../models/User');
 const nodemailer = require('nodemailer');
 const twilio = require('twilio');
+const { rememberFriendByEmail } = require('../services/friendService');
+const paymentRequestController = require('./paymentRequestController');
+const {
+  resolveUserId,
+  isAccountParticipant,
+  hasSharedAccountAccess
+} = require('../utils/sharedAccountAccess');
 
 // Helper: Send SMS via Twilio
 const sendSMS = (to, body) => {
@@ -18,6 +27,39 @@ const sendSMS = (to, body) => {
 const calculatePerPersonAmount = (targetAmount, memberCount) => {
   const totalParticipants = memberCount + 1; // owner + members
   return totalParticipants > 0 ? targetAmount / totalParticipants : 0;
+};
+
+const USER_PROFILE_FIELDS = 'name firstName lastName email';
+
+const getSharedAccountBalance = async (sharedAccountId) => {
+  const records = await FinanceRecord.find({ sharedAccount: sharedAccountId });
+  return records.reduce(
+    (sum, record) => sum + (record.type === 'input' ? record.amount : -record.amount),
+    0
+  );
+};
+
+// Ensure owner and every member ID resolves to a full user profile
+const enrichAccountProfiles = async (account) => {
+  const accountData = account.toObject ? account.toObject({ virtuals: true }) : { ...account };
+  const ownerId = resolveUserId(accountData.owner);
+  const memberIds = (accountData.members || []).map(resolveUserId).filter(Boolean);
+  const userIds = [...new Set([...(ownerId ? [ownerId] : []), ...memberIds])];
+
+  if (!userIds.length) return accountData;
+
+  const users = await User.find({ _id: { $in: userIds } }).select(USER_PROFILE_FIELDS);
+  const userMap = new Map(users.map((user) => [user._id.toString(), user]));
+
+  if (ownerId) {
+    accountData.owner = userMap.get(ownerId) || accountData.owner;
+  }
+
+  accountData.members = memberIds.map((memberId) => (
+    userMap.get(memberId) || { _id: memberId, email: 'Unknown member' }
+  ));
+
+  return accountData;
 };
 
 // Create a shared account
@@ -71,12 +113,15 @@ exports.createSharedAccount = async (req, res) => {
           continue;
         }
         
+        const normalizedEmail = recipientEmail.trim().toLowerCase();
+        const normalizedPhone = recipientPhone?.trim();
+
         // Check for existing pending invite
         const existingInvite = await Invite.findOne({
           sharedAccount: sharedAccount._id,
           $or: [
-            { recipientEmail: recipientEmail.trim() },
-            ...(recipientPhone?.trim() ? [{ recipientPhone: recipientPhone.trim() }] : [])
+            { recipientEmail: normalizedEmail },
+            ...(normalizedPhone ? [{ recipientPhone: normalizedPhone }] : [])
           ],
           status: 'pending'
         });
@@ -88,12 +133,13 @@ exports.createSharedAccount = async (req, res) => {
         // Create invite
         const invite = new Invite({
           sender: senderId,
-          recipientEmail: recipientEmail.trim(),
-          recipientPhone: recipientPhone?.trim(),
+          recipientEmail: normalizedEmail,
+          recipientPhone: normalizedPhone,
           sharedAccount: sharedAccount._id
         });
         await invite.save();
         createdInvites.push(invite);
+        await rememberFriendByEmail(senderId, normalizedEmail);
         
         // Send email notification
         try {
@@ -136,7 +182,8 @@ exports.createSharedAccount = async (req, res) => {
     
     // Populate members for response
     const populatedAccount = await SharedAccount.findById(sharedAccount._id)
-      .populate('members', 'firstName lastName email');
+      .populate('owner', 'name firstName lastName email')
+      .populate('members', 'name firstName lastName email');
     
     res.status(201).json({
       sharedAccount: populatedAccount,
@@ -154,18 +201,26 @@ exports.createSharedAccount = async (req, res) => {
 exports.getUserSharedAccounts = async (req, res) => {
   try {
     const userId = req.user.userId;
-    // Fetch accounts and populate owner and members with user details
+
+    const financeAccountIds = await FinanceRecord.distinct('sharedAccount', {
+      user: userId,
+      sharedAccount: { $exists: true, $ne: null }
+    });
+
+    // Fetch accounts the user owns, belongs to, or has contributed to
     const accounts = await SharedAccount.find({
+      isDeleted: { $ne: true },
       $or: [
         { owner: userId },
-        { members: userId }
+        { members: userId },
+        { _id: { $in: financeAccountIds } }
       ]
     })
-      .populate('owner', 'name firstName lastName email')
-      .populate('members', 'name firstName lastName email')
+      .populate('owner', USER_PROFILE_FIELDS)
+      .populate('members', USER_PROFILE_FIELDS)
       .populate({
         path: 'financeRecords',
-        populate: { path: 'user', select: 'firstName lastName email' }
+        populate: { path: 'user', select: USER_PROFILE_FIELDS }
       });
     
     // Recalculate perPersonAmount for each account to ensure it's always accurate
@@ -177,8 +232,10 @@ exports.getUserSharedAccounts = async (req, res) => {
         await account.save();
       }
     }
+
+    const enrichedAccounts = await Promise.all(accounts.map((account) => enrichAccountProfiles(account)));
     
-    res.json(accounts);
+    res.json(enrichedAccounts);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -189,16 +246,20 @@ exports.getSharedAccountDetails = async (req, res) => {
   try {
     const { id } = req.params;
     const account = await SharedAccount.findById(id)
-      .populate('members', 'name email')
+      .populate('owner', USER_PROFILE_FIELDS)
+      .populate('members', USER_PROFILE_FIELDS)
       .populate({
         path: 'financeRecords',
-        populate: { path: 'user', select: 'name email' }
+        populate: { path: 'user', select: USER_PROFILE_FIELDS }
       });
     if (!account) {
       return res.status(404).json({ message: 'Shared account not found' });
     }
-    // Only allow if user is a member or owner
-    if (!account.members.some(m => m._id.equals(req.user.userId)) && !account.owner.equals(req.user.userId)) {
+    if (account.isDeleted) {
+      return res.status(404).json({ message: 'Shared account not found' });
+    }
+    // Allow owner, members, or anyone with transaction history on this account
+    if (!(await hasSharedAccountAccess(account, req.user.userId))) {
       return res.status(403).json({ message: 'Access denied' });
     }
     
@@ -210,7 +271,8 @@ exports.getSharedAccountDetails = async (req, res) => {
       await account.save();
     }
     
-    res.json(account);
+    const enrichedAccount = await enrichAccountProfiles(account);
+    res.json(enrichedAccount);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -372,147 +434,111 @@ exports.transferOwnership = async (req, res) => {
   }
 };
 
-// Delete a shared account (owner only)
+// Delete a shared account (owner only) — soft delete, preserves transaction history
 exports.deleteSharedAccount = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
 
-    // Find the shared account
     const account = await SharedAccount.findById(id);
     if (!account) {
       return res.status(404).json({ message: 'Shared account not found' });
     }
 
-    // Only the owner can delete the account
     if (!account.owner.equals(userId)) {
       return res.status(403).json({ message: 'Only the account owner can delete this account' });
     }
 
-    // Remove sharedAccount reference from related finance records
-    if (account.financeRecords && account.financeRecords.length > 0) {
-      await FinanceRecord.updateMany(
-        { _id: { $in: account.financeRecords } },
-        { $unset: { sharedAccount: '' } }
-      );
+    if (account.isDeleted) {
+      return res.status(400).json({ message: 'Shared account is already deleted' });
     }
 
-    // Delete the shared account
-    await SharedAccount.findByIdAndDelete(id);
+    const balance = await getSharedAccountBalance(id);
+    if (balance > 0) {
+      return res.status(400).json({
+        message: 'This account still has funds. Transfer administration to another member before deleting.',
+        balance
+      });
+    }
 
-    res.json({ message: 'Shared account deleted successfully' });
+    await FinanceRecord.updateMany(
+      { sharedAccount: id },
+      { $set: { archivedAccountName: account.name } }
+    );
+
+    account.isDeleted = true;
+    account.deletedAt = new Date();
+    await account.save();
+
+    res.json({
+      message: 'Shared account deleted. All transaction records have been kept for your history.',
+      archivedAccountName: account.name
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
-// Withdraw funds from shared account (participant can withdraw their contributions)
-exports.withdrawFunds = async (req, res) => {
+// Permanently delete a shared account (owner only) — removes account from database
+exports.permanentlyDeleteSharedAccount = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
-    const { amount, description } = req.body;
 
-    if (!amount || amount <= 0) {
-      return res.status(400).json({ message: 'Valid withdrawal amount is required' });
-    }
-
-    // Get the shared account
-    const sharedAccount = await SharedAccount.findById(id);
-    if (!sharedAccount) {
+    const account = await SharedAccount.findById(id);
+    if (!account) {
       return res.status(404).json({ message: 'Shared account not found' });
     }
 
-    // Check if user is owner or member
-    const ownerId = typeof sharedAccount.owner === 'object' 
-      ? sharedAccount.owner._id.toString() 
-      : sharedAccount.owner.toString();
-    const isOwner = ownerId === userId;
-    const isMember = sharedAccount.members.some((m) => {
-      const memberId = typeof m === 'object' ? m._id.toString() : m.toString();
-      return memberId === userId;
-    });
-
-    if (!isOwner && !isMember) {
-      return res.status(403).json({ message: 'Access denied. You must be a member of this account.' });
+    if (!account.owner.equals(userId)) {
+      return res.status(403).json({ message: 'Only the account owner can permanently delete this account' });
     }
 
-    // Calculate user's total contributions (input records only)
-    const userInputRecords = await FinanceRecord.find({
+    const pendingPaymentRequest = await PaymentRequest.findOne({
       sharedAccount: id,
-      user: userId,
-      type: 'input'
+      status: 'pending'
     });
-
-    const totalContributions = userInputRecords.reduce((sum, record) => sum + (record.amount || 0), 0);
-
-    // Calculate user's total withdrawals (output records)
-    const userOutputRecords = await FinanceRecord.find({
-      sharedAccount: id,
-      user: userId,
-      type: 'output'
-    });
-
-    const totalWithdrawals = userOutputRecords.reduce((sum, record) => sum + (record.amount || 0), 0);
-
-    // Calculate available withdrawal amount
-    const availableAmount = totalContributions - totalWithdrawals;
-
-    if (amount > availableAmount) {
-      return res.status(400).json({ 
-        message: `Insufficient funds. You can withdraw up to £${availableAmount.toFixed(2)} (your total contributions: £${totalContributions.toFixed(2)}, already withdrawn: £${totalWithdrawals.toFixed(2)})` 
+    if (pendingPaymentRequest) {
+      return res.status(400).json({
+        message: 'Resolve or cancel the pending payment or withdrawal approval before permanently deleting this account.'
       });
     }
 
-    // Check account balance
-    const allRecords = await FinanceRecord.find({ sharedAccount: id });
-    const accountBalance = allRecords.reduce((sum, record) => {
-      return sum + (record.type === 'input' ? record.amount : -record.amount);
-    }, 0);
-
-    if (amount > accountBalance) {
-      return res.status(400).json({ 
-        message: `Insufficient account balance. Account has £${accountBalance.toFixed(2)}` 
+    const balance = await getSharedAccountBalance(id);
+    if (balance > 0) {
+      return res.status(400).json({
+        message: 'This account still has funds. Transfer administration to another member before deleting.',
+        balance
       });
     }
 
-    // Create withdrawal record (output from shared account)
-    const withdrawalRecord = new FinanceRecord({
-      user: userId,
-      type: 'output',
-      amount: parseFloat(amount),
-      date: new Date(),
-      description: description || `Withdrawal from ${sharedAccount.name}`,
-      sharedAccount: id
-    });
+    await FinanceRecord.updateMany(
+      { sharedAccount: id },
+      {
+        $set: { archivedAccountName: account.name },
+        $unset: { sharedAccount: '' }
+      }
+    );
 
-    await withdrawalRecord.save();
+    await Invite.deleteMany({ sharedAccount: id });
+    await PaymentRequest.deleteMany({ sharedAccount: id });
+    await SharedAccount.findByIdAndDelete(id);
 
-    // Add finance record to shared account
-    if (!sharedAccount.financeRecords) {
-      sharedAccount.financeRecords = [];
-    }
-    sharedAccount.financeRecords.push(withdrawalRecord._id);
-    await sharedAccount.save();
-
-    // Create input record in user's personal account (add to personal balance)
-    const personalInputRecord = new FinanceRecord({
-      user: userId,
-      type: 'input',
-      amount: parseFloat(amount),
-      date: new Date(),
-      description: `Withdrawal from shared account: ${sharedAccount.name}`,
-      sharedAccount: null // This is a personal account record
-    });
-
-    await personalInputRecord.save();
-
-    res.status(201).json({
-      message: 'Withdrawal successful',
-      withdrawalRecord,
-      availableAmount: availableAmount - amount
+    res.json({
+      message: 'Shared account permanently deleted. Transaction history has been archived in your finance records.',
+      archivedAccountName: account.name
     });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
+};
+
+// Withdraw funds from shared account — creates an approval request instead of moving money immediately
+exports.withdrawFunds = async (req, res) => {
+  req.body = {
+    ...req.body,
+    sharedAccountId: req.params.id,
+    requestType: 'withdrawal'
+  };
+  return paymentRequestController.createPaymentRequest(req, res);
 };

@@ -83,6 +83,16 @@ const validateSharedAccount = [
     .trim()
     .isLength({ min: 2, max: 100 })
     .withMessage('Account name must be between 2 and 100 characters'),
+  body('description')
+    .trim()
+    .notEmpty()
+    .withMessage('Description is required'),
+  body('targetAmount')
+    .isFloat({ min: 0.01 })
+    .withMessage('Target amount must be greater than 0'),
+  body('targetDate')
+    .isISO8601()
+    .withMessage('Valid target date is required'),
   body('memberIds')
     .optional()
     .isArray()
@@ -137,6 +147,14 @@ const validateRemoveMember = [
   handleValidationErrors
 ];
 
+const validateAddFriend = [
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Must be a valid email address'),
+  handleValidationErrors
+];
+
 module.exports = {
   validateUserRegistration,
   validateUserLogin,
@@ -145,6 +163,7 @@ module.exports = {
   validateInvite,
   validateAcceptInvite,
   validateRemoveMember,
+  validateAddFriend,
   handleValidationErrors
 };
 

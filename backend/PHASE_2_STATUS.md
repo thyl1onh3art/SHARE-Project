@@ -166,30 +166,72 @@ Phase 2 includes three main features:
 
 ---
 
-## 🧪 Testing Checklist
+## 🧪 Testing Status
 
-### Calendar:
+### ✅ Automated API Tests (COMPLETE)
+**Test File:** `backend/tests/phase2.test.js`
+**Status:** 26/26 tests passing ✅
+
+#### Calendar Settings API Tests (7 tests):
+- ✅ GET /api/users/calendar-settings - returns default settings
+- ✅ GET /api/users/calendar-settings - requires authentication
+- ✅ PUT /api/users/calendar-settings - updates privacy to shared
+- ✅ PUT /api/users/calendar-settings - updates privacy to private
+- ✅ PUT /api/users/calendar-settings - updates sharedWith emails
+- ✅ PUT /api/users/calendar-settings - rejects invalid privacy value
+- ✅ PUT /api/users/calendar-settings - requires authentication
+
+#### Accommodations API Tests (5 tests):
+- ✅ POST /api/accommodations/search - returns mock accommodations
+- ✅ POST /api/accommodations/search - filters by radius
+- ✅ POST /api/accommodations/search - requires location parameter
+- ✅ POST /api/accommodations/search - requires authentication
+- ✅ POST /api/accommodations/search - accepts eventDate parameter
+
+#### Event Recommendations API Tests (6 tests):
+- ✅ GET /api/recommendations/events - returns recommendations based on interests
+- ✅ GET /api/recommendations/events - returns category-based recommendations
+- ✅ GET /api/recommendations/events - returns location-based recommendations
+- ✅ GET /api/recommendations/events - returns budget-based recommendations
+- ✅ GET /api/recommendations/events - requires authentication
+- ✅ GET /api/recommendations/events - includes confidence levels
+
+#### Events API Tests (8 tests):
+- ✅ GET /api/events - returns user events
+- ✅ GET /api/events - returns empty array when no events
+- ✅ GET /api/events - only returns events for authenticated user
+- ✅ GET /api/events - requires authentication
+- ✅ GET /api/events/shared - returns explicitly shared events
+- ✅ GET /api/events/shared - returns events from shared calendars
+- ✅ GET /api/events/shared - returns empty array when no shared events
+- ✅ GET /api/events/shared - requires authentication
+
+**Run tests:** `npm test -- tests/phase2.test.js`
+
+### Manual Browser Testing Checklist
+
+#### Calendar:
 - [ ] Test month view navigation
 - [ ] Test week view navigation
 - [ ] Test day view navigation
 - [ ] Test countdown view
-- [ ] Test calendar privacy settings (private/shared)
-- [ ] Test shared events display
-- [ ] Test event creation and display
+- [ ] Test calendar privacy settings (private/shared) in UI
+- [ ] Test shared events display in UI
+- [ ] Test event creation and display in UI
 
-### Accommodations:
-- [ ] Test event selection for location
-- [ ] Test manual location search
-- [ ] Test radius slider
-- [ ] Test accommodation search
-- [ ] Verify mock data displays correctly
+#### Accommodations:
+- [ ] Test event selection for location in UI
+- [ ] Test manual location search in UI
+- [ ] Test radius slider in UI
+- [ ] Test accommodation search in UI
+- [ ] Verify mock data displays correctly in UI
 
-### Recommendations:
-- [ ] Create some events with different categories
-- [ ] Check dashboard for recommendations
-- [ ] Verify recommendation reasons are displayed
-- [ ] Verify confidence levels are shown
-- [ ] Test recommendation types (category, location, interest, budget)
+#### Recommendations:
+- [ ] Create some events with different categories in UI
+- [ ] Check dashboard for recommendations in UI
+- [ ] Verify recommendation reasons are displayed in UI
+- [ ] Verify confidence levels are shown in UI
+- [ ] Test recommendation types (category, location, interest, budget) in UI
 
 ---
 
@@ -211,7 +253,7 @@ All Phase 2 features are:
 - ✅ Code complete
 - ✅ Routes registered
 - ✅ Frontend integrated
-- ✅ Ready for testing
+- ✅ API tests complete (26/26 passing)
 - ✅ Ready for deployment
 
 ---
