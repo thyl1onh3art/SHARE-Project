@@ -794,3 +794,100 @@ No new product functionality added — copy/presentation only.
 Quality and regression: manual journey Trips → Trip Money → Invitations → Close-out; mobile widths; confirm More-menu secondary features; record any remaining copy edge cases.
 
 **STOP:** Do not start Pack Phase 9 without approval.
+
+---
+
+## 20. Pack Phase 9 — Quality, regression and release readiness
+
+**Branch:** `marketing-alignment`  
+**Stash:** `stash@{0}` left untouched (and `stash@{1}` also present; neither restored).  
+**Not pushed. Not merged.**
+
+### Claim fix in this phase
+Live Login + Trips intro no longer use **“Fund the trip together. Spend together. Finish square.”** as current-product copy.  
+Replaced with: **“Plan the trip together. Track shared costs. Finish square.”**  
+Strategic line remains in pack docs (`START_HERE_CURSOR.md`) as future/marketing direction.
+
+### Docs status notes added
+- `GROUP_PAYMENT_IMPLEMENTATION.md` — not live PayPal/group-payments API
+- `LEGAL_WARNING_GROUP_PAYMENTS.md` — still valid warning; live product is non-custodial ledger
+- Root `README.md` — trip-first / non-custodial current-status banner
+
+### Dashboard.tsx
+Confirmed **unmounted** (not imported in `App.tsx`). Stale Event/Shared Accounts copy remains as dormant tech debt.
+
+---
+
+## Marketing Alignment — Final Release Readiness
+
+### Branch / commits
+- **Branch:** `marketing-alignment`
+- **Merge-base with main (approx):** `e971ec9` (frontend CI/Jest stabilisation); pack install `c9464b0` precedes UI work
+- **Marketing UI sequence (chronological):**
+  1. `c9464b0` — Add marketing alignment pack and Phase 0 baseline notes
+  2. `e971ec9` — Stabilize frontend CI build and Jest baseline
+  3. `abda1eb` — Reframe authenticated entry around Trips for group travel
+  4. `0e3e84a` — Reframe group money UI as Trip Money virtual tracking
+  5. `45ad8a1` — Simplify primary navigation around Trips, Trip Money, and Invitations
+  6. `c4f3292` — Make Trip Money contribution progress the visual hero
+  7. `7f6e029` — Fix SharedAccount schema so contribution targets persist
+  8. `6fad8f7` — Strengthen trip invitations with clear context and safe sharing
+  9. `040a31d` — De-emphasise secondary finance and lifestyle surfaces around the trip core
+  10. `46ba195` — Add a non-custodial Trip Close-out summary on Trip Money detail
+  11. `42e47bb` — Standardise SHARE customer-facing copy around trips and Trip Money
+  12. *(Phase 9 commit)* — Final quality: truthful positioning, doc status notes, readiness
+
+### Core product positioning (live)
+SHARE is a **group-trip coordination prototype**: plan trips, invite travellers, record shared-cost activity, review close-out.  
+It does **not** hold pooled money, run PayPal/Stripe group settlement, or provide bank accounts/cards.
+
+### Major changes (summary)
+Trips-first default; Trip Money terminology + progress hero + close-out; primary nav Trips / Trip Money / Invitations / More; trip invitations with safe share (login URL only); SharedAccount target fields persisted; secondary tools de-emphasised; copy consistency; non-custodial transparency retained.
+
+### Test results
+| Check | Result |
+|--------|--------|
+| Frontend `CI=true npm run build` | **PASS** (compiled successfully) |
+| Frontend tests | **PASS** — 1 suite, 1 test (`App.test.tsx`) |
+| Backend `npm test` | **Environment failure** — Mongo `Topology is closed` / `process.exit(1)`; suites fail to run meaningfully (0 tests executed in this environment). Historical Phase 0 baseline when Mongo worked: **25 failed / 47 passed**. No evidence marketing-alignment introduced new backend assertion failures; invite/schema changes are additive and not covered by a green local suite here. |
+
+### Security sanity (targeted)
+- Invite accept still requires auth + matching `recipientEmail`
+- Invite send requires owner or member
+- Share message uses `/login` only — no public invite token
+- No secrets added in branch files reviewed
+- Ledger modify actions remain authenticated API calls
+
+### Non-custodial confirmation
+No pooled funds, custody, PayPal/Stripe settlement, bank transfers, cards, FX, automatic refunds/payouts, FSCS/safeguarding claims implemented by this branch.
+
+### Known technical debt
+- Unmounted `Dashboard.tsx` stale copy
+- Backend Jest/Mongo test harness flaky/broken in this environment
+- Historical ~25 backend test failures when suite previously ran
+- `GET /payment-requests` returns pending only
+- No Event↔SharedAccount schema link
+- No public invite tokens
+- Root README still largely backend/event-finance oriented beneath the status banner
+- `BankAccount.ts` util unused-sounding banking vocabulary (not customer UI)
+
+### Deferred capabilities
+Real money movement, public invite links, automatic close-out refunds, full settlement history API, schema link Trips↔Trip Money, backend test-env repair.
+
+### Regulatory / product limitations
+Prototype coordinates and records; organisers settle real money outside SHARE.
+
+### Release decision
+| Question | Answer |
+|----------|--------|
+| Ready to **PUSH** `marketing-alignment` to remote? | **Yes**, after human approval (frontend green; docs status noted; stash not included) |
+| Ready to **MERGE** into `main`? | **Conditionally yes** — merge after push + PR review; do **not** treat backend suite as green; consider follow-up for Mongo test env and dormant Dashboard |
+| Conditions before merge | Confirm no secret/.env in PR; reviewer accepts non-custodial positioning; decide whether to ignore or ticket backend test debt |
+
+### Recommended next Git action
+1. Human reviews Phase 9 commit + notes  
+2. `git push -u origin marketing-alignment` (only when approved)  
+3. Open PR into `main` (do not merge until reviewed)  
+4. Leave `stash@{0}` unrestored unless a separate task requests it  
+
+**STOP:** Do not push or merge in this agent turn.

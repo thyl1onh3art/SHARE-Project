@@ -278,7 +278,7 @@ const EventCountdown: React.FC = () => {
           <div>
             <h1 className="card-title">Trips</h1>
             <p style={{ margin: '0.35rem 0 0', color: '#4a5568', fontSize: '0.95rem' }}>
-              Fund the trip together. Spend together. Finish square. Plan destination and dates here, then coordinate shared costs in Trip Money.
+              Plan the trip together. Track shared costs. Finish square. Plan destination and dates here, then coordinate shared costs in Trip Money.
             </p>
             <p style={{ margin: '0.65rem 0 0', fontSize: '0.9rem' }}>
               <Link to="/invitations" style={{ color: '#2b6cb0' }}>Invite travellers</Link>

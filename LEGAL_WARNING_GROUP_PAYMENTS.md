@@ -1,5 +1,7 @@
 # ⚠️ CRITICAL LEGAL WARNING: Group Payment Feature
 
+> **CURRENT STATUS (marketing-alignment Phase 9):** This warning still correctly advises against custodial pooled wallets. The live SHARE Trip Money prototype remains **non-custodial ledger tracking** and does not hold customer deposits. Do not read this file as describing a live pooled-funds product.
+
 ## 🚨 Your Proposed Feature Requires a License
 
 ### What You Want to Build:

@@ -91,14 +91,16 @@ Cursor: complete these in order. Update `[ ]` to `[x]` only after code is change
 - [x] Prefer concrete examples: trip, accommodation deposit, tickets, group costs, organiser, friend contribution.
 
 ## Phase 9 — Quality and regression
-- [ ] Run frontend tests.
-- [ ] Run frontend production build.
-- [ ] Run relevant backend tests.
-- [ ] Manually inspect login → trips → shared costs → invitations → contribution/detail → close-out journey.
-- [ ] Check responsive/mobile layout at common narrow widths.
-- [ ] Confirm Gallery/Map/Accommodation/Calendar remain reachable.
-- [ ] Confirm no environment secrets were added or changed.
-- [ ] Document changed files and unresolved issues in `implementation/IMPLEMENTATION_NOTES.md`.
+- [x] Run frontend tests.
+- [x] Run frontend production build.
+- [x] Run relevant backend tests.
+- [x] Manually inspect login → trips → shared costs → invitations → contribution/detail → close-out journey.
+- [x] Check responsive/mobile layout at common narrow widths.
+- [x] Confirm Gallery/Map/Accommodation/Calendar remain reachable.
+- [x] Confirm no environment secrets were added or changed.
+- [x] Document changed files and unresolved issues in `implementation/IMPLEMENTATION_NOTES.md`.
+
+**Note on phase order:** Customer-facing Trip Money terminology (pack Phase 3) was delivered as an early approved “user Phase 2” before pack Phase 2 navigation; both are complete on this branch.
 
 ## Explicitly out of scope
 - [ ] DO NOT implement custodial pooled money.

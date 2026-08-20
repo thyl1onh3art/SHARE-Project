@@ -37,7 +37,7 @@ const Login: React.FC = () => {
         <div className="card-header">
           <h2 className="card-title">Log in to SHARE</h2>
           <p style={{ margin: '0.35rem 0 0', color: '#4a5568', fontSize: '0.9rem' }}>
-            Fund the trip together. Spend together. Finish square.
+            Plan the trip together. Track shared costs. Finish square.
           </p>
         </div>
         
