@@ -3,6 +3,11 @@ const FinanceRecord = require('../models/FinanceRecord');
 const Invite = require('../models/Invite');
 const nodemailer = require('nodemailer');
 const twilio = require('twilio');
+const mongoose = require('mongoose');
+const {
+  canReadSharedAccount,
+  canMutateSharedAccount
+} = require('../utils/sharedAccountAccess');
 
 // Helper: Send SMS via Twilio
 const sendSMS = (to, body) => {
@@ -185,9 +190,13 @@ exports.getUserSharedAccounts = async (req, res) => {
 };
 
 // Get details of a shared account (including finance records)
+// Read: current owner/member, or former participant with own historical FinanceRecord on this pot.
 exports.getSharedAccountDetails = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({ message: 'Shared account not found' });
+    }
     const account = await SharedAccount.findById(id)
       .populate('members', 'name email')
       .populate({
@@ -197,8 +206,7 @@ exports.getSharedAccountDetails = async (req, res) => {
     if (!account) {
       return res.status(404).json({ message: 'Shared account not found' });
     }
-    // Only allow if user is a member or owner
-    if (!account.members.some(m => m._id.equals(req.user.userId)) && !account.owner.equals(req.user.userId)) {
+    if (!(await canReadSharedAccount(account, req.user.userId))) {
       return res.status(403).json({ message: 'Access denied' });
     }
     
@@ -423,17 +431,8 @@ exports.withdrawFunds = async (req, res) => {
       return res.status(404).json({ message: 'Shared account not found' });
     }
 
-    // Check if user is owner or member
-    const ownerId = typeof sharedAccount.owner === 'object' 
-      ? sharedAccount.owner._id.toString() 
-      : sharedAccount.owner.toString();
-    const isOwner = ownerId === userId;
-    const isMember = sharedAccount.members.some((m) => {
-      const memberId = typeof m === 'object' ? m._id.toString() : m.toString();
-      return memberId === userId;
-    });
-
-    if (!isOwner && !isMember) {
+    // Mutations require current owner/member — historical read access is not enough
+    if (!canMutateSharedAccount(sharedAccount, userId)) {
       return res.status(403).json({ message: 'Access denied. You must be a member of this account.' });
     }
 

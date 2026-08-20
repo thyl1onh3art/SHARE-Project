@@ -1016,4 +1016,56 @@ SharedAccount access helper, soft delete, payment requests, invitation helpers, 
 Integration 3 — SharedAccount access helper is safe to begin.  
 **Do not push** unless separately requested.
 
+---
+
+## Integration 3 — SharedAccount historical read access
+
+**Branch:** `integrate-pre-marketing-features`  
+**Source inspected:** `pre-marketing-wip` `backend/utils/sharedAccountAccess.js` (behaviours extracted; not merged wholesale)
+
+### Access model BEFORE → AFTER
+
+| | Before | After |
+|--|--------|--------|
+| Read `GET /shared-accounts/:id` | Owner or current member only | Owner/member **or** former participant with own `FinanceRecord` on that pot |
+| Read `GET /finance?sharedAccount=` | Owner or current member only | Same historical-read rule |
+| Mutations (update/delete/transfer/withdraw/create linked finance) | Owner and/or member (varied) | **Current participant only**; historical activity never grants write |
+| Create finance with `sharedAccount` | No membership check (gap) | Requires current participant |
+
+### Exact historical-access rule
+DB check: `FinanceRecord.exists({ sharedAccount: account._id, user: requestingUserId })`  
+plus current `owner` / `members` membership. Client-supplied ownership is never trusted.
+
+### Read vs write distinction
+- `canReadSharedAccount` — participant **or** historical finance activity  
+- `canMutateSharedAccount` / `isAccountParticipant` — owner or current member **only**
+
+### Controllers / routes affected
+| Read | Write (explicitly not broadened) |
+|------|----------------------------------|
+| `GET /api/shared-accounts/:id` | `PUT /api/shared-accounts/:id` (owner) |
+| `GET /api/finance?sharedAccount=` | `DELETE`, transfer-ownership, withdraw |
+| | `POST /api/finance` when `sharedAccount` set |
+| | `PUT/DELETE /api/finance/:id` when record is Trip Money–linked |
+
+### Files
+- Added: `backend/utils/sharedAccountAccess.js`
+- Added: `backend/tests/sharedAccountAccess.test.js`
+- Changed: `sharedAccountController.js`, `financeController.js`
+- Fixed require path only: `backend/tests/sharedAccount.test.js` (`models/User`)
+
+### Security tests
+`sharedAccountAccess.test.js` — **12/12 PASS** (owner/member/unrelated/historical/no-record/wrong-account/malformed/unauth + mutation denials + finance ledger read)
+
+### Limitations
+- Historical readers are **not** added back to `GET /shared-accounts` list (ID-based read only)
+- Historical read of a pot returns the **group ledger** for that SharedAccount (not other users’ personal unscoped finance)
+- Soft delete / permanent delete / invite helpers / payment requests **not** integrated
+- Pre-existing withdraw error copy may still say “Insufficient funds” (unchanged this integration)
+
+### Next
+Integration 4 — soft delete/admin is safe to begin (access helper is in place for reads).  
+**Do not push** unless separately requested.
+
+
 
