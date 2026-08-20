@@ -1,0 +1,41 @@
+---
+description: SHARE product and marketing alignment rules for the UK group-trip validation prototype
+alwaysApply: true
+---
+
+# SHARE Product/Marketing Alignment Rule
+
+You are working on the SHARE prototype. Treat the files in `/implementation` and `/START_HERE_CURSOR.md` as the implementation brief.
+
+## Required product direction
+- Primary audience: organisers of overseas leisure trips with roughly 4–8 friends.
+- Primary problem: one organiser fronting costs, chasing people, tracking contributions, dealing with shared costs, and closing out after the trip.
+- Strategic message: `Fund the trip together. Spend together. Finish square.`
+- Current prototype must remain accurately represented as a coordination/tracking product unless the repository genuinely implements a regulated provider-backed money flow.
+
+## Never do these without explicit future approval
+- Do not make SHARE hold or custody user money.
+- Do not describe SHARE as a bank account, joint account, e-money account, protected deposit, or regulated wallet.
+- Do not claim FSCS protection, safeguarding, guaranteed protection, instant refunds, or ownership rights that are not implemented and verified.
+- Do not implement individual payment cards, pooled wallets, FX services, credit, overdrafts, automatic real-money refunds, or regulated money movement as part of this task.
+- Do not delete existing secondary features unless instructed. Prefer navigation de-emphasis or moving them behind secondary menus.
+- Do not silently change backend API semantics merely to improve marketing copy.
+
+## Implementation priorities
+1. Reframe the app around Trips rather than generic finance.
+2. Make shared-cost coordination the primary product journey.
+3. Keep invitations prominent.
+4. De-emphasise personal finance, gallery, map, accommodation, and other secondary features in top-level navigation.
+5. Replace misleading custodial financial wording with accurate commitment/tracking/coordinating wording where the code does not represent real funds.
+6. Add clear prototype/non-custodial explanations at the points where users could otherwise misunderstand money flow.
+7. Preserve authentication, security, existing API behaviour, and deployability.
+8. Make responsive/mobile behaviour a first-class requirement because invite traffic is expected to arrive through messaging apps.
+
+## Engineering behaviour
+- Inspect before editing.
+- Prefer small, reversible changes.
+- Reuse existing routes/components/models before creating parallel systems.
+- Keep TypeScript strictness and existing conventions.
+- Run frontend build/tests and relevant backend tests after changes.
+- If an instruction conflicts with actual code behaviour, stop and document the conflict rather than fabricating functionality.
+- Record assumptions and unresolved questions in `implementation/IMPLEMENTATION_NOTES.md`.
