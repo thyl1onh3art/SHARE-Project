@@ -151,8 +151,19 @@ exports.approvePaymentRequest = async (req, res) => {
       return res.status(400).json({ message: 'Payment request has expired' });
     }
 
-    // Get shared account to check membership
-    const sharedAccount = await SharedAccount.findById(paymentRequest.sharedAccount);
+    // Resolve linked Trip Money pot (historical rows may have sharedAccount unset)
+    const sharedAccountId =
+      typeof paymentRequest.sharedAccount === 'object' && paymentRequest.sharedAccount
+        ? paymentRequest.sharedAccount._id || paymentRequest.sharedAccount
+        : paymentRequest.sharedAccount;
+
+    if (!sharedAccountId) {
+      return res.status(400).json({
+        message: 'This settlement request is historical only. The Trip Money pot no longer exists.'
+      });
+    }
+
+    const sharedAccount = await SharedAccount.findById(sharedAccountId);
     if (!sharedAccount) {
       return res.status(404).json({ message: 'Shared account not found' });
     }
@@ -268,8 +279,19 @@ exports.rejectPaymentRequest = async (req, res) => {
       });
     }
 
+    const rejectSharedAccountId =
+      typeof paymentRequest.sharedAccount === 'object' && paymentRequest.sharedAccount
+        ? paymentRequest.sharedAccount._id || paymentRequest.sharedAccount
+        : paymentRequest.sharedAccount;
+
+    if (!rejectSharedAccountId) {
+      return res.status(400).json({
+        message: 'This settlement request is historical only. The Trip Money pot no longer exists.'
+      });
+    }
+
     // Get shared account to check membership
-    const sharedAccount = await SharedAccount.findById(paymentRequest.sharedAccount);
+    const sharedAccount = await SharedAccount.findById(rejectSharedAccountId);
     if (!sharedAccount) {
       return res.status(404).json({ message: 'Shared account not found' });
     }

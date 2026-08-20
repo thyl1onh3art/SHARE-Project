@@ -1,27 +1,32 @@
 const mongoose = require('mongoose');
 
 const paymentRequestSchema = new mongoose.Schema({
-  sharedAccount: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'SharedAccount', 
-    required: true 
+  // Optional after permanent Trip Money deletion (historical settlement rows keep archivedAccountName).
+  sharedAccount: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'SharedAccount',
+    required: false
   },
-  requestedBy: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User', 
-    required: true 
+  /** Readable Trip Money pot name after the pot is permanently deleted. */
+  archivedAccountName: {
+    type: String
   },
-  amount: { 
-    type: Number, 
+  requestedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  amount: {
+    type: Number,
     required: true,
     min: 0.01
   },
-  description: { 
-    type: String, 
+  description: {
+    type: String,
     default: 'Full payment from shared account'
   },
-  status: { 
-    type: String, 
+  status: {
+    type: String,
     enum: ['pending', 'approved', 'rejected', 'executed', 'cancelled'],
     default: 'pending'
   },
@@ -34,11 +39,11 @@ const paymentRequestSchema = new mongoose.Schema({
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     timestamp: { type: Date, default: Date.now }
   }],
-  requiredApprovals: { 
-    type: Number, 
+  requiredApprovals: {
+    type: Number,
     default: 0 // Will be calculated based on participant count
   },
-  expiresAt: { 
+  expiresAt: {
     type: Date,
     default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
   }
@@ -49,4 +54,3 @@ paymentRequestSchema.index({ sharedAccount: 1, status: 1 });
 paymentRequestSchema.index({ requestedBy: 1, status: 1 });
 
 module.exports = mongoose.model('PaymentRequest', paymentRequestSchema);
-

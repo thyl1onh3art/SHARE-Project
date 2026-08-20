@@ -1122,6 +1122,45 @@ Payment-request UX extensions; invite helpers; ParticipantCount; full restore of
 Integration 5 — Payment Request extensions is safe to begin.  
 **Do not push** unless separately requested.
 
+---
+
+## Integration 4.5 — Permanent delete history check
+
+**Branch:** `integrate-pre-marketing-features`
+
+### What PaymentRequest represents
+Group **settlement-record approval workflow** for Trip Money: pending approvals among travellers; on full approval it can execute a ledger output FinanceRecord. Customer UI calls these settlement records, not bank payments.
+
+### Classification
+| Status | Nature | Permanent-delete policy |
+|--------|--------|-------------------------|
+| `pending` | Actionable workflow | **Cancel** (`cancelled`) + stamp `archivedAccountName` + unset `sharedAccount` |
+| `approved` / `rejected` / `executed` / `cancelled` | Meaningful settlement history | **Preserve** with `archivedAccountName` + unset `sharedAccount` |
+
+Deleting all PaymentRequests on permanent delete was **not safe** — it would destroy approved/rejected/executed settlement history.
+
+### Invitations
+Pending invites for a deleted pot must not remain actionable → **delete** invites for that SharedAccount (accepted membership already applied; no product need to keep invite rows).
+
+### Insufficient funds wording
+Withdraw/reverse path customer message:  
+**Before:** `Insufficient funds. You can withdraw up to…`  
+**After:** `Cannot reverse more than your recorded contribution. You can reverse up to… (recorded contributions… already reversed…)`
+
+### Files
+- `backend/models/PaymentRequest.js` — `sharedAccount` optional; `archivedAccountName`
+- `backend/controllers/sharedAccountController.js` — preserve/cancel settlement rows; reverse wording
+- `backend/controllers/paymentRequestController.js` — guard approve/reject when pot link missing
+- `backend/tests/sharedAccountArchive.test.js` — pending/approved/rejected/invite integrity cases
+
+### Tests
+Archive+integrity, access, Friends: **39 passed**; frontend build/tests **PASS**.
+
+### Next
+Integration 5 is safe to begin (settlement history no longer wiped on permanent delete).  
+**Do not push** unless separately requested.
+
+
 
 
 

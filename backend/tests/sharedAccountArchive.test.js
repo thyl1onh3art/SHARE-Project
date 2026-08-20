@@ -28,6 +28,10 @@ describe('Trip Money archive and organiser admin', () => {
     await User.deleteMany({});
     await SharedAccount.deleteMany({});
     await FinanceRecord.deleteMany({});
+    const PaymentRequest = require('../models/PaymentRequest');
+    const Invite = require('../models/Invite');
+    await PaymentRequest.deleteMany({});
+    await Invite.deleteMany({});
 
     const hashedPassword = await bcrypt.hash('TestPass123', 10);
 
@@ -294,6 +298,107 @@ describe('Trip Money archive and organiser admin', () => {
         .delete(`/api/shared-accounts/${account._id}/permanent`)
         .set('Authorization', `Bearer ${memberToken}`)
         .expect(403);
+    });
+  });
+
+  describe('permanent delete settlement / invite integrity', () => {
+    const PaymentRequest = require('../models/PaymentRequest');
+    const Invite = require('../models/Invite');
+
+    it('cancels pending settlement requests and clears pot links', async () => {
+      const pending = await PaymentRequest.create({
+        sharedAccount: account._id,
+        requestedBy: ownerUser._id,
+        amount: 100,
+        description: 'Pending settlement',
+        status: 'pending',
+        requiredApprovals: 1
+      });
+
+      await request(app)
+        .delete(`/api/shared-accounts/${account._id}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+
+      await request(app)
+        .delete(`/api/shared-accounts/${account._id}/permanent`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+
+      const preserved = await PaymentRequest.findById(pending._id);
+      expect(preserved).toBeTruthy();
+      expect(preserved.status).toBe('cancelled');
+      expect(preserved.archivedAccountName).toBe('Lisbon Trip Money');
+      expect(preserved.sharedAccount).toBeFalsy();
+
+      const actionable = await PaymentRequest.find({
+        status: 'pending',
+        sharedAccount: account._id
+      });
+      expect(actionable).toHaveLength(0);
+    });
+
+    it('preserves approved and rejected settlement history', async () => {
+      const approved = await PaymentRequest.create({
+        sharedAccount: account._id,
+        requestedBy: ownerUser._id,
+        amount: 80,
+        description: 'Approved settlement',
+        status: 'approved',
+        requiredApprovals: 1
+      });
+      const rejected = await PaymentRequest.create({
+        sharedAccount: account._id,
+        requestedBy: memberUser._id,
+        amount: 40,
+        description: 'Rejected settlement',
+        status: 'rejected',
+        requiredApprovals: 1
+      });
+
+      await request(app)
+        .delete(`/api/shared-accounts/${account._id}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+
+      await request(app)
+        .delete(`/api/shared-accounts/${account._id}/permanent`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+
+      const keptApproved = await PaymentRequest.findById(approved._id);
+      const keptRejected = await PaymentRequest.findById(rejected._id);
+
+      expect(keptApproved.status).toBe('approved');
+      expect(keptApproved.archivedAccountName).toBe('Lisbon Trip Money');
+      expect(keptApproved.sharedAccount).toBeFalsy();
+      expect(keptApproved.amount).toBe(80);
+
+      expect(keptRejected.status).toBe('rejected');
+      expect(keptRejected.archivedAccountName).toBe('Lisbon Trip Money');
+      expect(keptRejected.sharedAccount).toBeFalsy();
+    });
+
+    it('removes invitations for the deleted pot so they are not actionable', async () => {
+      await Invite.create({
+        sender: ownerUser._id,
+        recipientEmail: 'invitee@example.com',
+        sharedAccount: account._id,
+        status: 'pending'
+      });
+
+      await request(app)
+        .delete(`/api/shared-accounts/${account._id}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+
+      await request(app)
+        .delete(`/api/shared-accounts/${account._id}/permanent`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+
+      const remaining = await Invite.find({ sharedAccount: account._id });
+      expect(remaining).toHaveLength(0);
     });
   });
 });

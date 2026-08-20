@@ -487,11 +487,35 @@ exports.permanentlyDeleteSharedAccount = async (req, res) => {
       }
     );
 
+    // Pending invitations for a deleted pot must not remain actionable
     await Invite.deleteMany({ sharedAccount: id });
 
+    // Settlement/payment requests are meaningful history (approved/rejected/executed)
+    // and pending ones must not stay actionable against a deleted pot.
     try {
       const PaymentRequest = require('../models/PaymentRequest');
-      await PaymentRequest.deleteMany({ sharedAccount: id });
+
+      await PaymentRequest.updateMany(
+        { sharedAccount: id, status: 'pending' },
+        {
+          $set: {
+            status: 'cancelled',
+            archivedAccountName: potName
+          },
+          $unset: { sharedAccount: '' }
+        }
+      );
+
+      await PaymentRequest.updateMany(
+        {
+          sharedAccount: id,
+          status: { $in: ['approved', 'rejected', 'executed', 'cancelled'] }
+        },
+        {
+          $set: { archivedAccountName: potName },
+          $unset: { sharedAccount: '' }
+        }
+      );
     } catch (e) {
       // PaymentRequest model may be unavailable in some environments — continue cleanup
     }
@@ -499,7 +523,8 @@ exports.permanentlyDeleteSharedAccount = async (req, res) => {
     await SharedAccount.findByIdAndDelete(id);
 
     res.json({
-      message: 'Trip Money pot permanently deleted. Recorded activity is retained with the archived pot name.',
+      message:
+        'Trip Money pot permanently deleted. Recorded activity and settlement history are retained with the archived pot name.',
       archivedAccountName: potName
     });
   } catch (err) {
@@ -551,8 +576,8 @@ exports.withdrawFunds = async (req, res) => {
     const availableAmount = totalContributions - totalWithdrawals;
 
     if (amount > availableAmount) {
-      return res.status(400).json({ 
-        message: `Insufficient funds. You can withdraw up to £${availableAmount.toFixed(2)} (your total contributions: £${totalContributions.toFixed(2)}, already withdrawn: £${totalWithdrawals.toFixed(2)})` 
+      return res.status(400).json({
+        message: `Cannot reverse more than your recorded contribution. You can reverse up to £${availableAmount.toFixed(2)} (recorded contributions: £${totalContributions.toFixed(2)}, already reversed: £${totalWithdrawals.toFixed(2)}).`
       });
     }
 
