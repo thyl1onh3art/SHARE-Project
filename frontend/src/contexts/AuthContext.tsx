@@ -15,6 +15,7 @@ interface AuthContextType {
   sendVerificationCode: (email: string) => Promise<void>;
   verifyEmail: (email: string, code: string) => Promise<void>;
   updateProfile: (profileData: { name?: string; age?: number; interests?: string[] }) => Promise<void>;
+  refreshUser: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   logout: () => void;
   loading: boolean;
@@ -138,6 +139,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const refreshUser = async () => {
+    const response = await axios.get('/users/me');
+    const userData = response.data.user;
+    setUser({
+      id: userData.id || userData._id || userData.userId,
+      name: userData.name || `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'User',
+      email: userData.email
+    });
+  };
+
   const deleteAccount = async () => {
     try {
       await axios.delete('/users/account');
@@ -162,6 +173,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     sendVerificationCode,
     verifyEmail,
     updateProfile,
+    refreshUser,
     deleteAccount,
     logout,
     loading

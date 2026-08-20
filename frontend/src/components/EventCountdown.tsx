@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 
 interface Event {
   _id?: string;
@@ -51,7 +52,7 @@ const EventCountdown: React.FC = () => {
     eventDate: '',
     eventTime: '',
     location: '',
-    category: 'social',
+    category: 'holiday',
     isRecurring: false,
     recurringType: 'yearly',
     budget: {
@@ -76,16 +77,17 @@ const EventCountdown: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [timeLeft, setTimeLeft] = useState<{ [key: string]: TimeLeft }>({});
 
+  // Keep category values aligned with the existing Event API/model; only labels are trip-oriented.
   const categories = [
-    { value: 'social', label: 'Social Event' },
-    { value: 'birthday', label: 'Birthday' },
-    { value: 'holiday', label: 'Holiday' },
-    { value: 'anniversary', label: 'Anniversary' },
-    { value: 'travel', label: 'Travel' },
-    { value: 'work', label: 'Work Event' },
-    { value: 'sports', label: 'Sports' },
-    { value: 'concert', label: 'Concert' },
-    { value: 'other', label: 'Other' }
+    { value: 'holiday', label: 'Group holiday' },
+    { value: 'travel', label: 'City break / travel' },
+    { value: 'social', label: 'Friends trip' },
+    { value: 'sports', label: 'Ski / sports trip' },
+    { value: 'concert', label: 'Festival / tickets trip' },
+    { value: 'birthday', label: 'Birthday getaway' },
+    { value: 'anniversary', label: 'Anniversary trip' },
+    { value: 'work', label: 'Work trip' },
+    { value: 'other', label: 'Other trip' }
   ];
 
   useEffect(() => {
@@ -110,9 +112,9 @@ const EventCountdown: React.FC = () => {
     } catch (err: any) {
       console.error('Error fetching events:', err);
       if (err.response?.status === 401) {
-        setError('Please log in to view events');
+        setError('Please log in to view your trips');
       } else {
-        setError(`Failed to load events: ${err.response?.data?.message || err.message}`);
+        setError(`Failed to load trips: ${err.response?.data?.message || err.message}`);
       }
     } finally {
       setLoading(false);
@@ -204,7 +206,7 @@ const EventCountdown: React.FC = () => {
         eventDate: '',
         eventTime: '',
         location: '',
-        category: 'social',
+        category: 'holiday',
         isRecurring: false,
         recurringType: 'yearly',
         budget: {
@@ -229,14 +231,14 @@ const EventCountdown: React.FC = () => {
       setShowForm(false);
       fetchEvents();
     } catch (err: any) {
-      setError(`Failed to create event: ${err.response?.data?.message || err.message}`);
+      setError(`Failed to create trip: ${err.response?.data?.message || err.message}`);
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this event?')) {
+    if (!window.confirm('Are you sure you want to delete this trip?')) {
       return;
     }
 
@@ -244,13 +246,13 @@ const EventCountdown: React.FC = () => {
       await axios.delete(`/events/${id}`);
       fetchEvents();
     } catch (err: any) {
-      setError(`Failed to delete event: ${err.response?.data?.message || err.message}`);
+      setError(`Failed to delete trip: ${err.response?.data?.message || err.message}`);
     }
   };
 
   const formatTimeLeft = (time: TimeLeft): string => {
     if (time.days === 0 && time.hours === 0 && time.minutes === 0 && time.seconds === 0) {
-      return 'Event has passed';
+      return 'Trip has passed';
     }
     return `${time.days}d ${time.hours}h ${time.minutes}m ${time.seconds}s`;
   };
@@ -264,7 +266,7 @@ const EventCountdown: React.FC = () => {
     return (
       <div style={{ textAlign: 'center', padding: '2rem' }}>
         <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
-        <p style={{ marginTop: '1rem', color: '#4a5568' }}>Loading events...</p>
+        <p style={{ marginTop: '1rem', color: '#4a5568' }}>Loading trips...</p>
       </div>
     );
   }
@@ -273,12 +275,22 @@ const EventCountdown: React.FC = () => {
     <div>
       <div className="card">
         <div className="card-header">
-          <h1 className="card-title">Event Countdowns</h1>
+          <div>
+            <h1 className="card-title">Trips</h1>
+            <p style={{ margin: '0.35rem 0 0', color: '#4a5568', fontSize: '0.95rem' }}>
+              Plan the trip together. Track shared costs. Finish square. Plan destination and dates here, then coordinate shared costs in Trip Money.
+            </p>
+            <p style={{ margin: '0.65rem 0 0', fontSize: '0.9rem' }}>
+              <Link to="/invitations" style={{ color: '#2b6cb0' }}>Invite travellers</Link>
+              {' · '}
+              <Link to="/shared-accounts" style={{ color: '#2b6cb0' }}>Trip Money</Link>
+            </p>
+          </div>
           <button 
             onClick={() => setShowForm(!showForm)}
             className="btn btn-primary"
           >
-            {showForm ? 'Cancel' : 'Add Event'}
+            {showForm ? 'Cancel' : 'Create trip'}
           </button>
         </div>
       </div>
@@ -300,37 +312,40 @@ const EventCountdown: React.FC = () => {
         </div>
       )}
 
-      {/* Add Event Form */}
+      {/* Add Trip Form */}
       {showForm && (
         <div className="card">
-          <h2 style={{ marginBottom: '1rem' }}>Add New Event</h2>
+          <h2 style={{ marginBottom: '0.5rem' }}>Add a trip</h2>
+          <p style={{ marginTop: 0, marginBottom: '1rem', color: '#4a5568', fontSize: '0.9rem' }}>
+            Examples: Amsterdam weekend, Ibiza trip, ski holiday, stag/hen trip, or a friends group holiday.
+          </p>
           <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label className="form-label">Event Title *</label>
+              <label className="form-label">Trip name *</label>
               <input
                 type="text"
                 className="form-input"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 required
-                placeholder="e.g., John's Birthday Party"
+                placeholder="e.g., Amsterdam weekend, Ibiza trip, ski holiday"
               />
             </div>
 
             <div className="form-group">
-              <label className="form-label">Description</label>
+              <label className="form-label">What is this trip for?</label>
               <textarea
                 className="form-input"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Event details..."
+                placeholder="Accommodation deposit, tickets, shared costs — whatever the group needs to track"
                 rows={3}
               />
             </div>
 
             <div className="grid grid-2">
               <div className="form-group">
-                <label className="form-label">Event Date *</label>
+                <label className="form-label">Trip date *</label>
                 <input
                   type="date"
                   className="form-input"
@@ -341,7 +356,7 @@ const EventCountdown: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Event Time *</label>
+                <label className="form-label">Start time *</label>
                 <input
                   type="time"
                   className="form-input"
@@ -353,18 +368,18 @@ const EventCountdown: React.FC = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Location</label>
+              <label className="form-label">Destination</label>
               <input
                 type="text"
                 className="form-input"
                 value={formData.location}
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                placeholder="e.g., Central Park, New York"
+                placeholder="e.g., Amsterdam, Ibiza, Chamonix"
               />
             </div>
 
             <div className="form-group">
-              <label className="form-label">Category</label>
+              <label className="form-label">Trip type</label>
               <select
                 className="form-input"
                 value={formData.category}
@@ -385,7 +400,7 @@ const EventCountdown: React.FC = () => {
                   checked={formData.isRecurring}
                   onChange={(e) => setFormData({ ...formData, isRecurring: e.target.checked })}
                 />
-                Recurring Event
+                Recurring trip
               </label>
             </div>
 
@@ -407,7 +422,7 @@ const EventCountdown: React.FC = () => {
 
             {/* Budget Planning Section */}
             <div style={{ marginTop: '2rem', padding: '1rem', background: '#f8f9fa', borderRadius: '8px', border: '1px solid #e9ecef' }}>
-              <h3 style={{ marginBottom: '1rem', color: '#495057' }}>Budget Planning</h3>
+              <h3 style={{ marginBottom: '1rem', color: '#495057' }}>Trip budget</h3>
               
               <div className="form-group">
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -422,7 +437,7 @@ const EventCountdown: React.FC = () => {
                       } 
                     })}
                   />
-                  Enable Budget Planning
+                  Enable trip budget planning
                 </label>
               </div>
 
@@ -617,20 +632,25 @@ const EventCountdown: React.FC = () => {
               className="btn btn-primary"
               disabled={submitting}
             >
-              {submitting ? <span className="spinner"></span> : 'Add Event'}
+              {submitting ? <span className="spinner"></span> : 'Save trip'}
             </button>
           </form>
         </div>
       )}
 
-      {/* Events List */}
+      {/* Trips List */}
       <div className="card">
-        <h2 style={{ marginBottom: '1rem' }}>Your Events</h2>
+        <h2 style={{ marginBottom: '1rem' }}>Your trips</h2>
         
         {events.length === 0 ? (
-          <p style={{ color: '#4a5568', textAlign: 'center', padding: '2rem' }}>
-            No events yet. Add your first event above!
-          </p>
+          <div style={{ color: '#4a5568', textAlign: 'center', padding: '2rem' }}>
+            <p style={{ marginTop: 0, fontSize: '1.05rem' }}>
+              No trips yet. Create your first group trip to get started.
+            </p>
+            <p style={{ marginBottom: 0, fontSize: '0.9rem' }}>
+              Try an Amsterdam weekend, Ibiza trip, ski holiday, stag/hen trip, or friends group holiday.
+            </p>
+          </div>
         ) : (
           <div className="grid grid-1">
             {events.map((event) => {
@@ -648,7 +668,7 @@ const EventCountdown: React.FC = () => {
                       className="btn btn-danger"
                       style={{ padding: '4px 8px', fontSize: '12px' }}
                     >
-                      Delete
+                      Remove trip
                     </button>
                   </div>
                   
@@ -662,7 +682,7 @@ const EventCountdown: React.FC = () => {
                     </p>
                     {event.location && (
                       <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
-                        <strong>Location:</strong> {event.location}
+                        <strong>Destination:</strong> {event.location}
                       </p>
                     )}
                     {event.isRecurring && (
@@ -730,7 +750,7 @@ const EventCountdown: React.FC = () => {
                       color: isUpcoming ? '#0369a1' : '#92400e',
                       marginBottom: '0.5rem'
                     }}>
-                      {isUpcoming ? 'Time Remaining' : 'Event Passed'}
+                      {isUpcoming ? 'Time until trip' : 'Trip passed'}
                     </div>
                     <div style={{
                       fontSize: '2rem',
@@ -751,7 +771,7 @@ const EventCountdown: React.FC = () => {
       {/* Quick Stats */}
       <div className="grid grid-3">
         <div className="card">
-          <h3 style={{ color: '#2b6cb0', marginBottom: '1rem' }}>Total Events</h3>
+          <h3 style={{ color: '#2b6cb0', marginBottom: '1rem' }}>Total trips</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#2b6cb0' }}>
             {events.length}
           </p>

@@ -1,0 +1,29 @@
+{
+  "project": "SHARE",
+  "objective": "Align the current prototype with a UK group-travel shared-cost validation proposition without adding regulated custody features.",
+  "positioning": "Fund the trip together. Spend together. Finish square.",
+  "target_segment": "UK residents organising overseas leisure trips for approximately 4-8 friends",
+  "features": [
+    {"feature":"Events / trips","classification":"KEEP","implementation":"Reframe launch-facing event UI as Trips; make it the default authenticated experience."},
+    {"feature":"Invitations","classification":"KEEP","implementation":"Keep primary; make named-trip sharing and mobile share/copy action obvious."},
+    {"feature":"Shared accounts","classification":"KEEP_REFRAME","implementation":"Reframe customer-facing wording as Trip Fund or Shared Trip Costs; preserve internal APIs/models."},
+    {"feature":"Contribution commitments","classification":"KEEP","implementation":"Make contribution progress a hero metric and distinguish tracked commitments from real custody."},
+    {"feature":"Group payment targets","classification":"KEEP","implementation":"Use for accommodation, tickets and trip costs; show target/remaining/progress clearly."},
+    {"feature":"Payment requests","classification":"KEEP","implementation":"Use to address chasing/reminder pain; keep language trip-specific."},
+    {"feature":"Financial records","classification":"KEEP_SIMPLIFY","implementation":"Present as Trip Activity/Cost History in trip journey; avoid accounting-first UX."},
+    {"feature":"Budget planning","classification":"KEEP","implementation":"Attach to trip context and avoid generic household budgeting as launch message."},
+    {"feature":"Accommodation","classification":"SECONDARY","implementation":"Retain under More/trip tools; not a primary navigation promise."},
+    {"feature":"Calendar","classification":"SECONDARY","implementation":"Retain under More/trip tools."},
+    {"feature":"Gallery/photos","classification":"HIDE_FROM_CORE_PITCH","implementation":"Keep accessible secondarily; do not feature in product value proposition."},
+    {"feature":"Map","classification":"SECONDARY","implementation":"Keep accessible secondarily."},
+    {"feature":"Recommendations","classification":"LATER","implementation":"Do not make central to current validation journey."},
+    {"feature":"Personal finance","classification":"HIDE_FROM_PRIMARY_JOURNEY","implementation":"Remove from top-level navigation/default route; retain only if useful and stable."},
+    {"feature":"PayPal/Stripe integrations","classification":"CAREFUL","implementation":"Inspect actual money flow; describe provider action accurately; infrastructure does not imply SHARE custody."},
+    {"feature":"Custodial pooled wallet","classification":"BUILD_LATER","implementation":"Do not implement."},
+    {"feature":"Individual group cards","classification":"BUILD_LATER","implementation":"Do not implement."},
+    {"feature":"Automatic real-money close-out/refund","classification":"BUILD_LATER","implementation":"Do not implement; a non-custodial summary may be prototyped."},
+    {"feature":"FX service","classification":"BUILD_LATER","implementation":"Do not implement."},
+    {"feature":"Recurring households","classification":"DEFER","implementation":"Do not feature in launch messaging."},
+    {"feature":"Subscriptions","classification":"DEFER","implementation":"Do not add paywall/subscription in this pass."}
+  ]
+}

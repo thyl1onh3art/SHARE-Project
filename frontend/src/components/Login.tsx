@@ -18,7 +18,7 @@ const Login: React.FC = () => {
 
     try {
       await login(email, password);
-      navigate('/financial-records');
+      navigate('/events');
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -35,7 +35,10 @@ const Login: React.FC = () => {
     }}>
       <div className="card" style={{ width: '100%', maxWidth: '400px' }}>
         <div className="card-header">
-          <h2 className="card-title">Login to SHARE Project</h2>
+          <h2 className="card-title">Log in to SHARE</h2>
+          <p style={{ margin: '0.35rem 0 0', color: '#4a5568', fontSize: '0.9rem' }}>
+            Plan the trip together. Track shared costs. Finish square.
+          </p>
         </div>
         
         {error && (

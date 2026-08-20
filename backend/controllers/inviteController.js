@@ -30,7 +30,9 @@ exports.listInvites = async (req, res) => {
       expiresAt: { $gt: now }
     };
     if (status) filter.status = status;
-    const invites = await Invite.find(filter).populate('sharedAccount', 'name');
+    const invites = await Invite.find(filter)
+      .populate('sharedAccount', 'name description')
+      .populate('sender', 'firstName lastName name email');
     res.json(invites);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -44,7 +46,14 @@ exports.sendInvite = async (req, res) => {
     const senderId = req.user.userId;
     const sharedAccount = await SharedAccount.findById(sharedAccountId);
     if (!sharedAccount) return res.status(404).json({ message: 'Shared account not found' });
-    if (!sharedAccount.members.includes(senderId)) return res.status(403).json({ message: 'Not authorized' });
+    const senderIdStr = senderId.toString();
+    const isOwner = sharedAccount.owner && sharedAccount.owner.toString() === senderIdStr;
+    const isMember = Array.isArray(sharedAccount.members) && sharedAccount.members.some(
+      (m) => m && m.toString() === senderIdStr
+    );
+    if (!isOwner && !isMember) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
     const existingInvite = await Invite.findOne({ sharedAccount: sharedAccountId, $or: [ { recipientEmail }, { recipientPhone } ], status: 'pending' });
     if (existingInvite) return res.status(400).json({ message: 'Invite already sent' });
     const invite = new Invite({ sender: senderId, recipientEmail, recipientPhone, sharedAccount: sharedAccountId });
@@ -62,8 +71,8 @@ exports.sendInvite = async (req, res) => {
       const mailOptions = {
         from: process.env.EMAIL_USER,
         to: recipientEmail,
-        subject: 'You have been invited to a shared account',
-        text: `You have been invited to join the shared account "${sharedAccount.name}". Please log in to accept the invite.`
+        subject: `You're invited to join "${sharedAccount.name}" on SHARE`,
+        text: `You've been invited to join "${sharedAccount.name}" on SHARE to help coordinate shared trip costs.\n\nLog in or register on SHARE, then open Invitations to accept. SHARE records contributions — it does not hold a bank balance for the group.`
       };
       transporter.sendMail(mailOptions, (error, info) => {
         if (error) {
@@ -75,7 +84,7 @@ exports.sendInvite = async (req, res) => {
     }
     // Send SMS notification if phone provided
     if (recipientPhone) {
-      sendSMS(recipientPhone, `You have been invited to join the shared account '${sharedAccount.name}'. Please log in to accept the invite.`)
+      sendSMS(recipientPhone, `You're invited to join "${sharedAccount.name}" on SHARE. Log in, open Invitations, and accept. SHARE coordinates trip costs — it does not hold group bank funds.`)
         .then(message => console.log('SMS sent:', message.sid))
         .catch(error => console.error('Error sending SMS:', error));
     }
@@ -147,8 +156,8 @@ exports.resendInvite = async (req, res) => {
       const mailOptions = {
         from: process.env.EMAIL_USER,
         to: invite.recipientEmail,
-        subject: 'You have been invited to a shared account',
-        text: `You have been invited to join the shared account "${invite.sharedAccount.name}". Please log in to accept the invite.`
+        subject: `You're invited to join "${invite.sharedAccount.name}" on SHARE`,
+        text: `You've been invited to join "${invite.sharedAccount.name}" on SHARE to help coordinate shared trip costs.\n\nLog in or register on SHARE, then open Invitations to accept.`
       };
       transporter.sendMail(mailOptions, (error, info) => {
         if (error) {
@@ -160,7 +169,7 @@ exports.resendInvite = async (req, res) => {
     }
     // Resend SMS
     if (invite.recipientPhone) {
-      sendSMS(invite.recipientPhone, `You have been invited to join the shared account '${invite.sharedAccount.name}'. Please log in to accept the invite.`)
+      sendSMS(invite.recipientPhone, `You're invited to join "${invite.sharedAccount.name}" on SHARE. Log in, open Invitations, and accept.`)
         .then(message => console.log('SMS sent:', message.sid))
         .catch(error => console.error('Error sending SMS:', error));
     }

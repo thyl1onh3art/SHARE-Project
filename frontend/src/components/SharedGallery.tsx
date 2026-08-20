@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 
 interface GalleryImage {
   _id?: string;
@@ -211,13 +212,26 @@ const SharedGallery: React.FC = () => {
   return (
     <div>
       <div className="card">
-        <div className="card-header">
-          <h1 className="card-title">Shared Gallery</h1>
+        <div className="card-header" style={{ alignItems: 'flex-start', gap: '1rem' }}>
+          <div>
+            <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#718096' }}>
+              Secondary · More menu
+            </p>
+            <h1 className="card-title" style={{ marginBottom: '0.35rem' }}>Trip photos</h1>
+            <p style={{ margin: 0, color: '#4a5568', fontSize: '0.95rem' }}>
+              Optional group memories from your trips. The core product is organising Trips, Trip Money, and Invitations.
+            </p>
+            <p style={{ margin: '0.65rem 0 0', fontSize: '0.9rem' }}>
+              <Link to="/events" style={{ color: '#2b6cb0' }}>Trips</Link>
+              {' · '}
+              <Link to="/shared-accounts" style={{ color: '#2b6cb0' }}>Trip Money</Link>
+            </p>
+          </div>
           <button 
             onClick={() => setShowUploadModal(true)}
             className="btn btn-primary"
           >
-            Upload Image
+            Upload photo
           </button>
         </div>
       </div>
@@ -243,13 +257,13 @@ const SharedGallery: React.FC = () => {
       <div className="card">
         <div className="grid grid-3">
           <div className="form-group">
-            <label className="form-label">Filter by Event</label>
+            <label className="form-label">Filter by trip</label>
             <select
               className="form-input"
               value={filterEvent}
               onChange={(e) => setFilterEvent(e.target.value)}
             >
-              <option value="all">All Events</option>
+              <option value="all">All trips</option>
               {events.map(event => (
                 <option key={event._id} value={event._id}>
                   {event.title} - {new Date(`${event.eventDate}T${event.eventTime}`).toLocaleDateString()}
@@ -259,7 +273,7 @@ const SharedGallery: React.FC = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Filter by Shared Account</label>
+            <label className="form-label">Filter by Trip Money pot</label>
             <select
               className="form-input"
               value={filterSharedAccount}
@@ -290,12 +304,13 @@ const SharedGallery: React.FC = () => {
       {/* Images Grid */}
       <div className="card">
         <h2 style={{ marginBottom: '1rem' }}>
-          Gallery ({filteredImages.length} {filteredImages.length === 1 ? 'image' : 'images'})
+          Trip photos ({filteredImages.length} {filteredImages.length === 1 ? 'photo' : 'photos'})
         </h2>
         
         {filteredImages.length === 0 ? (
           <p style={{ color: '#4a5568', textAlign: 'center', padding: '2rem' }}>
-            No images found. Upload your first image to get started!
+            No trip photos yet. Upload a group memory when you are ready — or head back to{' '}
+            <Link to="/events">Trips</Link>.
           </p>
         ) : (
           <div style={{ 
@@ -376,7 +391,7 @@ const SharedGallery: React.FC = () => {
                   
                   {image.sharedAccountName && (
                     <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: '#667eea', fontWeight: '500' }}>
-                      Shared Account: {image.sharedAccountName}
+                      Trip Money: {image.sharedAccountName}
                     </p>
                   )}
                   
@@ -484,13 +499,13 @@ const SharedGallery: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Associated Event</label>
+                <label className="form-label">Associated trip</label>
                 <select
                   className="form-input"
                   value={uploadData.eventId}
                   onChange={(e) => setUploadData({ ...uploadData, eventId: e.target.value })}
                 >
-                  <option value="">No event</option>
+                  <option value="">No trip</option>
                   {events.map(event => (
                     <option key={event._id} value={event._id}>
                       {event.title} - {new Date(`${event.eventDate}T${event.eventTime}`).toLocaleDateString()}
@@ -500,13 +515,13 @@ const SharedGallery: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Shared Account (Optional)</label>
+                <label className="form-label">Trip Money pot (Optional)</label>
                 <select
                   className="form-input"
                   value={uploadData.sharedAccountId}
                   onChange={(e) => setUploadData({ ...uploadData, sharedAccountId: e.target.value })}
                 >
-                  <option value="">No shared account</option>
+                  <option value="">No Trip Money pot</option>
                   {sharedAccounts.map(account => (
                     <option key={account._id} value={account._id}>
                       {account.name}
@@ -514,7 +529,7 @@ const SharedGallery: React.FC = () => {
                   ))}
                 </select>
                 <p style={{ fontSize: '0.85rem', color: '#4a5568', marginTop: '0.25rem' }}>
-                  Link this image to a shared account so all participants can see it
+                  Link this photo to a Trip Money pot so travellers can see it
                 </p>
               </div>
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 
 interface FinancialRecord {
   _id: string;
@@ -66,7 +67,7 @@ const PersonalFinance: React.FC = () => {
     return (
       <div style={{ textAlign: 'center', padding: '2rem' }}>
         <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
-        <p style={{ marginTop: '1rem', color: '#4a5568' }}>Loading financial records...</p>
+        <p style={{ marginTop: '1rem', color: '#4a5568' }}>Loading personal tracked activity...</p>
       </div>
     );
   }
@@ -74,8 +75,26 @@ const PersonalFinance: React.FC = () => {
   return (
     <div>
       <div className="card">
-        <div className="card-header">
-          <h1 className="card-title">Personal Financial Records</h1>
+        <div className="card-header" style={{ alignItems: 'flex-start', gap: '1rem' }}>
+          <div>
+            <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#718096' }}>
+              Secondary · More menu
+            </p>
+            <h1 className="card-title" style={{ marginBottom: '0.35rem' }}>Personal tracking</h1>
+            <p style={{ margin: 0, color: '#4a5568', fontSize: '0.95rem' }}>
+              Optional notes of your own recorded activity. SHARE’s main journey is Trips, Trip Money, and Invitations — not personal banking.
+            </p>
+            <p style={{ margin: '0.65rem 0 0', fontSize: '0.9rem' }}>
+              <Link to="/events" style={{ color: '#2b6cb0' }}>Trips</Link>
+              {' · '}
+              <Link to="/shared-accounts" style={{ color: '#2b6cb0' }}>Trip Money</Link>
+              {' · '}
+              <Link to="/invitations" style={{ color: '#2b6cb0' }}>Invitations</Link>
+            </p>
+          </div>
+        </div>
+        <div className="trip-money-transparency" style={{ marginTop: '1rem' }}>
+          These figures are a personal ledger view. SHARE does not hold this amount in a bank account.
         </div>
       </div>
 
@@ -88,41 +107,42 @@ const PersonalFinance: React.FC = () => {
       {/* Summary Cards */}
       <div className="grid grid-3" style={{ marginBottom: '2rem' }}>
         <div className="card">
-          <h3 style={{ color: '#667eea', marginBottom: '1rem' }}>Total Balance</h3>
+          <h3 style={{ color: '#667eea', marginBottom: '1rem' }}>Personal tracked total</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#667eea' }}>
             £{totalBalance.toFixed(2)}
           </p>
         </div>
         <div className="card">
-          <h3 style={{ color: '#38a169', marginBottom: '1rem' }}>Total Income</h3>
+          <h3 style={{ color: '#38a169', marginBottom: '1rem' }}>Recorded in</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#38a169' }}>
             £{totalIncome.toFixed(2)}
           </p>
           <p style={{ fontSize: '0.85rem', color: '#4a5568', marginTop: '0.5rem' }}>
-            {incomeCount} transaction{incomeCount !== 1 ? 's' : ''}
+            {incomeCount} record{incomeCount !== 1 ? 's' : ''}
           </p>
         </div>
         <div className="card">
-          <h3 style={{ color: '#e53e3e', marginBottom: '1rem' }}>Total Expenses</h3>
+          <h3 style={{ color: '#e53e3e', marginBottom: '1rem' }}>Recorded out</h3>
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#e53e3e' }}>
             £{totalExpenses.toFixed(2)}
           </p>
           <p style={{ fontSize: '0.85rem', color: '#4a5568', marginTop: '0.5rem' }}>
-            {expenseCount} transaction{expenseCount !== 1 ? 's' : ''}
+            {expenseCount} record{expenseCount !== 1 ? 's' : ''}
           </p>
         </div>
       </div>
 
       {/* Records List */}
       <div className="card">
-        <h2 style={{ marginBottom: '1rem' }}>All Transactions</h2>
+        <h2 style={{ marginBottom: '1rem' }}>Personal activity</h2>
         <p style={{ color: '#4a5568', fontSize: '0.85rem', marginBottom: '1rem' }}>
-          Showing {records.length} personal transaction{records.length !== 1 ? 's' : ''}.
+          Showing {records.length} personal record{records.length !== 1 ? 's' : ''} (excludes Trip Money group entries).
         </p>
         
         {records.length === 0 ? (
           <p style={{ color: '#4a5568', textAlign: 'center', padding: '2rem' }}>
-            No personal financial records yet.
+            No personal activity recorded yet. For group trip costs, use{' '}
+            <Link to="/shared-accounts">Trip Money</Link>.
           </p>
         ) : (
           <div className="list">

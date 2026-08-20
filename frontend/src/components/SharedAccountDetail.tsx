@@ -36,6 +36,7 @@ interface SharedAccount {
   financeRecords: FinanceRecord[];
   targetAmount?: number;
   targetDate?: string;
+  perPersonAmount?: number;
   createdAt: string;
 }
 
@@ -73,6 +74,7 @@ const SharedAccountDetail: React.FC = () => {
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [removeSubmitting, setRemoveSubmitting] = useState(false);
   const [newOwnerId, setNewOwnerId] = useState('');
+  const [pendingSettlementRequests, setPendingSettlementRequests] = useState<any[]>([]);
 
   useEffect(() => {
     if (accountId) {
@@ -116,6 +118,20 @@ const SharedAccountDetail: React.FC = () => {
       setTransactions(populatedRecords.sort((a, b) => 
         new Date(b.date).getTime() - new Date(a.date).getTime()
       ));
+
+      try {
+        const settlementResponse = await axios.get('/payment-requests');
+        const forThisAccount = (settlementResponse.data || []).filter((req: any) => {
+          const reqAccountId =
+            typeof req.sharedAccount === 'object'
+              ? req.sharedAccount?._id
+              : req.sharedAccount;
+          return String(reqAccountId) === String(accountId);
+        });
+        setPendingSettlementRequests(forThisAccount);
+      } catch {
+        setPendingSettlementRequests([]);
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load account details');
     } finally {
@@ -136,8 +152,14 @@ const SharedAccountDetail: React.FC = () => {
 
   const calculateUserContribution = (userId: string) => {
     return transactions
-      .filter(record => record.user._id === userId && record.type === 'input')
+      .filter(record => String(record.user._id) === String(userId) && record.type === 'input')
       .reduce((sum, record) => sum + record.amount, 0);
+  };
+
+  const calculateUserNetRecorded = (userId: string) => {
+    return transactions
+      .filter(record => String(record.user._id) === String(userId))
+      .reduce((sum, record) => sum + (record.type === 'input' ? record.amount : -record.amount), 0);
   };
 
   const calculateAvailableWithdrawal = (userId: string) => {
@@ -189,7 +211,7 @@ const SharedAccountDetail: React.FC = () => {
       setWithdrawDescription('');
       await fetchAccountDetails();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to process withdrawal');
+      setError(err.response?.data?.message || 'Failed to reverse recorded contribution');
     } finally {
       setWithdrawSubmitting(false);
     }
@@ -266,7 +288,7 @@ const SharedAccountDetail: React.FC = () => {
     }
 
     if (personalBalance !== null && amount > personalBalance) {
-      setError('Insufficient funds in your personal account');
+      setError('Amount exceeds your personal tracked total');
       return;
     }
 
@@ -276,8 +298,8 @@ const SharedAccountDetail: React.FC = () => {
       if (newBalance > account.targetAmount) {
         const remaining = account.targetAmount - currentBalance;
         setError(
-          `Transfer would exceed the account limit of £${account.targetAmount.toFixed(2)}. ` +
-          `Maximum transfer allowed: £${remaining.toFixed(2)}`
+          `Contribution would exceed the target of £${account.targetAmount.toFixed(2)}. ` +
+          `Maximum you can record now: £${remaining.toFixed(2)}`
         );
         return;
       }
@@ -286,7 +308,7 @@ const SharedAccountDetail: React.FC = () => {
     setTransferSubmitting(true);
     setError('');
     const date = new Date().toISOString();
-    const transferDescription = transferForm.description || `Transfer to ${account.name}`;
+    const transferDescription = transferForm.description || `Contribution to ${account.name}`;
 
     try {
       await axios.post('/finance', {
@@ -307,7 +329,7 @@ const SharedAccountDetail: React.FC = () => {
       await fetchAccountDetails();
       await fetchPersonalBalance();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to transfer funds');
+      setError(err.response?.data?.message || 'Failed to record contribution');
     } finally {
       setTransferSubmitting(false);
     }
@@ -325,12 +347,12 @@ const SharedAccountDetail: React.FC = () => {
 
     const balance = calculateBalance();
     if (balance <= 0) {
-      setError('No balance to pay. The shared account balance is £0.00 or negative.');
+      setError('Nothing recorded to settle. The tracked total for this trip pot is £0.00 or less.');
       return;
     }
 
     if (personalBalance !== null && balance > personalBalance) {
-      setError('Insufficient funds in your personal account to pay the full balance.');
+      setError('Your personal tracked total is lower than the amount to settle.');
       return;
     }
 
@@ -341,12 +363,12 @@ const SharedAccountDetail: React.FC = () => {
       await axios.post('/payment-requests', {
         sharedAccountId: accountId,
         amount: balance,
-        description: `Full payment for ${account.name}`
+        description: `Settlement record for ${account.name}`
       });
       setShowPayModal(false);
-      alert('Payment request created! All participants will be notified and must approve before the payment is processed.');
+      alert('Settlement request created. All travellers will be notified and must approve before the ledger settlement is recorded. SHARE does not send bank payments.');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create payment request');
+      setError(err.response?.data?.message || 'Failed to create settlement request');
     } finally {
       setPaySubmitting(false);
     }
@@ -399,7 +421,7 @@ const SharedAccountDetail: React.FC = () => {
       <div className="card">
         <p style={{ color: '#e53e3e' }}>{error || 'Account not found'}</p>
         <button className="btn btn-secondary" onClick={() => navigate('/shared-accounts')}>
-          Back to Shared Accounts
+          Back to Trip Money
         </button>
       </div>
     );
@@ -407,22 +429,77 @@ const SharedAccountDetail: React.FC = () => {
 
   const userId = user ? getCurrentUserId() : '';
   const userContribution = user ? calculateUserContribution(userId) : 0;
-  const allParticipants = [account.owner, ...account.members];
+  const allParticipants = [account.owner, ...account.members].filter(Boolean);
   const ownerId = typeof account.owner === 'object' ? account.owner._id : account.owner;
-  const isOwner = ownerId === userId;
+  const isOwner = String(ownerId) === String(userId);
+  const recordedTotal = calculateBalance();
+  const hasTarget = !!(account.targetAmount && account.targetAmount > 0);
+  const remainingToContribute = hasTarget
+    ? Math.max(0, (account.targetAmount as number) - recordedTotal)
+    : null;
+  const percentComplete = hasTarget
+    ? Math.min(100, Math.max(0, (recordedTotal / (account.targetAmount as number)) * 100))
+    : 0;
+  const suggestedEqualShare =
+    hasTarget
+      ? (account.perPersonAmount && account.perPersonAmount > 0
+          ? account.perPersonAmount
+          : (account.targetAmount as number) / Math.max(1, allParticipants.length))
+      : null;
+  const contributionCount = transactions.filter((t) => t.type === 'input').length;
+  const activityCount = transactions.length;
+  const amountAboveTarget = hasTarget
+    ? Math.max(0, recordedTotal - (account.targetAmount as number))
+    : 0;
   const last24HoursCutoff = Date.now() - 24 * 60 * 60 * 1000;
   const recentTransactions = transactions.filter((transaction) => {
     const transactionTime = new Date(transaction.date).getTime();
     return Number.isFinite(transactionTime) && transactionTime >= last24HoursCutoff;
   });
 
+  type CloseOutStatus = 'no_target' | 'still_collecting' | 'ready_to_review' | 'review_difference';
+  let closeOutStatus: CloseOutStatus = 'no_target';
+  let closeOutLabel = 'No target set';
+  let closeOutDetail = 'Close-out comparison needs a contribution target. Set one to compare recorded totals.';
+  if (hasTarget && remainingToContribute !== null && remainingToContribute > 0.001) {
+    closeOutStatus = 'still_collecting';
+    closeOutLabel = 'Still collecting';
+    closeOutDetail = 'The recorded total is still below the contribution target. Keep recording contributions as the group commits.';
+  } else if (hasTarget && amountAboveTarget > 0.001) {
+    closeOutStatus = 'review_difference';
+    closeOutLabel = 'Review difference';
+    closeOutDetail = 'Recorded total is above the contribution target on the ledger. Review traveller positions before you document any settlement decision.';
+  } else if (hasTarget) {
+    closeOutStatus = 'ready_to_review';
+    closeOutLabel = 'Ready to review';
+    closeOutDetail = 'The contribution target is reached on the ledger. Review each traveller’s recorded position. Reaching the target does not mean real-world settlements are finished.';
+  }
+
+  let organiserNextStep = 'Record a contribution when money has been committed for this trip.';
+  if (!hasTarget && isOwner) {
+    organiserNextStep = 'Set a contribution target so travellers can see what the group is aiming for.';
+  } else if (allParticipants.length <= 1) {
+    organiserNextStep = 'Invite travellers so everyone can record their share of the trip costs.';
+  } else if (hasTarget && remainingToContribute !== null && remainingToContribute > 0) {
+    organiserNextStep = `£${remainingToContribute.toFixed(2)} still to contribute toward the group target.`;
+  } else if (hasTarget && remainingToContribute === 0) {
+    organiserNextStep = 'Contribution target reached on the ledger. Request a settlement record when the group is ready to close out.';
+  }
+
   return (
-    <div>
-      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+    <div className="trip-money-detail">
+      <div className="trip-money-detail-header">
         <button className="btn btn-secondary" onClick={() => navigate('/shared-accounts')}>
-          ← Back to Shared Accounts
+          ← Back to Trip Money
         </button>
-        <h1 style={{ margin: 0 }}>{account.name}</h1>
+        <button
+          onClick={() => setShowRemoveModal(true)}
+          aria-label="Remove shared trip costs"
+          title="Remove shared trip costs"
+          className="trip-money-remove-btn"
+        >
+          ×
+        </button>
       </div>
 
       {error && (
@@ -431,131 +508,248 @@ const SharedAccountDetail: React.FC = () => {
         </div>
       )}
 
-      {/* Account Summary */}
-      <div className="card" style={{ marginBottom: '1.5rem', position: 'relative' }}>
-        <button
-          onClick={() => setShowRemoveModal(true)}
-          aria-label="Remove shared account"
-          title="Remove shared account"
-          style={{
-            position: 'absolute',
-            top: '12px',
-            right: '12px',
-            background: 'transparent',
-            border: 'none',
-            color: '#e53e3e',
-            fontSize: '1.25rem',
-            cursor: 'pointer',
-            lineHeight: 1
-          }}
-        >
-          ×
-        </button>
-        <h2 className="card-title">Account Summary</h2>
-        {account.description && (
-          <p style={{ color: '#4a5568', marginBottom: '1rem' }}>
-            <strong>Description:</strong> {account.description}
+      {/* Contribution progress hero */}
+      <div className="card trip-money-hero">
+        <p className="trip-money-kicker">Shared trip costs</p>
+        <h1 className="trip-money-title">{account.name}</h1>
+        {account.description ? (
+          <p className="trip-money-purpose">
+            <strong>What the group is coordinating:</strong> {account.description}
+          </p>
+        ) : (
+          <p className="trip-money-purpose trip-money-empty-hint">
+            No description yet. Add what these shared costs are for (for example accommodation deposit or tickets).
           </p>
         )}
-        
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-          <div>
-            <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Shared Account Balance</p>
-            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0.25rem 0 0 0' }}>
-              £{calculateBalance().toFixed(2)}
-            </p>
-          </div>
-          {account.targetAmount && (
-            <div>
-              <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Target Amount</p>
-              <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0.25rem 0 0 0' }}>
-                £{account.targetAmount.toFixed(2)}
-              </p>
+
+        <div className="trip-money-transparency">
+          SHARE records and coordinates group contributions. It does not hold this tracked amount in a SHARE bank account.
+        </div>
+
+        {hasTarget ? (
+          <div className="trip-money-progress-block">
+            <div className="trip-money-progress-meta">
+              <span>
+                <strong>£{recordedTotal.toFixed(2)}</strong> recorded of{' '}
+                <strong>£{(account.targetAmount as number).toFixed(2)}</strong>
+              </span>
+              <span>{Math.round(percentComplete)}% complete</span>
             </div>
-          )}
-          <div>
-            <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Participants</p>
-            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0.25rem 0 0 0' }}>
-              {allParticipants.length}
-            </p>
-          </div>
-          {user && (
-            <>
-              <div>
-                <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Your Contribution</p>
-                <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0.25rem 0 0 0' }}>
-                  £{userContribution.toFixed(2)}
-                </p>
-              </div>
-              <div>
-                <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Available to Withdraw</p>
-                <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#38a169', margin: '0.25rem 0 0 0' }}>
-                  £{availableWithdrawal.toFixed(2)}
-                </p>
-              </div>
-            </>
-          )}
-        </div>
-
-        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
-          <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.5rem 0' }}>
-            <strong>Owner:</strong> {account.owner.firstName} {account.owner.lastName} ({account.owner.email})
-          </p>
-          {account.members.length > 0 && (
-            <div>
-              <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.5rem 0' }}>
-                <strong>Members:</strong>
-              </p>
-              <ul style={{ margin: '0.5rem 0', paddingLeft: '1.5rem' }}>
-                {account.members.map((member) => (
-                  <li key={member._id} style={{ color: '#4a5568', fontSize: '0.9rem' }}>
-                    {member.firstName} {member.lastName} ({member.email})
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-
-        {/* Account Actions */}
-        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <button className="btn btn-secondary" onClick={handleEditClick}>
-              Edit / View Details
-            </button>
-            <button className="btn btn-primary" onClick={handleTransferClick}>
-              Transfer Payment
-            </button>
-            <button className="btn btn-success" onClick={handlePayClick}>
-              Pay
-            </button>
-          </div>
-        </div>
-
-        {/* Withdrawal Button */}
-        {user && availableWithdrawal > 0 && (
-          <div style={{ marginTop: '1rem' }}>
-            <button
-              className="btn btn-success"
-              onClick={handleWithdrawClick}
-              style={{ width: '100%' }}
+            <div
+              className="trip-money-progress-track"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(percentComplete)}
+              aria-label="Contribution progress"
             >
-              Withdraw Your Funds (£{availableWithdrawal.toFixed(2)} available)
+              <div
+                className="trip-money-progress-fill"
+                style={{ width: `${percentComplete}%` }}
+              />
+            </div>
+            <div className="trip-money-stat-grid">
+              <div>
+                <p className="trip-money-stat-label">Contribution target</p>
+                <p className="trip-money-stat-value">£{(account.targetAmount as number).toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="trip-money-stat-label">Recorded total</p>
+                <p className="trip-money-stat-value">£{recordedTotal.toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="trip-money-stat-label">Remaining to contribute</p>
+                <p className="trip-money-stat-value">
+                  £{(remainingToContribute as number).toFixed(2)}
+                </p>
+              </div>
+              <div>
+                <p className="trip-money-stat-label">Travellers</p>
+                <p className="trip-money-stat-value">{allParticipants.length}</p>
+              </div>
+            </div>
+            {account.targetDate && (
+              <p className="trip-money-target-date">
+                Target date: {new Date(account.targetDate).toLocaleDateString()}
+              </p>
+            )}
+            {suggestedEqualShare !== null && (
+              <p className="trip-money-equal-share">
+                Suggested equal share (illustrative, not mandatory): £{suggestedEqualShare.toFixed(2)} each
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="trip-money-empty-panel">
+            <p className="trip-money-empty-title">No contribution target set</p>
+            <p>
+              Recorded so far: <strong>£{recordedTotal.toFixed(2)}</strong>. Set a target so the group can see what remains.
+            </p>
+            {isOwner && (
+              <button className="btn btn-primary" onClick={handleEditClick}>
+                Set contribution target
+              </button>
+            )}
+          </div>
+        )}
+
+        {contributionCount === 0 && (
+          <div className="trip-money-empty-panel" style={{ marginTop: '1rem' }}>
+            <p className="trip-money-empty-title">No contributions recorded yet</p>
+            <p>When someone commits money toward this trip, record it here so the group position stays clear.</p>
+          </div>
+        )}
+
+        <div className="trip-money-next-step">
+          <strong>{isOwner ? 'Organiser next step:' : 'Next step:'}</strong> {organiserNextStep}
+        </div>
+
+        {user && (
+          <p className="trip-money-your-contribution">
+            Your recorded contribution: <strong>£{userContribution.toFixed(2)}</strong>
+            {availableWithdrawal > 0 && (
+              <> · Available to reverse (recorded): <strong>£{availableWithdrawal.toFixed(2)}</strong></>
+            )}
+          </p>
+        )}
+
+        <div className="trip-money-actions">
+          <button className="btn btn-primary" onClick={handleTransferClick}>
+            Record contribution
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => navigate(`/invitations?account=${account._id}`)}
+          >
+            Invite traveller
+          </button>
+          {isOwner && (
+            <button className="btn btn-secondary" onClick={handleEditClick}>
+              {hasTarget ? 'Edit details' : 'Set contribution target'}
+            </button>
+          )}
+          {!isOwner && (
+            <button className="btn btn-secondary" onClick={handleEditClick}>
+              View details
+            </button>
+          )}
+          <button className="btn btn-secondary" onClick={handlePayClick}>
+            Request settlement record
+          </button>
+        </div>
+
+        {user && availableWithdrawal > 0 && (
+          <div style={{ marginTop: '0.75rem' }}>
+            <button className="btn btn-secondary" onClick={handleWithdrawClick} style={{ width: '100%' }}>
+              Reverse recorded contribution (£{availableWithdrawal.toFixed(2)} available)
             </button>
           </div>
         )}
       </div>
 
-      {/* Transaction History */}
-      <div className="card">
-        <h2 className="card-title">Transaction History (Last 24 Hours)</h2>
+      {/* Traveller contribution status */}
+      <div className="card" style={{ marginBottom: '1.5rem' }} id="traveller-contributions">
+        <h2 className="card-title">Traveller contributions</h2>
+        {allParticipants.length <= 1 ? (
+          <div className="trip-money-empty-panel">
+            <p className="trip-money-empty-title">No other travellers yet</p>
+            <p>Invite friends so everyone can record their share of the trip costs.</p>
+            <button
+              className="btn btn-primary"
+              onClick={() => navigate(`/invitations?account=${account._id}`)}
+            >
+              Invite traveller
+            </button>
+          </div>
+        ) : (
+          <div className="trip-money-member-list">
+            {allParticipants.map((participant) => {
+              const participantId = participant._id;
+              const netRecorded = calculateUserNetRecorded(participantId);
+              const remainingForPerson =
+                suggestedEqualShare !== null
+                  ? Math.max(0, suggestedEqualShare - Math.max(0, netRecorded))
+                  : null;
+              const isComplete =
+                suggestedEqualShare !== null && netRecorded >= suggestedEqualShare - 0.001;
+              const isSelf = String(participantId) === String(userId);
+              const isOrganiser = String(participantId) === String(ownerId);
+
+              return (
+                <div key={participantId} className="trip-money-member-row">
+                  <div className="trip-money-member-main">
+                    <div>
+                      <strong>
+                        {participant.firstName} {participant.lastName}
+                        {isSelf ? ' (you)' : ''}
+                      </strong>
+                      <div className="trip-money-member-meta">
+                        {isOrganiser ? 'Organiser' : 'Traveller'}
+                        {participant.email ? ` · ${participant.email}` : ''}
+                      </div>
+                    </div>
+                    <span
+                      className={`trip-money-status-pill ${
+                        suggestedEqualShare === null
+                          ? 'trip-money-status-neutral'
+                          : isComplete
+                            ? 'trip-money-status-complete'
+                            : 'trip-money-status-pending'
+                      }`}
+                    >
+                      {suggestedEqualShare === null
+                        ? 'Tracking'
+                        : isComplete
+                          ? 'Complete'
+                          : 'Still to contribute'}
+                    </span>
+                  </div>
+                  <div className="trip-money-member-figures">
+                    <div>
+                      <span className="trip-money-stat-label">Recorded</span>
+                      <span className="trip-money-member-amount">£{Math.max(0, netRecorded).toFixed(2)}</span>
+                    </div>
+                    {suggestedEqualShare !== null && (
+                      <div>
+                        <span className="trip-money-stat-label">Suggested share</span>
+                        <span className="trip-money-member-amount">£{suggestedEqualShare.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {remainingForPerson !== null && (
+                      <div>
+                        <span className="trip-money-stat-label">Remaining (vs share)</span>
+                        <span className="trip-money-member-amount">£{remainingForPerson.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {suggestedEqualShare !== null && (
+              <p className="trip-money-equal-share" style={{ marginTop: '0.75rem' }}>
+                Equal-share figures are guidance only. Unequal contributions are allowed.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Recent activity */}
+      <div className="card" id="group-activity">
+        <h2 className="card-title">Group spending record (last 24 hours)</h2>
         <p style={{ color: '#4a5568', fontSize: '0.9rem', marginTop: '-0.25rem' }}>
-          Showing {recentTransactions.length} of {transactions.length} total transaction{transactions.length !== 1 ? 's' : ''}. Full history will be available in Account Settings.
+          Showing {recentTransactions.length} of {transactions.length} total recorded item{transactions.length !== 1 ? 's' : ''}.
         </p>
         {transactions.length === 0 ? (
-          <p style={{ color: '#4a5568' }}>No transactions yet.</p>
+          <div className="trip-money-empty-panel">
+            <p className="trip-money-empty-title">Nothing recorded yet</p>
+            <p>Use Record contribution when someone has committed money toward these shared trip costs.</p>
+            <button className="btn btn-primary" onClick={handleTransferClick}>
+              Record contribution
+            </button>
+          </div>
         ) : recentTransactions.length === 0 ? (
-          <p style={{ color: '#4a5568' }}>No transactions in the last 24 hours.</p>
+          <p style={{ color: '#4a5568' }}>No activity in the last 24 hours.</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -564,7 +758,7 @@ const SharedAccountDetail: React.FC = () => {
                   <th style={{ padding: '0.75rem', textAlign: 'left', color: '#4a5568', fontWeight: '600' }}>Date</th>
                   <th style={{ padding: '0.75rem', textAlign: 'left', color: '#4a5568', fontWeight: '600' }}>Type</th>
                   <th style={{ padding: '0.75rem', textAlign: 'left', color: '#4a5568', fontWeight: '600' }}>Description</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'left', color: '#4a5568', fontWeight: '600' }}>User</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'left', color: '#4a5568', fontWeight: '600' }}>Traveller</th>
                   <th style={{ padding: '0.75rem', textAlign: 'right', color: '#4a5568', fontWeight: '600' }}>Amount</th>
                 </tr>
               </thead>
@@ -583,7 +777,7 @@ const SharedAccountDetail: React.FC = () => {
                         background: transaction.type === 'input' ? '#c6f6d5' : '#fed7d7',
                         color: transaction.type === 'input' ? '#22543d' : '#742a2a'
                       }}>
-                        {transaction.type === 'input' ? 'Deposit' : 'Withdrawal'}
+                        {transaction.type === 'input' ? 'Contribution' : 'Cost / reverse'}
                       </span>
                     </td>
                     <td style={{ padding: '0.75rem', color: '#4a5568' }}>
@@ -592,8 +786,8 @@ const SharedAccountDetail: React.FC = () => {
                     <td style={{ padding: '0.75rem', color: '#4a5568' }}>
                       {transaction.user.firstName} {transaction.user.lastName}
                     </td>
-                    <td style={{ 
-                      padding: '0.75rem', 
+                    <td style={{
+                      padding: '0.75rem',
                       textAlign: 'right',
                       fontWeight: '600',
                       color: transaction.type === 'input' ? '#38a169' : '#e53e3e'
@@ -606,6 +800,215 @@ const SharedAccountDetail: React.FC = () => {
             </table>
           </div>
         )}
+      </div>
+
+      {/* Trip Close-out — final review stage (non-custodial) */}
+      <div className="card trip-closeout">
+        <p className="trip-money-kicker">End of trip review</p>
+        <h2 className="card-title" style={{ marginBottom: '0.35rem' }}>Trip Close-out</h2>
+        <p style={{ color: '#4a5568', marginTop: 0 }}>
+          Review what SHARE has recorded, compare traveller positions, and document settlement decisions.
+          SHARE helps the group finish square on paper — it does not return money, distribute residue, or close a bank account.
+        </p>
+        <div className="trip-money-transparency">
+          Settlement records help the group record what has been agreed. SHARE does not move or hold the underlying money.
+        </div>
+
+        <div className={`trip-closeout-status trip-closeout-status--${closeOutStatus}`}>
+          <strong>{closeOutLabel}</strong>
+          <p style={{ margin: '0.35rem 0 0' }}>{closeOutDetail}</p>
+        </div>
+
+        <div className="trip-money-stat-grid" style={{ marginTop: '1rem' }}>
+          <div>
+            <p className="trip-money-stat-label">Contribution target</p>
+            <p className="trip-money-stat-value">
+              {hasTarget ? `£${(account.targetAmount as number).toFixed(2)}` : 'Not set'}
+            </p>
+          </div>
+          <div>
+            <p className="trip-money-stat-label">Recorded total</p>
+            <p className="trip-money-stat-value">£{recordedTotal.toFixed(2)}</p>
+          </div>
+          {hasTarget && remainingToContribute !== null && remainingToContribute > 0 && (
+            <div>
+              <p className="trip-money-stat-label">Remaining to contribute</p>
+              <p className="trip-money-stat-value">£{remainingToContribute.toFixed(2)}</p>
+            </div>
+          )}
+          {hasTarget && amountAboveTarget > 0 && (
+            <div>
+              <p className="trip-money-stat-label">Recorded above target</p>
+              <p className="trip-money-stat-value">£{amountAboveTarget.toFixed(2)}</p>
+            </div>
+          )}
+          {hasTarget && (
+            <div>
+              <p className="trip-money-stat-label">Of target recorded</p>
+              <p className="trip-money-stat-value">{Math.round(percentComplete)}%</p>
+            </div>
+          )}
+          <div>
+            <p className="trip-money-stat-label">Travellers</p>
+            <p className="trip-money-stat-value">{allParticipants.length}</p>
+          </div>
+          <div>
+            <p className="trip-money-stat-label">Contribution records</p>
+            <p className="trip-money-stat-value">{contributionCount}</p>
+          </div>
+          <div>
+            <p className="trip-money-stat-label">Ledger activity items</p>
+            <p className="trip-money-stat-value">{activityCount}</p>
+          </div>
+        </div>
+
+        {account.targetDate && (
+          <p className="trip-money-target-date">
+            Target date: {new Date(account.targetDate).toLocaleDateString()}
+          </p>
+        )}
+
+        {suggestedEqualShare !== null && (
+          <p className="trip-money-equal-share">
+            Suggested equal share (illustrative, not a binding debt): £{suggestedEqualShare.toFixed(2)} each,
+            based on the current target and traveller count.
+          </p>
+        )}
+
+        <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1.05rem', color: '#2d3748' }}>
+          Traveller contribution positions
+        </h3>
+        {allParticipants.length === 0 ? (
+          <p style={{ color: '#4a5568' }}>No travellers on this pot yet.</p>
+        ) : (
+          <div className="trip-money-member-list">
+            {allParticipants.map((participant) => {
+              const participantId = participant._id;
+              const netRecorded = calculateUserNetRecorded(participantId);
+              const recordedDisplay = Math.max(0, netRecorded);
+              let positionLabel = 'Tracking';
+              let positionClass = 'trip-money-status-neutral';
+              let positionDetail = '';
+
+              if (suggestedEqualShare !== null) {
+                const delta = recordedDisplay - suggestedEqualShare;
+                if (Math.abs(delta) < 0.01) {
+                  positionLabel = 'Matches suggested share';
+                  positionClass = 'trip-money-status-complete';
+                  positionDetail = `Recorded £${recordedDisplay.toFixed(2)} · Suggested £${suggestedEqualShare.toFixed(2)}`;
+                } else if (delta > 0) {
+                  positionLabel = 'Above suggested share';
+                  positionClass = 'trip-money-status-complete';
+                  positionDetail = `Recorded £${recordedDisplay.toFixed(2)} · Suggested £${suggestedEqualShare.toFixed(2)} · £${delta.toFixed(2)} above suggested share`;
+                } else {
+                  positionLabel = 'Below suggested share';
+                  positionClass = 'trip-money-status-pending';
+                  positionDetail = `Recorded £${recordedDisplay.toFixed(2)} · Suggested £${suggestedEqualShare.toFixed(2)} · £${Math.abs(delta).toFixed(2)} below suggested share`;
+                }
+              } else {
+                positionDetail = `Recorded £${recordedDisplay.toFixed(2)}`;
+              }
+
+              return (
+                <div key={`closeout-${participantId}`} className="trip-money-member-row">
+                  <div className="trip-money-member-main">
+                    <div>
+                      <strong>
+                        {participant.firstName} {participant.lastName}
+                        {String(participantId) === String(userId) ? ' (you)' : ''}
+                      </strong>
+                      <div className="trip-money-member-meta">{positionDetail}</div>
+                    </div>
+                    <span className={`trip-money-status-pill ${positionClass}`}>{positionLabel}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1.05rem', color: '#2d3748' }}>
+          Settlement records
+        </h3>
+        {pendingSettlementRequests.length === 0 ? (
+          <p style={{ color: '#4a5568', fontSize: '0.95rem' }}>
+            No pending settlement records for this pot. The list API only returns open requests awaiting review —
+            approved or rejected history is not exposed separately yet.
+          </p>
+        ) : (
+          <div className="trip-money-member-list">
+            {pendingSettlementRequests.map((req) => (
+              <div key={req._id} className="trip-money-member-row">
+                <div className="trip-money-member-main">
+                  <div>
+                    <strong>£{(req.amount || 0).toFixed(2)} settlement record</strong>
+                    <div className="trip-money-member-meta">
+                      Requested by{' '}
+                      {req.requestedBy
+                        ? `${req.requestedBy.firstName || ''} ${req.requestedBy.lastName || ''}`.trim() ||
+                          req.requestedBy.email
+                        : 'a traveller'}
+                      {req.description ? ` · ${req.description}` : ''}
+                    </div>
+                  </div>
+                  <span className="trip-money-status-pill trip-money-status-pending">
+                    Pending review
+                  </span>
+                </div>
+                <p style={{ margin: '0.35rem 0 0', fontSize: '0.85rem', color: '#4a5568' }}>
+                  Approvals: {req.approvals?.length || 0} / {req.requiredApprovals || 0}. Approving records a ledger
+                  settlement — SHARE does not send bank payments.
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1.05rem', color: '#2d3748' }}>
+          Organiser next steps
+        </h3>
+        <div className="trip-money-actions">
+          {!hasTarget && isOwner && (
+            <button className="btn btn-primary" onClick={handleEditClick}>
+              Set contribution target
+            </button>
+          )}
+          {closeOutStatus === 'still_collecting' && (
+            <button className="btn btn-primary" onClick={handleTransferClick}>
+              Record contribution
+            </button>
+          )}
+          {(closeOutStatus === 'ready_to_review' || closeOutStatus === 'review_difference') && (
+            <button className="btn btn-primary" onClick={handlePayClick}>
+              Request settlement record
+            </button>
+          )}
+          <button
+            className="btn btn-secondary"
+            onClick={() => {
+              document.getElementById('traveller-contributions')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+          >
+            Review traveller contributions
+          </button>
+          {isOwner && (
+            <button className="btn btn-secondary" onClick={handleEditClick}>
+              Edit contribution target
+            </button>
+          )}
+          <button
+            className="btn btn-secondary"
+            onClick={() => {
+              document.getElementById('group-activity')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+          >
+            Review activity history
+          </button>
+        </div>
+        <p style={{ marginTop: '0.85rem', fontSize: '0.85rem', color: '#718096' }}>
+          There is no “close account” or automatic refund action in SHARE today. When the group is finished reviewing,
+          use your own bank apps or cash to settle any real-world differences you agree on.
+        </p>
       </div>
 
       {/* Edit Details Modal */}
@@ -635,7 +1038,7 @@ const SharedAccountDetail: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>Edit / View Details</h2>
+              <h2 style={{ margin: 0 }}>Edit trip pot details</h2>
               <button
                 onClick={() => setShowEditModal(false)}
                 style={{
@@ -750,7 +1153,7 @@ const SharedAccountDetail: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>Transfer Payment</h2>
+              <h2 style={{ margin: 0 }}>Record contribution</h2>
               <button
                 onClick={() => setShowTransferModal(false)}
                 style={{
@@ -766,16 +1169,19 @@ const SharedAccountDetail: React.FC = () => {
             </div>
 
             {loadingPersonalBalance ? (
-              <p style={{ color: '#4a5568' }}>Loading personal balance...</p>
+              <p style={{ color: '#4a5568' }}>Loading personal tracked total...</p>
             ) : personalBalance !== null ? (
               <p style={{ color: '#4a5568', marginTop: 0 }}>
-                Personal balance: <strong>£{personalBalance.toFixed(2)}</strong>
+                Personal tracked total: <strong>£{personalBalance.toFixed(2)}</strong>
               </p>
             ) : (
               <p style={{ color: '#4a5568', marginTop: 0 }}>
-                Personal balance unavailable.
+                Personal tracked total unavailable.
               </p>
             )}
+            <p style={{ color: '#4a5568', fontSize: '0.85rem' }}>
+              This updates the group ledger only — SHARE does not move bank funds.
+            </p>
 
             {error && (
               <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
@@ -785,7 +1191,7 @@ const SharedAccountDetail: React.FC = () => {
 
             <form onSubmit={handleTransferSubmit}>
               <div className="form-group">
-                <label className="form-label">Amount (£)</label>
+                <label className="form-label">Contribution amount (£)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -805,7 +1211,7 @@ const SharedAccountDetail: React.FC = () => {
                   className="form-input"
                   value={transferForm.description}
                   onChange={(e) => setTransferForm({ ...transferForm, description: e.target.value })}
-                  placeholder="Transfer description"
+                  placeholder="e.g., Accommodation deposit share"
                 />
               </div>
 
@@ -824,7 +1230,7 @@ const SharedAccountDetail: React.FC = () => {
                   disabled={transferSubmitting}
                   style={{ flex: 1 }}
                 >
-                  {transferSubmitting ? <span className="spinner"></span> : 'Transfer'}
+                  {transferSubmitting ? <span className="spinner"></span> : 'Record contribution'}
                 </button>
               </div>
             </form>
@@ -859,7 +1265,7 @@ const SharedAccountDetail: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>Pay Shared Account</h2>
+              <h2 style={{ margin: 0 }}>Request settlement record</h2>
               <button
                 onClick={() => setShowPayModal(false)}
                 style={{
@@ -875,20 +1281,23 @@ const SharedAccountDetail: React.FC = () => {
             </div>
 
             <p style={{ color: '#4a5568', marginTop: 0 }}>
-              Payment amount: <strong>£{calculateBalance().toFixed(2)}</strong>
+              Settlement amount to record: <strong>£{calculateBalance().toFixed(2)}</strong>
             </p>
 
             {loadingPersonalBalance ? (
-              <p style={{ color: '#4a5568' }}>Loading personal balance...</p>
+              <p style={{ color: '#4a5568' }}>Loading personal tracked total...</p>
             ) : personalBalance !== null ? (
               <p style={{ color: '#4a5568' }}>
-                Personal balance: <strong>£{personalBalance.toFixed(2)}</strong>
+                Personal tracked total: <strong>£{personalBalance.toFixed(2)}</strong>
               </p>
             ) : (
               <p style={{ color: '#4a5568' }}>
-                Personal balance unavailable.
+                Personal tracked total unavailable.
               </p>
             )}
+            <p style={{ color: '#4a5568', fontSize: '0.85rem' }}>
+              Group approval records this against the trip pot ledger. SHARE does not send a bank payment.
+            </p>
 
             {error && (
               <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
@@ -912,7 +1321,7 @@ const SharedAccountDetail: React.FC = () => {
                   disabled={paySubmitting}
                   style={{ flex: 1 }}
                 >
-                  {paySubmitting ? <span className="spinner"></span> : 'Request Payment'}
+                  {paySubmitting ? <span className="spinner"></span> : 'Request settlement record'}
                 </button>
               </div>
             </form>
@@ -947,7 +1356,7 @@ const SharedAccountDetail: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>Remove Shared Account</h2>
+              <h2 style={{ margin: 0 }}>Leave shared trip costs</h2>
               <button
                 onClick={() => setShowRemoveModal(false)}
                 style={{
@@ -964,11 +1373,11 @@ const SharedAccountDetail: React.FC = () => {
 
             {isOwner ? (
               <p style={{ color: '#4a5568', marginTop: 0 }}>
-                You are the creator. Select a new owner to transfer creator rights before you leave this account.
+                You are the creator. Select a new owner to transfer creator rights before you leave.
               </p>
             ) : (
               <p style={{ color: '#4a5568', marginTop: 0 }}>
-                This will remove you from the shared account.
+                This will remove you from these shared trip costs.
               </p>
             )}
 
@@ -1053,7 +1462,7 @@ const SharedAccountDetail: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>Withdraw Funds</h2>
+              <h2 style={{ margin: 0 }}>Reverse recorded contribution</h2>
               <button
                 onClick={() => {
                   setShowWithdrawModal(false);
@@ -1081,13 +1490,13 @@ const SharedAccountDetail: React.FC = () => {
               marginBottom: '1rem'
             }}>
               <p style={{ color: '#0369a1', fontSize: '0.9rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
-                Available to Withdraw:
+                Available to reverse (recorded):
               </p>
               <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#0284c7', margin: 0 }}>
                 £{availableWithdrawal.toFixed(2)}
               </p>
               <p style={{ fontSize: '0.75rem', color: '#0369a1', margin: '0.5rem 0 0 0' }}>
-                This is the amount you've contributed minus any previous withdrawals.
+                Your recorded contributions minus any previous reversals. This does not withdraw bank funds.
               </p>
             </div>
 
@@ -1099,7 +1508,7 @@ const SharedAccountDetail: React.FC = () => {
 
             <form onSubmit={handleWithdrawSubmit}>
               <div className="form-group">
-                <label className="form-label">Withdrawal Amount (£)</label>
+                <label className="form-label">Amount to reverse (£)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -1123,7 +1532,7 @@ const SharedAccountDetail: React.FC = () => {
                   className="form-input"
                   value={withdrawDescription}
                   onChange={(e) => setWithdrawDescription(e.target.value)}
-                  placeholder="Reason for withdrawal"
+                  placeholder="Reason for reversing this recorded contribution"
                 />
               </div>
 
@@ -1147,7 +1556,7 @@ const SharedAccountDetail: React.FC = () => {
                   disabled={withdrawSubmitting || !withdrawAmount || parseFloat(withdrawAmount) <= 0 || parseFloat(withdrawAmount) > availableWithdrawal}
                   style={{ flex: 1 }}
                 >
-                  {withdrawSubmitting ? <span className="spinner"></span> : 'Withdraw Funds'}
+                  {withdrawSubmitting ? <span className="spinner"></span> : 'Reverse recorded contribution'}
                 </button>
               </div>
             </form>

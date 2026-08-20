@@ -166,7 +166,10 @@ const Register: React.FC = () => {
     }}>
       <div className="card" style={{ width: '100%', maxWidth: '500px' }}>
         <div className="card-header">
-          <h2 className="card-title">Join SHARE Project</h2>
+          <h2 className="card-title">Join SHARE</h2>
+          <p style={{ margin: '0.35rem 0 0', color: '#4a5568', fontSize: '0.9rem' }}>
+            Organise group trips, invite travellers, and coordinate shared costs.
+          </p>
         </div>
         
         {error && (
@@ -252,18 +255,25 @@ const Register: React.FC = () => {
             <label className="form-label">Interests</label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', marginTop: '0.5rem' }}>
               {[
-                'Finance',
-                'Technology',
                 'Travel',
-                'Sports',
+                'Group holidays',
+                'City breaks',
+                'Skiing',
                 'Music',
+                'Sports',
+                'Food',
+                'Technology',
                 'Art',
-                'Cooking',
+                'Photography',
                 'Reading',
                 'Gaming',
                 'Fitness',
-                'Photography',
-                'Movies'
+                'Cooking',
+                'Dancing',
+                'Movies',
+                'Theatre',
+                'Outdoor activities',
+                'Volunteering'
               ].map((interest) => (
                 <label key={interest} style={{ 
                   display: 'flex', 

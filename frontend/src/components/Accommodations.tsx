@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 
 interface Accommodation {
   name: string;
@@ -141,9 +142,19 @@ const Accommodations: React.FC = () => {
   return (
     <div>
       <div className="card">
-        <h1 className="card-title">Accommodations Recommendations</h1>
-        <p style={{ color: '#4a5568', marginBottom: '1rem' }}>
-          Find accommodations near your event locations. Search by location or select an event to find nearby places to stay.
+        <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#718096' }}>
+          Secondary · More menu
+        </p>
+        <h1 className="card-title" style={{ marginBottom: '0.35rem' }}>Places to stay</h1>
+        <p style={{ color: '#4a5568', marginBottom: '0.5rem' }}>
+          Find stays near your trip destination. Keep shared deposits and group costs in Trip Money; invite travellers from Invitations.
+        </p>
+        <p style={{ margin: 0, fontSize: '0.9rem' }}>
+          <Link to="/events" style={{ color: '#2b6cb0' }}>Trips</Link>
+          {' · '}
+          <Link to="/shared-accounts" style={{ color: '#2b6cb0' }}>Trip Money</Link>
+          {' · '}
+          <Link to="/invitations" style={{ color: '#2b6cb0' }}>Invitations</Link>
         </p>
       </div>
 
@@ -155,11 +166,11 @@ const Accommodations: React.FC = () => {
 
       {/* Search Section */}
       <div className="card" style={{ marginBottom: '1rem' }}>
-        <h2 style={{ marginBottom: '1rem' }}>Search Accommodations</h2>
+        <h2 style={{ marginBottom: '1rem' }}>Search places to stay</h2>
         
         <div className="grid grid-2" style={{ marginBottom: '1rem' }}>
           <div className="form-group">
-            <label className="form-label">Select Event (Optional)</label>
+            <label className="form-label">Select trip (Optional)</label>
             <select
               className="form-input"
               value={selectedEvent?._id || ''}
@@ -168,7 +179,7 @@ const Accommodations: React.FC = () => {
                 if (event) handleEventSelect(event);
               }}
             >
-              <option value="">No event selected</option>
+              <option value="">No trip selected</option>
               {events.map(event => (
                 <option key={event._id} value={event._id}>
                   {event.title} - {new Date(event.eventDate).toLocaleDateString()}
@@ -209,7 +220,7 @@ const Accommodations: React.FC = () => {
           disabled={searching || !searchLocation.trim()}
           style={{ width: '100%' }}
         >
-          {searching ? <span className="spinner"></span> : 'Search Accommodations'}
+          {searching ? <span className="spinner"></span> : 'Search places to stay'}
         </button>
       </div>
 
@@ -282,7 +293,7 @@ const Accommodations: React.FC = () => {
             borderRadius: '6px'
           }}>
             <p style={{ color: '#0369a1', fontSize: '0.85rem', margin: 0 }}>
-              <strong>Note:</strong> Accommodation data is currently using mock results. 
+              <strong>Note:</strong> Place suggestions here are sample results for planning — not live bookings. 
               To enable real-time search, integrate with Booking.com API, Google Places API, or similar service.
             </p>
           </div>
@@ -292,7 +303,7 @@ const Accommodations: React.FC = () => {
       {accommodations.length === 0 && !searching && (
         <div className="card">
           <p style={{ color: '#4a5568', textAlign: 'center' }}>
-            Enter a location and click "Search Accommodations" to find nearby places to stay.
+            Enter a destination and search for nearby places to stay — then track any shared deposit in Trip Money.
           </p>
         </div>
       )}

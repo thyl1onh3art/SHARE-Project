@@ -29,7 +29,7 @@ function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              <Route path="/" element={<Navigate to="/financial-records" replace />} />
+              <Route path="/" element={<Navigate to="/events" replace />} />
               <Route 
                 path="/financial-records" 
                 element={

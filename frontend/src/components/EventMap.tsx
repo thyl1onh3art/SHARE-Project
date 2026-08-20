@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 
 interface Event {
   _id: string;
@@ -183,9 +184,19 @@ const EventMap: React.FC = () => {
   return (
     <div>
       <div className="card">
-        <h1 className="card-title">Event Locations Map</h1>
-        <p style={{ color: '#4a5568', marginBottom: '1rem' }}>
-          Search and view your events on an interactive map. Click on markers to see event details.
+        <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#718096' }}>
+          Secondary · More menu
+        </p>
+        <h1 className="card-title" style={{ marginBottom: '0.35rem' }}>Trip map</h1>
+        <p style={{ color: '#4a5568', marginBottom: '0.5rem' }}>
+          Optional view of trip destinations and places. Plan the group trip from Trips; invite friends and track shared costs from the primary journey.
+        </p>
+        <p style={{ margin: 0, fontSize: '0.9rem' }}>
+          <Link to="/events" style={{ color: '#2b6cb0' }}>Trips</Link>
+          {' · '}
+          <Link to="/shared-accounts" style={{ color: '#2b6cb0' }}>Trip Money</Link>
+          {' · '}
+          <Link to="/invitations" style={{ color: '#2b6cb0' }}>Invitations</Link>
         </p>
       </div>
 
@@ -198,13 +209,13 @@ const EventMap: React.FC = () => {
       {/* Search Bar */}
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="form-group">
-          <label className="form-label">Search Events</label>
+          <label className="form-label">Search trips</label>
           <input
             type="text"
             className="form-input"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by event name, location, or address..."
+            placeholder="Search by trip name, destination, or address..."
           />
         </div>
       </div>
@@ -246,7 +257,7 @@ const EventMap: React.FC = () => {
       {filteredEvents.length > 0 && (
         <div className="card">
           <h2 style={{ marginBottom: '1rem' }}>
-            Events ({filteredEvents.length})
+            Trips ({filteredEvents.length})
           </h2>
           <div className="grid grid-2">
             {filteredEvents.map((event) => (
@@ -293,7 +304,12 @@ const EventMap: React.FC = () => {
       {filteredEvents.length === 0 && !loading && (
         <div className="card">
           <p style={{ color: '#4a5568', textAlign: 'center' }}>
-            {searchTerm ? 'No events found matching your search.' : 'No events found. Create events to see them on the map.'}
+            {searchTerm ? 'No trips found matching your search.' : (
+              <>
+                No trip locations to show yet.{' '}
+                <Link to="/events">Add a trip</Link> with a destination to see it here.
+              </>
+            )}
           </p>
         </div>
       )}

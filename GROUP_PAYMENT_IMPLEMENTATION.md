@@ -1,5 +1,10 @@
 # Group Payment Feature - Virtual Account System
 
+> **CURRENT STATUS (marketing-alignment Phase 9, 2026-08-20):**  
+> This document describes a **proposed / historical** virtual group-payment and PayPal merchant-payment design.  
+> The live application under `backend/` does **not** currently mount `/api/group-payments` routes and does **not** execute PayPal/Stripe settlement for Trip Money.  
+> Live Trip Money records contributions and settlement *records* in MongoDB only. Treat this file as design reference, not as evidence of live payment functionality.
+
 ## ⚠️ IMPORTANT: Legal Compliance
 
 This implementation uses a **Virtual Account System** that:

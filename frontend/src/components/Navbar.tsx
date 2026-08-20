@@ -2,200 +2,237 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
+const primaryLinks = [
+  { to: '/events', label: 'Trips' },
+  { to: '/shared-accounts', label: 'Trip Money' },
+  { to: '/invitations', label: 'Invitations' },
+];
+
+const moreLinks = [
+  { to: '/personal-finance', label: 'Personal tracking' },
+  { to: '/financial-records', label: 'Activity history' },
+  { to: '/calendar', label: 'Trip calendar' },
+  { to: '/gallery', label: 'Trip photos' },
+  { to: '/map', label: 'Trip map' },
+  { to: '/accommodations', label: 'Places to stay' },
+];
+
+const dropdownLinkStyle: React.CSSProperties = {
+  display: 'block',
+  padding: '0.75rem 1rem',
+  color: '#4a5568',
+  textDecoration: 'none',
+  fontSize: '0.875rem',
+  transition: 'background-color 0.2s',
+  whiteSpace: 'nowrap',
+};
+
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [showMoreDropdown, setShowMoreDropdown] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+  const moreRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  // Close dropdown when clicking outside
+  const closeAllMenus = () => {
+    setShowProfileDropdown(false);
+    setShowMoreDropdown(false);
+    setMobileMenuOpen(false);
+  };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (profileRef.current && !profileRef.current.contains(target)) {
         setShowProfileDropdown(false);
+      }
+      if (moreRef.current && !moreRef.current.contains(target)) {
+        setShowMoreDropdown(false);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  return (
-    <nav style={{
-      background: 'white',
-      padding: '1rem 2rem',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center'
-    }}>
-      <Link to="/" style={{
-        fontSize: '1.5rem',
-        fontWeight: 'bold',
-        textDecoration: 'none',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent'
-      }}>
-        SHARE Project
-      </Link>
-      
-      {user ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <Link to="/personal-finance" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
-              Finance
-            </Link>
-            <Link to="/shared-accounts" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
-              Shared Accounts
-            </Link>
-            <Link to="/invitations" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
-              Invitations
-            </Link>
-            <Link to="/events" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
-              Events
-            </Link>
-            <Link to="/calendar" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
-              Calendar
-            </Link>
-            <Link to="/gallery" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
-              Gallery
-            </Link>
-            <Link to="/map" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
-              Map
-            </Link>
-            <Link to="/accommodations" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
-              Accommodations
-            </Link>
-          </div>
-          
-          {/* Profile Dropdown */}
-          <div style={{ position: 'relative' }} ref={dropdownRef}>
-            <button
-              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '8px 12px',
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500',
-                transition: 'transform 0.2s'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-            >
-              <span>{user.name}</span>
-              <span style={{ fontSize: '12px' }}>▼</span>
-            </button>
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 768) {
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
-            {showProfileDropdown && (
-              <div style={{
-                position: 'absolute',
-                top: '100%',
-                right: 0,
-                marginTop: '0.5rem',
-                background: 'white',
-                borderRadius: '8px',
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                border: '1px solid #e2e8f0',
-                minWidth: '200px',
-                zIndex: 1000
-              }}>
-                <div style={{ padding: '0.5rem 0' }}>
-                  <div style={{
-                    padding: '0.75rem 1rem',
-                    borderBottom: '1px solid #e2e8f0',
-                    fontSize: '0.875rem',
-                    color: '#4a5568'
-                  }}>
-                    <div style={{ fontWeight: '600', color: '#2d3748' }}>{user.name}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#718096' }}>{user.email}</div>
-                  </div>
-                  
-                  <Link
-                    to="/profile"
-                    onClick={() => setShowProfileDropdown(false)}
-                    style={{
-                      display: 'block',
-                      padding: '0.75rem 1rem',
-                      color: '#4a5568',
-                      textDecoration: 'none',
-                      fontSize: '0.875rem',
-                      transition: 'background-color 0.2s'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = '#f7fafc'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                  >
-                    Edit Profile
+  const renderDropdownItem = (to: string, label: string, onNavigate?: () => void) => (
+    <Link
+      key={to}
+      to={to}
+      onClick={() => {
+        onNavigate?.();
+        closeAllMenus();
+      }}
+      style={dropdownLinkStyle}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = '#f7fafc';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'transparent';
+      }}
+    >
+      {label}
+    </Link>
+  );
+
+  return (
+    <nav className="share-nav">
+      <div className="share-nav-inner">
+        <Link to="/" className="share-nav-brand" onClick={closeAllMenus}>
+          SHARE
+        </Link>
+
+        {user ? (
+          <>
+            <div className="share-nav-desktop">
+              <div className="share-nav-primary">
+                {primaryLinks.map((link) => (
+                  <Link key={link.to} to={link.to} className="share-nav-link">
+                    {link.label}
                   </Link>
-                  
-                  <Link
-                    to="/settings"
-                    onClick={() => setShowProfileDropdown(false)}
-                    style={{
-                      display: 'block',
-                      padding: '0.75rem 1rem',
-                      color: '#4a5568',
-                      textDecoration: 'none',
-                      fontSize: '0.875rem',
-                      transition: 'background-color 0.2s'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = '#f7fafc'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                  >
-                    Settings
-                  </Link>
-                  
-                  <div style={{ borderTop: '1px solid #e2e8f0', margin: '0.5rem 0' }}></div>
-                  
+                ))}
+
+                <div className="share-nav-dropdown" ref={moreRef}>
                   <button
+                    type="button"
+                    className="share-nav-link share-nav-menu-btn"
+                    aria-expanded={showMoreDropdown}
+                    aria-haspopup="true"
                     onClick={() => {
+                      setShowMoreDropdown((open) => !open);
                       setShowProfileDropdown(false);
-                      handleLogout();
                     }}
-                    style={{
-                      display: 'block',
-                      width: '100%',
-                      padding: '0.75rem 1rem',
-                      background: 'none',
-                      border: 'none',
-                      color: '#e53e3e',
-                      textAlign: 'left',
-                      fontSize: '0.875rem',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.2s'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = '#fed7d7'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                   >
-                    Logout
+                    More <span className="share-nav-caret">▼</span>
                   </button>
+                  {showMoreDropdown && (
+                    <div className="share-nav-menu" role="menu">
+                      {moreLinks.map((link) => renderDropdownItem(link.to, link.label))}
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
+
+              <div className="share-nav-dropdown" ref={profileRef}>
+                <button
+                  type="button"
+                  className="share-nav-profile-btn"
+                  aria-expanded={showProfileDropdown}
+                  aria-haspopup="true"
+                  onClick={() => {
+                    setShowProfileDropdown((open) => !open);
+                    setShowMoreDropdown(false);
+                  }}
+                >
+                  <span>{user.name}</span>
+                  <span className="share-nav-caret">▼</span>
+                </button>
+                {showProfileDropdown && (
+                  <div className="share-nav-menu share-nav-menu-right" role="menu">
+                    <div className="share-nav-user-meta">
+                      <div className="share-nav-user-name">{user.name}</div>
+                      <div className="share-nav-user-email">{user.email}</div>
+                    </div>
+                    {renderDropdownItem('/profile', 'Edit Profile')}
+                    {renderDropdownItem('/settings', 'Settings')}
+                    <div className="share-nav-menu-divider" />
+                    <button
+                      type="button"
+                      className="share-nav-logout"
+                      onClick={() => {
+                        closeAllMenus();
+                        handleLogout();
+                      }}
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="share-nav-hamburger"
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={mobileMenuOpen}
+              onClick={() => setMobileMenuOpen((open) => !open)}
+            >
+              {mobileMenuOpen ? '✕' : '☰'}
+            </button>
+          </>
+        ) : (
+          <div className="share-nav-auth">
+            <Link to="/login" className="share-nav-link share-nav-link-primary">
+              Login
+            </Link>
+            <Link to="/register" className="share-nav-link">
+              Register
+            </Link>
           </div>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <Link to="/login" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '14px' }}>
-            Login
+        )}
+      </div>
+
+      {user && mobileMenuOpen && (
+        <div className="share-nav-mobile-panel">
+          <p className="share-nav-section-label">Primary</p>
+          {primaryLinks.map((link) => (
+            <Link
+              key={link.to}
+              to={link.to}
+              className="share-nav-mobile-link"
+              onClick={closeAllMenus}
+            >
+              {link.label}
+            </Link>
+          ))}
+
+          <p className="share-nav-section-label">More</p>
+          {moreLinks.map((link) => (
+            <Link
+              key={link.to}
+              to={link.to}
+              className="share-nav-mobile-link"
+              onClick={closeAllMenus}
+            >
+              {link.label}
+            </Link>
+          ))}
+
+          <p className="share-nav-section-label">Account</p>
+          <Link to="/profile" className="share-nav-mobile-link" onClick={closeAllMenus}>
+            Edit Profile
           </Link>
-          <Link to="/register" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
-            Register
+          <Link to="/settings" className="share-nav-mobile-link" onClick={closeAllMenus}>
+            Settings
           </Link>
+          <button
+            type="button"
+            className="share-nav-mobile-logout"
+            onClick={() => {
+              closeAllMenus();
+              handleLogout();
+            }}
+          >
+            Logout
+          </button>
         </div>
       )}
     </nav>
