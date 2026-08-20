@@ -891,3 +891,72 @@ Prototype coordinates and records; organisers settle real money outside SHARE.
 4. Leave `stash@{0}` unrestored unless a separate task requests it  
 
 **STOP:** Do not push or merge in this agent turn.
+
+---
+
+## Integration 1 — Friends (pre-marketing recovery into marketing-aligned SHARE)
+
+**Branch:** `integrate-pre-marketing-features`  
+**Source inspected:** `pre-marketing-wip` (behaviours extracted; branch not merged; commit `7282078` not cherry-picked; `stash@{0}` not restored)
+
+### Recovered behaviours
+- List current user’s friends (`GET /api/friends`)
+- Add a registered SHARE user by email (`POST /api/friends`)
+- Remove a friend by id (`DELETE /api/friends/:friendId`)
+- Prevent self-add and duplicate friendships
+- Frontend Friends page under **More** (secondary)
+- `friendService` helpers (`rememberFriend`, `rememberFriendByEmail`, `rememberFriendsMutual`) shipped for later invite auto-friend use — **not wired** into invite/shared-account controllers in this integration
+
+### Files migrated / changed
+| Area | Path |
+|------|------|
+| Added | `backend/services/friendService.js` |
+| Added | `backend/controllers/friendController.js` |
+| Added | `backend/routes/friendRoutes.js` |
+| Added | `backend/tests/friends.test.js` |
+| Added | `frontend/src/components/Friends.tsx` |
+| Edited (surgical) | `backend/app.js` — mount `/api/friends`; skip `startServer()` when `NODE_ENV=test`; list friends on root endpoint map |
+| Edited (surgical) | `backend/middleware/validation.js` — **only** `validateAddFriend` (Trip Money target fields remain optional) |
+| Edited (surgical) | `frontend/src/App.tsx` — protected `/friends` route; `/` still → `/events` |
+| Edited (surgical) | `frontend/src/components/Navbar.tsx` — Friends in `moreLinks` only |
+
+### Adaptations for current main
+- Friends is **not** a primary nav item; primary remains Trips / Trip Money / Invitations / More
+- Copy reframed for group travel; explicit that friendship ≠ Trip / Trip Money access
+- Links go to `/invitations` (not WIP `/messages`)
+- Secondary · More menu framing aligned with Personal tracking / Activity history
+- Responsive flex-wrap on friend rows and header actions
+- Invalid `friendId` on DELETE returns 400
+- Add uses `$addToSet` via `rememberFriend` after duplicate checks
+
+### Deliberately deferred
+- Auto-friend on invite send/accept (would touch `inviteController` / Invitations UX) → **Invitation Helpers** integration
+- InviteRecipientsForm friend picker
+- Payment requests, soft-delete SharedAccount, Messages rename, finance UI regressions
+- Genericising the “No SHARE account found with that email” enumeration message (kept prototype wording for API/test compatibility; safer generic copy can be considered later without expanding Integration 1)
+
+### Security notes
+- All Friends routes require `auth`; mutations use `req.user.userId` only (cannot edit another user’s list)
+- Remove does not delete User documents
+- Friendship grants **no** Trip Money membership or permissions
+- Email add still reveals whether an account exists (same as recovered prototype)
+
+### Tests / results
+| Check | Result |
+|--------|--------|
+| `NODE_ENV=test npx jest tests/friends.test.js --forceExit` | **PASS** — 8 tests (list, unauth GET, add, self, duplicate, unauth POST, remove, invalid id) |
+| Frontend `CI=true npm run build` | **PASS** |
+| Frontend `npm test -- --watchAll=false` | **PASS** — 1 suite / 1 test |
+| First Friends run without test `startServer` guard | **Environment failure** (`Topology is closed` / `process.exit(1)` on app import) — distinguished from Friends logic; minimal guard applied |
+
+### Regression (code-checked)
+- `/` → `/events` preserved
+- Primary nav unchanged
+- Trip Money progress hero + Trip Close-out still present in `SharedAccountDetail.tsx`
+- Invitations route/component unchanged
+- No custodial banking wording introduced by Friends copy
+
+### Next
+Integration 2 — Auth user shape is safe to begin (does not depend on unfinished Friends work).  
+**Do not push** this commit unless separately requested.
+

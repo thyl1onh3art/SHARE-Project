@@ -9,6 +9,7 @@ const primaryLinks = [
 ];
 
 const moreLinks = [
+  { to: '/friends', label: 'Friends' },
   { to: '/personal-finance', label: 'Personal tracking' },
   { to: '/financial-records', label: 'Activity history' },
   { to: '/calendar', label: 'Trip calendar' },

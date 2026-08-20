@@ -137,6 +137,14 @@ const validateRemoveMember = [
   handleValidationErrors
 ];
 
+const validateAddFriend = [
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Must be a valid email address'),
+  handleValidationErrors
+];
+
 module.exports = {
   validateUserRegistration,
   validateUserLogin,
@@ -145,6 +153,7 @@ module.exports = {
   validateInvite,
   validateAcceptInvite,
   validateRemoveMember,
+  validateAddFriend,
   handleValidationErrors
 };
 

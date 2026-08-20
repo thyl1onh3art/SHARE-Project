@@ -21,6 +21,7 @@ const recommendationRoutes = require('./routes/recommendationRoutes');
 const twoFactorRoutes = require('./routes/twoFactorRoutes');
 // const backupRoutes = require('./routes/backupRoutes'); // Disabled - backupController missing
 const paymentRequestRoutes = require('./routes/paymentRequestRoutes');
+const friendRoutes = require('./routes/friendRoutes');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -128,7 +129,8 @@ app.get('/', (req, res) => {
       users: '/api/users',
       sharedAccounts: '/api/shared-accounts',
       events: '/api/events',
-      gallery: '/api/gallery'
+      gallery: '/api/gallery',
+      friends: '/api/friends'
     }
   });
 });
@@ -151,6 +153,7 @@ app.use('/api/gallery', galleryRoutes);
 app.use('/api/accommodations', accommodationRoutes);
 app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/payment-requests', paymentRequestRoutes);
+app.use('/api/friends', friendRoutes);
 // app.use('/api/email-verification', emailVerificationRoutes);
 
 // 404 handler
@@ -254,7 +257,9 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
-// Start the server
-startServer();
+// Start the server (skip in test environment so Jest can require the app)
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
 
 module.exports = app;
