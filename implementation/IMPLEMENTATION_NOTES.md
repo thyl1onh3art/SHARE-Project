@@ -321,3 +321,61 @@ Make customer-facing group-money UX describe virtual contribution / commitment /
 3. Later: invitation share UX (Phase 5), de-emphasise Personal Finance (Phase 6), non-custodial close-out summary (Phase 7).
 
 **STOP:** Do not start pack Phase 2/4 without explicit approval.
+
+---
+
+## 12. Pack Phase 2 — Simplify primary navigation
+
+**Branch:** `marketing-alignment`  
+**Stash:** `stash@{0}` left untouched.  
+**Preserved:** Trips reframe (user Phase 1) and Trip Money terminology (user Phase 2 / pack Phase 3).
+
+### Navigation before → after
+
+| Before | After |
+|--------|--------|
+| Brand: `SHARE Project` | Brand: `SHARE` |
+| Flat primary row: Finance, Trip Money, Invitations, Trips, Calendar, Gallery, Map, Accommodations + profile | Primary: **Trips**, **Trip Money**, **Invitations** + **More** + profile |
+| Many links likely overflow on narrow screens | ≤768px: hamburger + full-height secondary panel; desktop More dropdown |
+
+### Primary items
+1. Trips → `/events`
+2. Trip Money → `/shared-accounts`
+3. Invitations → `/invitations`
+
+### More / secondary items
+- Personal Finance → `/personal-finance`
+- Financial Records → `/financial-records`
+- Calendar → `/calendar`
+- Gallery → `/gallery`
+- Map → `/map`
+- Accommodations → `/accommodations`
+
+### Account (profile menu desktop; Account section on mobile)
+- Edit Profile → `/profile`
+- Settings → `/settings`
+- Logout
+
+### Files changed
+- `frontend/src/components/Navbar.tsx`
+- `frontend/src/App.css` (`.share-nav*` styles + mobile breakpoints)
+- `implementation/TASKS.md`
+- `implementation/IMPLEMENTATION_NOTES.md`
+
+### Mobile behaviour
+- At `max-width: 768px`, desktop primary/More/profile cluster is hidden.
+- Hamburger toggles a panel with Primary, More, and Account sections (no horizontal overflow of many buttons).
+- Routes and feature pages unchanged; nothing deleted.
+
+### Build / test results
+| Check | Result |
+|--------|--------|
+| `CI=true npm run build` (frontend) | **PASS** |
+| `CI=true npm test -- --watchAll=false` (frontend) | **PASS** (1/1) |
+
+### Recommendations for next phase
+1. Pack Phase 4 — contribution progress as the hero on Trip Money list/detail.
+2. Pack Phase 5 — invitation share/copy for messaging apps.
+3. Pack Phase 6 — further de-emphasise Personal Finance / Financial Records copy journey.
+
+**STOP:** Do not start the next pack phase without approval.

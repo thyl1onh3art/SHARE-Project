@@ -20,11 +20,11 @@ Cursor: complete these in order. Update `[ ]` to `[x]` only after code is change
 - Existing event data still loads.
 
 ## Phase 2 — Simplify navigation
-- [ ] Refactor `frontend/src/components/Navbar.tsx` so primary navigation is limited to Trips, Shared Costs/Trip Money, and Invitations.
-- [ ] Move Calendar, Gallery, Map and Accommodations into a secondary `More` menu or equivalent compact pattern.
-- [ ] Remove Personal Finance from primary navigation; retain access secondarily if it remains functional.
-- [ ] Make navigation responsive on narrow/mobile widths.
-- [ ] Replace `SHARE Project` brand label with customer-facing `SHARE` unless repository branding requires otherwise.
+- [x] Refactor `frontend/src/components/Navbar.tsx` so primary navigation is limited to Trips, Shared Costs/Trip Money, and Invitations.
+- [x] Move Calendar, Gallery, Map and Accommodations into a secondary `More` menu or equivalent compact pattern.
+- [x] Remove Personal Finance from primary navigation; retain access secondarily if it remains functional.
+- [x] Make navigation responsive on narrow/mobile widths.
+- [x] Replace `SHARE Project` brand label with customer-facing `SHARE` unless repository branding requires otherwise.
 
 ### Acceptance
 - Primary nav communicates the travel/shared-cost proposition in under 3–4 choices.
