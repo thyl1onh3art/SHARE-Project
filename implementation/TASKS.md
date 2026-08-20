@@ -74,11 +74,11 @@ Cursor: complete these in order. Update `[ ]` to `[x]` only after code is change
 - [x] Where easy, adjust page descriptions so they feel attached to a trip rather than a generic social network.
 
 ## Phase 7 — Add a prototype close-out summary (non-custodial)
-- [ ] Inspect existing shared-account data to determine whether a reliable close-out summary can be computed without schema changes.
-- [ ] If feasible, add a read-only or confirmation-based **Trip Close-out** section that shows target, recorded contributions, recorded shared costs, remaining tracked amount, and member contribution positions.
-- [ ] Do **not** perform real automatic refunds.
-- [ ] Do **not** claim a real-money balance is being returned.
-- [ ] If reliable close-out cannot be computed from current data, document the blocker instead of inventing it.
+- [x] Inspect existing shared-account data to determine whether a reliable close-out summary can be computed without schema changes.
+- [x] If feasible, add a read-only or confirmation-based **Trip Close-out** section that shows target, recorded contributions, recorded shared costs, remaining tracked amount, and member contribution positions.
+- [x] Do **not** perform real automatic refunds.
+- [x] Do **not** claim a real-money balance is being returned.
+- [x] If reliable close-out cannot be computed from current data, document the blocker instead of inventing it.
 
 ### Acceptance
 - Close-out helps test the “finish square” concept safely.

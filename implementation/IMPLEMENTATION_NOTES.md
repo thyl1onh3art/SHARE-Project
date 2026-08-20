@@ -662,3 +662,69 @@ Secondary headers wrap; core links remain text links; More menu labels shorter/c
 Prototype non-custodial **Trip Close-out** summary from existing shared-account/ledger data (no automatic refunds; no claim of returning real bank balances).
 
 **STOP:** Do not start Pack Phase 7 without approval.
+
+---
+
+## 17. Pack Phase 7 — Non-custodial Trip Close-out summary
+
+**Branch:** `marketing-alignment`  
+**Stash:** `stash@{0}` left untouched.  
+**Not pushed.** No backend schema/API redesign.
+
+### Trip Close-out BEFORE → AFTER
+| Before | After |
+|--------|--------|
+| No end-of-trip reconciliation view | **Trip Close-out** section at bottom of Trip Money detail |
+| Target/progress only in hero | Group reconciliation + readiness status + traveller positions + pending settlement visibility |
+
+### Data used
+- `targetAmount`, `targetDate`, `perPersonAmount` (optional)
+- Ledger via `/finance?sharedAccount=` (inputs/outputs)
+- Owner + members for traveller list
+- Pending settlement requests from `GET /payment-requests` filtered to this pot
+
+### Calculations
+- `recordedTotal` = sum(input) − sum(output)
+- `remaining = max(0, target − recordedTotal)`
+- `amountAboveTarget = max(0, recordedTotal − target)` labelled **Recorded above target** (not refundable)
+- `%` clamped 0–100
+- Equal-share delta: above / below / matches suggested share (illustrative only)
+
+### Readiness statuses
+- **No target set**
+- **Still collecting**
+- **Ready to review** (target reached on ledger ≠ real-world settled)
+- **Review difference** (recorded above target)
+
+### Settlement-record behaviour
+Surfaces **Pending review** requests only (current API limitation). Explains approvals record ledger settlement, not bank movement. No fake Close account.
+
+### Organiser next actions (existing only)
+Set/edit target, Record contribution, Request settlement record, scroll to traveller list / activity.
+
+### Files changed
+- `frontend/src/components/SharedAccountDetail.tsx`
+- `frontend/src/App.css`
+- `implementation/TASKS.md`
+- `implementation/IMPLEMENTATION_NOTES.md`
+
+### Data limitations
+- Ledger does **not** reliably separate trip spend vs member-to-member repayments → **no profit/loss invented**
+- Historical approved/rejected settlement requests not listed by `GET /payment-requests` (pending only)
+- No SharedAccount archive/close state — not fabricated
+- Invites/Trips not linked to SharedAccount for “trip finished” event date beyond optional `targetDate`
+
+### Deliberately NOT implemented
+Automatic refunds, residue distribution, PSP payouts, wallets, withdrawals, Close account button, binding debt language.
+
+### Build / tests
+| Check | Result |
+|--------|--------|
+| `CI=true npm run build` | **PASS** |
+| Frontend tests | **PASS** (1/1) |
+| Backend tests | **Not run** — no backend behaviour change |
+
+### Recommendation for Pack Phase 8
+Copy consistency pass across primary screens (`COPY_AND_TERMINOLOGY.md`), including strategic line only where adjacent copy stays non-custodial.
+
+**STOP:** Do not start Pack Phase 8 without approval.

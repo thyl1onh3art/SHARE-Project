@@ -74,6 +74,7 @@ const SharedAccountDetail: React.FC = () => {
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [removeSubmitting, setRemoveSubmitting] = useState(false);
   const [newOwnerId, setNewOwnerId] = useState('');
+  const [pendingSettlementRequests, setPendingSettlementRequests] = useState<any[]>([]);
 
   useEffect(() => {
     if (accountId) {
@@ -117,6 +118,20 @@ const SharedAccountDetail: React.FC = () => {
       setTransactions(populatedRecords.sort((a, b) => 
         new Date(b.date).getTime() - new Date(a.date).getTime()
       ));
+
+      try {
+        const settlementResponse = await axios.get('/payment-requests');
+        const forThisAccount = (settlementResponse.data || []).filter((req: any) => {
+          const reqAccountId =
+            typeof req.sharedAccount === 'object'
+              ? req.sharedAccount?._id
+              : req.sharedAccount;
+          return String(reqAccountId) === String(accountId);
+        });
+        setPendingSettlementRequests(forThisAccount);
+      } catch {
+        setPendingSettlementRequests([]);
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load account details');
     } finally {
@@ -432,11 +447,33 @@ const SharedAccountDetail: React.FC = () => {
           : (account.targetAmount as number) / Math.max(1, allParticipants.length))
       : null;
   const contributionCount = transactions.filter((t) => t.type === 'input').length;
+  const activityCount = transactions.length;
+  const amountAboveTarget = hasTarget
+    ? Math.max(0, recordedTotal - (account.targetAmount as number))
+    : 0;
   const last24HoursCutoff = Date.now() - 24 * 60 * 60 * 1000;
   const recentTransactions = transactions.filter((transaction) => {
     const transactionTime = new Date(transaction.date).getTime();
     return Number.isFinite(transactionTime) && transactionTime >= last24HoursCutoff;
   });
+
+  type CloseOutStatus = 'no_target' | 'still_collecting' | 'ready_to_review' | 'review_difference';
+  let closeOutStatus: CloseOutStatus = 'no_target';
+  let closeOutLabel = 'No target set';
+  let closeOutDetail = 'Close-out comparison needs a contribution target. Set one to compare recorded totals.';
+  if (hasTarget && remainingToContribute !== null && remainingToContribute > 0.001) {
+    closeOutStatus = 'still_collecting';
+    closeOutLabel = 'Still collecting';
+    closeOutDetail = 'The recorded total is still below the contribution target. Keep recording contributions as the group commits.';
+  } else if (hasTarget && amountAboveTarget > 0.001) {
+    closeOutStatus = 'review_difference';
+    closeOutLabel = 'Review difference';
+    closeOutDetail = 'Recorded total is above the contribution target on the ledger. Review traveller positions before you document any settlement decision.';
+  } else if (hasTarget) {
+    closeOutStatus = 'ready_to_review';
+    closeOutLabel = 'Ready to review';
+    closeOutDetail = 'The contribution target is reached on the ledger. Review each traveller’s recorded position. Reaching the target does not mean real-world settlements are finished.';
+  }
 
   let organiserNextStep = 'Record a contribution when money has been committed for this trip.';
   if (!hasTarget && isOwner) {
@@ -611,7 +648,7 @@ const SharedAccountDetail: React.FC = () => {
       </div>
 
       {/* Traveller contribution status */}
-      <div className="card" style={{ marginBottom: '1.5rem' }}>
+      <div className="card" style={{ marginBottom: '1.5rem' }} id="traveller-contributions">
         <h2 className="card-title">Traveller contributions</h2>
         {allParticipants.length <= 1 ? (
           <div className="trip-money-empty-panel">
@@ -698,7 +735,7 @@ const SharedAccountDetail: React.FC = () => {
       </div>
 
       {/* Recent activity */}
-      <div className="card">
+      <div className="card" id="group-activity">
         <h2 className="card-title">Group spending record (last 24 hours)</h2>
         <p style={{ color: '#4a5568', fontSize: '0.9rem', marginTop: '-0.25rem' }}>
           Showing {recentTransactions.length} of {transactions.length} total recorded item{transactions.length !== 1 ? 's' : ''}.
@@ -763,6 +800,215 @@ const SharedAccountDetail: React.FC = () => {
             </table>
           </div>
         )}
+      </div>
+
+      {/* Trip Close-out — final review stage (non-custodial) */}
+      <div className="card trip-closeout">
+        <p className="trip-money-kicker">End of trip review</p>
+        <h2 className="card-title" style={{ marginBottom: '0.35rem' }}>Trip Close-out</h2>
+        <p style={{ color: '#4a5568', marginTop: 0 }}>
+          Review what SHARE has recorded, compare traveller positions, and document settlement decisions.
+          SHARE helps the group finish square on paper — it does not return money, distribute residue, or close a bank account.
+        </p>
+        <div className="trip-money-transparency">
+          Settlement records help the group record what has been agreed. SHARE does not move or hold the underlying money.
+        </div>
+
+        <div className={`trip-closeout-status trip-closeout-status--${closeOutStatus}`}>
+          <strong>{closeOutLabel}</strong>
+          <p style={{ margin: '0.35rem 0 0' }}>{closeOutDetail}</p>
+        </div>
+
+        <div className="trip-money-stat-grid" style={{ marginTop: '1rem' }}>
+          <div>
+            <p className="trip-money-stat-label">Contribution target</p>
+            <p className="trip-money-stat-value">
+              {hasTarget ? `£${(account.targetAmount as number).toFixed(2)}` : 'Not set'}
+            </p>
+          </div>
+          <div>
+            <p className="trip-money-stat-label">Recorded total</p>
+            <p className="trip-money-stat-value">£{recordedTotal.toFixed(2)}</p>
+          </div>
+          {hasTarget && remainingToContribute !== null && remainingToContribute > 0 && (
+            <div>
+              <p className="trip-money-stat-label">Remaining to contribute</p>
+              <p className="trip-money-stat-value">£{remainingToContribute.toFixed(2)}</p>
+            </div>
+          )}
+          {hasTarget && amountAboveTarget > 0 && (
+            <div>
+              <p className="trip-money-stat-label">Recorded above target</p>
+              <p className="trip-money-stat-value">£{amountAboveTarget.toFixed(2)}</p>
+            </div>
+          )}
+          {hasTarget && (
+            <div>
+              <p className="trip-money-stat-label">Of target recorded</p>
+              <p className="trip-money-stat-value">{Math.round(percentComplete)}%</p>
+            </div>
+          )}
+          <div>
+            <p className="trip-money-stat-label">Travellers</p>
+            <p className="trip-money-stat-value">{allParticipants.length}</p>
+          </div>
+          <div>
+            <p className="trip-money-stat-label">Contribution records</p>
+            <p className="trip-money-stat-value">{contributionCount}</p>
+          </div>
+          <div>
+            <p className="trip-money-stat-label">Ledger activity items</p>
+            <p className="trip-money-stat-value">{activityCount}</p>
+          </div>
+        </div>
+
+        {account.targetDate && (
+          <p className="trip-money-target-date">
+            Target date: {new Date(account.targetDate).toLocaleDateString()}
+          </p>
+        )}
+
+        {suggestedEqualShare !== null && (
+          <p className="trip-money-equal-share">
+            Suggested equal share (illustrative, not a binding debt): £{suggestedEqualShare.toFixed(2)} each,
+            based on the current target and traveller count.
+          </p>
+        )}
+
+        <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1.05rem', color: '#2d3748' }}>
+          Traveller contribution positions
+        </h3>
+        {allParticipants.length === 0 ? (
+          <p style={{ color: '#4a5568' }}>No travellers on this pot yet.</p>
+        ) : (
+          <div className="trip-money-member-list">
+            {allParticipants.map((participant) => {
+              const participantId = participant._id;
+              const netRecorded = calculateUserNetRecorded(participantId);
+              const recordedDisplay = Math.max(0, netRecorded);
+              let positionLabel = 'Tracking';
+              let positionClass = 'trip-money-status-neutral';
+              let positionDetail = '';
+
+              if (suggestedEqualShare !== null) {
+                const delta = recordedDisplay - suggestedEqualShare;
+                if (Math.abs(delta) < 0.01) {
+                  positionLabel = 'Matches suggested share';
+                  positionClass = 'trip-money-status-complete';
+                  positionDetail = `Recorded £${recordedDisplay.toFixed(2)} · Suggested £${suggestedEqualShare.toFixed(2)}`;
+                } else if (delta > 0) {
+                  positionLabel = 'Above suggested share';
+                  positionClass = 'trip-money-status-complete';
+                  positionDetail = `Recorded £${recordedDisplay.toFixed(2)} · Suggested £${suggestedEqualShare.toFixed(2)} · £${delta.toFixed(2)} above suggested share`;
+                } else {
+                  positionLabel = 'Below suggested share';
+                  positionClass = 'trip-money-status-pending';
+                  positionDetail = `Recorded £${recordedDisplay.toFixed(2)} · Suggested £${suggestedEqualShare.toFixed(2)} · £${Math.abs(delta).toFixed(2)} below suggested share`;
+                }
+              } else {
+                positionDetail = `Recorded £${recordedDisplay.toFixed(2)}`;
+              }
+
+              return (
+                <div key={`closeout-${participantId}`} className="trip-money-member-row">
+                  <div className="trip-money-member-main">
+                    <div>
+                      <strong>
+                        {participant.firstName} {participant.lastName}
+                        {String(participantId) === String(userId) ? ' (you)' : ''}
+                      </strong>
+                      <div className="trip-money-member-meta">{positionDetail}</div>
+                    </div>
+                    <span className={`trip-money-status-pill ${positionClass}`}>{positionLabel}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1.05rem', color: '#2d3748' }}>
+          Settlement records
+        </h3>
+        {pendingSettlementRequests.length === 0 ? (
+          <p style={{ color: '#4a5568', fontSize: '0.95rem' }}>
+            No pending settlement records for this pot. The list API only returns open requests awaiting review —
+            approved or rejected history is not exposed separately yet.
+          </p>
+        ) : (
+          <div className="trip-money-member-list">
+            {pendingSettlementRequests.map((req) => (
+              <div key={req._id} className="trip-money-member-row">
+                <div className="trip-money-member-main">
+                  <div>
+                    <strong>£{(req.amount || 0).toFixed(2)} settlement record</strong>
+                    <div className="trip-money-member-meta">
+                      Requested by{' '}
+                      {req.requestedBy
+                        ? `${req.requestedBy.firstName || ''} ${req.requestedBy.lastName || ''}`.trim() ||
+                          req.requestedBy.email
+                        : 'a traveller'}
+                      {req.description ? ` · ${req.description}` : ''}
+                    </div>
+                  </div>
+                  <span className="trip-money-status-pill trip-money-status-pending">
+                    Pending review
+                  </span>
+                </div>
+                <p style={{ margin: '0.35rem 0 0', fontSize: '0.85rem', color: '#4a5568' }}>
+                  Approvals: {req.approvals?.length || 0} / {req.requiredApprovals || 0}. Approving records a ledger
+                  settlement — SHARE does not send bank payments.
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1.05rem', color: '#2d3748' }}>
+          Organiser next steps
+        </h3>
+        <div className="trip-money-actions">
+          {!hasTarget && isOwner && (
+            <button className="btn btn-primary" onClick={handleEditClick}>
+              Set contribution target
+            </button>
+          )}
+          {closeOutStatus === 'still_collecting' && (
+            <button className="btn btn-primary" onClick={handleTransferClick}>
+              Record contribution
+            </button>
+          )}
+          {(closeOutStatus === 'ready_to_review' || closeOutStatus === 'review_difference') && (
+            <button className="btn btn-primary" onClick={handlePayClick}>
+              Request settlement record
+            </button>
+          )}
+          <button
+            className="btn btn-secondary"
+            onClick={() => {
+              document.getElementById('traveller-contributions')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+          >
+            Review traveller contributions
+          </button>
+          {isOwner && (
+            <button className="btn btn-secondary" onClick={handleEditClick}>
+              Edit contribution target
+            </button>
+          )}
+          <button
+            className="btn btn-secondary"
+            onClick={() => {
+              document.getElementById('group-activity')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+          >
+            Review activity history
+          </button>
+        </div>
+        <p style={{ marginTop: '0.85rem', fontSize: '0.85rem', color: '#718096' }}>
+          There is no “close account” or automatic refund action in SHARE today. When the group is finished reviewing,
+          use your own bank apps or cash to settle any real-world differences you agree on.
+        </p>
       </div>
 
       {/* Edit Details Modal */}
