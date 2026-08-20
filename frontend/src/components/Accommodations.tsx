@@ -293,7 +293,7 @@ const Accommodations: React.FC = () => {
             borderRadius: '6px'
           }}>
             <p style={{ color: '#0369a1', fontSize: '0.85rem', margin: 0 }}>
-              <strong>Note:</strong> Accommodation data is currently using mock results. 
+              <strong>Note:</strong> Place suggestions here are sample results for planning — not live bookings. 
               To enable real-time search, integrate with Booking.com API, Google Places API, or similar service.
             </p>
           </div>

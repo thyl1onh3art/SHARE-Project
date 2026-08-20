@@ -333,7 +333,7 @@ const FinancialRecords: React.FC = () => {
                       justifyContent: 'space-between'
                     }}>
                       <span>{memberCount + 1} member{memberCount !== 0 ? 's' : ''}</span>
-                      <span>{account.financeRecords?.length || 0} transaction{(account.financeRecords?.length || 0) !== 1 ? 's' : ''}</span>
+                      <span>{account.financeRecords?.length || 0} recorded item{(account.financeRecords?.length || 0) !== 1 ? 's' : ''}</span>
                     </div>
                   </div>
                 </Link>

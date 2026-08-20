@@ -85,10 +85,10 @@ Cursor: complete these in order. Update `[ ]` to `[x]` only after code is change
 - No regulated money movement is added.
 
 ## Phase 8 — Copy consistency pass
-- [ ] Apply `COPY_AND_TERMINOLOGY.md` across primary screens.
-- [ ] Remove customer-facing terms that imply banking/custody unless genuinely accurate.
-- [ ] Keep the strategic line **“Fund the trip together. Spend together. Finish square.”** only in marketing/intro contexts where adjacent copy does not falsely claim current functionality.
-- [ ] Prefer concrete examples: trip, accommodation deposit, tickets, group costs, organiser, friend contribution.
+- [x] Apply `COPY_AND_TERMINOLOGY.md` across primary screens.
+- [x] Remove customer-facing terms that imply banking/custody unless genuinely accurate.
+- [x] Keep the strategic line **“Fund the trip together. Spend together. Finish square.”** only in marketing/intro contexts where adjacent copy does not falsely claim current functionality.
+- [x] Prefer concrete examples: trip, accommodation deposit, tickets, group costs, organiser, friend contribution.
 
 ## Phase 9 — Quality and regression
 - [ ] Run frontend tests.

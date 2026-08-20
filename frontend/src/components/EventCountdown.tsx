@@ -278,7 +278,7 @@ const EventCountdown: React.FC = () => {
           <div>
             <h1 className="card-title">Trips</h1>
             <p style={{ margin: '0.35rem 0 0', color: '#4a5568', fontSize: '0.95rem' }}>
-              Plan the group holiday in one place — destination, dates, and shared trip costs.
+              Fund the trip together. Spend together. Finish square. Plan destination and dates here, then coordinate shared costs in Trip Money.
             </p>
             <p style={{ margin: '0.65rem 0 0', fontSize: '0.9rem' }}>
               <Link to="/invitations" style={{ color: '#2b6cb0' }}>Invite travellers</Link>
@@ -290,7 +290,7 @@ const EventCountdown: React.FC = () => {
             onClick={() => setShowForm(!showForm)}
             className="btn btn-primary"
           >
-            {showForm ? 'Cancel' : 'Add trip'}
+            {showForm ? 'Cancel' : 'Create trip'}
           </button>
         </div>
       </div>
@@ -645,7 +645,7 @@ const EventCountdown: React.FC = () => {
         {events.length === 0 ? (
           <div style={{ color: '#4a5568', textAlign: 'center', padding: '2rem' }}>
             <p style={{ marginTop: 0, fontSize: '1.05rem' }}>
-              No trips yet. Add your first group trip to get started.
+              No trips yet. Create your first group trip to get started.
             </p>
             <p style={{ marginBottom: 0, fontSize: '0.9rem' }}>
               Try an Amsterdam weekend, Ibiza trip, ski holiday, stag/hen trip, or friends group holiday.
@@ -668,7 +668,7 @@ const EventCountdown: React.FC = () => {
                       className="btn btn-danger"
                       style={{ padding: '4px 8px', fontSize: '12px' }}
                     >
-                      Delete
+                      Remove trip
                     </button>
                   </div>
                   

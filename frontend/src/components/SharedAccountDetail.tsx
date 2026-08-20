@@ -758,7 +758,7 @@ const SharedAccountDetail: React.FC = () => {
                   <th style={{ padding: '0.75rem', textAlign: 'left', color: '#4a5568', fontWeight: '600' }}>Date</th>
                   <th style={{ padding: '0.75rem', textAlign: 'left', color: '#4a5568', fontWeight: '600' }}>Type</th>
                   <th style={{ padding: '0.75rem', textAlign: 'left', color: '#4a5568', fontWeight: '600' }}>Description</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'left', color: '#4a5568', fontWeight: '600' }}>User</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'left', color: '#4a5568', fontWeight: '600' }}>Traveller</th>
                   <th style={{ padding: '0.75rem', textAlign: 'right', color: '#4a5568', fontWeight: '600' }}>Amount</th>
                 </tr>
               </thead>
@@ -1038,7 +1038,7 @@ const SharedAccountDetail: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>Edit / View Details</h2>
+              <h2 style={{ margin: 0 }}>Edit trip pot details</h2>
               <button
                 onClick={() => setShowEditModal(false)}
                 style={{

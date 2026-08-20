@@ -728,3 +728,69 @@ Automatic refunds, residue distribution, PSP payouts, wallets, withdrawals, Clos
 Copy consistency pass across primary screens (`COPY_AND_TERMINOLOGY.md`), including strategic line only where adjacent copy stays non-custodial.
 
 **STOP:** Do not start Pack Phase 8 without approval.
+
+---
+
+## 19. Pack Phase 8 — Copy consistency pass
+
+**Branch:** `marketing-alignment`  
+**Stash:** `stash@{0}` left untouched.  
+**Not pushed.** No APIs/models/routes renamed.
+
+### Terminology standardised (customer-facing)
+| Theme | Prefer |
+|--------|--------|
+| Travel | Trip / Trips / Create trip / Travellers |
+| Money | Trip Money / shared trip costs / Record contribution / settlement record / Trip Close-out |
+| Secondary | Personal tracking / Activity history / Trip photos / calendar / map / Places to stay |
+| Brand | **SHARE** (not SHARE Project / React App) |
+| Positioning | “Fund the trip together. Spend together. Finish square.” on Login + Trips intro |
+
+### BEFORE → AFTER (examples)
+- Add trip → **Create trip**
+- Participants → **Travellers**
+- Filter by Event / All Events → **Filter by trip / All trips**
+- User (activity table) → **Traveller**
+- Register interest “Finance” → travel-oriented interests
+- Mock accommodation note → accurate “sample results for planning”
+- HTML title React App → **SHARE**
+
+### Remaining customer-facing “Event”
+- Largely removed from labels; internal Event types/routes remain
+- Unmounted `Dashboard.tsx` still says Event/Shared Accounts (not in App routes) — left alone
+
+### Remaining “Shared Account”
+- Customer UI largely uses Trip Money / trip pot
+- Internal `sharedAccount` props/APIs/variable names unchanged
+
+### Remaining banking-like wording (intentional)
+- **Personal tracked total** / **Recorded total** (ledger tracking, not bank balance)
+- **Transfer creator rights** (ownership handoff, not money)
+- **Accommodation deposit** as a real-world cost example
+- Transparency sentences retained where custody misunderstanding is likely
+
+### CTA consistency
+Create trip · Save trip · Record contribution · Invite travellers · Request settlement record · Reverse recorded contribution
+
+### Auth / branding
+Login + Register intro copy; document title/manifest SHARE
+
+### Deliberately unchanged
+- Component names (`EventCountdown`, `SharedAccounts`, …)
+- `/events`, `/shared-accounts`, finance API fields
+- `Dashboard.tsx` (unmounted)
+- Backend error strings (out of scope for large rewrite)
+
+### Confirmation
+No new product functionality added — copy/presentation only.
+
+### Build / tests
+| Check | Result |
+|--------|--------|
+| `CI=true npm run build` | **PASS** |
+| Frontend tests | **PASS** (1/1) |
+
+### Recommendation for Pack Phase 9
+Quality and regression: manual journey Trips → Trip Money → Invitations → Close-out; mobile widths; confirm More-menu secondary features; record any remaining copy edge cases.
+
+**STOP:** Do not start Pack Phase 9 without approval.

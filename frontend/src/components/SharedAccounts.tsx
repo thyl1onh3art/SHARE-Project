@@ -1167,7 +1167,7 @@ const SharedAccounts: React.FC = () => {
                   color: '#4a5568', 
                   fontSize: '0.9rem'
                 }}>
-                  <strong>Participants:</strong>{' '}
+                  <strong>Travellers:</strong>{' '}
                   <span style={{ color: '#2b6cb0' }}>
                     {getParticipantCount(selectedAccount)} {getParticipantCount(selectedAccount) === 1 ? 'person' : 'people'} (invited and accepted)
                   </span>
@@ -1225,14 +1225,14 @@ const SharedAccounts: React.FC = () => {
                       marginTop: '0.5rem'
                     }}>
                       <p style={{ color: '#92400e', fontSize: '0.85rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
-                        Payment Breakdown:
+                        Payment guidance:
                       </p>
                       <div style={{ fontSize: '0.85rem', color: '#92400e', marginBottom: '0.5rem' }}>
                         <p style={{ margin: '0.25rem 0' }}>
                           <strong>Total Needed:</strong> £{selectedAccount.targetAmount.toFixed(2)}
                         </p>
                         <p style={{ margin: '0.25rem 0' }}>
-                          <strong>Participants:</strong> {participantCount}
+                          <strong>Travellers:</strong> {participantCount}
                         </p>
                         <p style={{ margin: '0.25rem 0', fontWeight: 'bold', color: '#78350f' }}>
                           <strong>Per Person:</strong> £{perPersonAmount.toFixed(2)}
@@ -1245,7 +1245,7 @@ const SharedAccounts: React.FC = () => {
                           marginTop: '0.5rem' 
                         }}>
                           <p style={{ color: '#92400e', fontSize: '0.8rem', margin: '0 0 0.25rem 0', fontWeight: 'bold' }}>
-                            Payment Options:
+                            Contribution options:
                           </p>
                           <div style={{ fontSize: '0.8rem', color: '#92400e' }}>
                             <p style={{ margin: '0.25rem 0' }}>

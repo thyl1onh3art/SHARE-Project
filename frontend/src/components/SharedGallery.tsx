@@ -257,13 +257,13 @@ const SharedGallery: React.FC = () => {
       <div className="card">
         <div className="grid grid-3">
           <div className="form-group">
-            <label className="form-label">Filter by Event</label>
+            <label className="form-label">Filter by trip</label>
             <select
               className="form-input"
               value={filterEvent}
               onChange={(e) => setFilterEvent(e.target.value)}
             >
-              <option value="all">All Events</option>
+              <option value="all">All trips</option>
               {events.map(event => (
                 <option key={event._id} value={event._id}>
                   {event.title} - {new Date(`${event.eventDate}T${event.eventTime}`).toLocaleDateString()}
@@ -499,13 +499,13 @@ const SharedGallery: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Associated Event</label>
+                <label className="form-label">Associated trip</label>
                 <select
                   className="form-input"
                   value={uploadData.eventId}
                   onChange={(e) => setUploadData({ ...uploadData, eventId: e.target.value })}
                 >
-                  <option value="">No event</option>
+                  <option value="">No trip</option>
                   {events.map(event => (
                     <option key={event._id} value={event._id}>
                       {event.title} - {new Date(`${event.eventDate}T${event.eventTime}`).toLocaleDateString()}
@@ -529,7 +529,7 @@ const SharedGallery: React.FC = () => {
                   ))}
                 </select>
                 <p style={{ fontSize: '0.85rem', color: '#4a5568', marginTop: '0.25rem' }}>
-                  Link this image to a shared account so all participants can see it
+                  Link this photo to a Trip Money pot so travellers can see it
                 </p>
               </div>
 

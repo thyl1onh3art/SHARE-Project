@@ -257,7 +257,7 @@ const EventMap: React.FC = () => {
       {filteredEvents.length > 0 && (
         <div className="card">
           <h2 style={{ marginBottom: '1rem' }}>
-            Events ({filteredEvents.length})
+            Trips ({filteredEvents.length})
           </h2>
           <div className="grid grid-2">
             {filteredEvents.map((event) => (

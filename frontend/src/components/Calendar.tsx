@@ -241,7 +241,7 @@ const Calendar: React.FC = () => {
           </div>
           <div>
             {dayEvents.length === 0 ? (
-              <p style={{ color: '#a0aec0', fontSize: '0.85rem' }}>No events</p>
+              <p style={{ color: '#a0aec0', fontSize: '0.85rem' }}>No trips</p>
             ) : (
               dayEvents.map((event) => (
                 <div
@@ -292,7 +292,7 @@ const Calendar: React.FC = () => {
           {isToday && <span style={{ color: '#0284c7', marginLeft: '0.5rem' }}>(Today)</span>}
         </h2>
         {dayEvents.length === 0 ? (
-          <p style={{ color: '#a0aec0' }}>No events scheduled for this day</p>
+          <p style={{ color: '#a0aec0' }}>No trips scheduled for this day</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {dayEvents.map((event) => (
