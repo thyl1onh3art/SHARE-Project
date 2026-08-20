@@ -32,13 +32,13 @@ Cursor: complete these in order. Update `[ ]` to `[x]` only after code is change
 - Mobile layout does not overflow horizontally.
 
 ## Phase 3 — Reframe Shared Accounts into trip money coordination
-- [ ] Audit `SharedAccounts.tsx` and `SharedAccountDetail.tsx` for custodial language.
-- [ ] Change visible `Shared Account(s)` wording to a consistent approved term such as **Trip Fund** or **Shared Trip Costs**. Prefer **Trip Fund** only if nearby copy clearly explains that SHARE itself is not holding a bank balance.
-- [ ] Change generic accounting labels to trip-specific labels: target, committed/recorded, remaining, contribution history, group members.
-- [ ] Preserve internal API endpoints and model names unless there is a compelling engineering reason to refactor.
-- [ ] Add a concise transparency note where a reasonable user could think SHARE is holding money.
-- [ ] If `transfer`, `withdraw`, or `pay` actions merely create virtual finance records, relabel them so the UI does not present them as real banking actions.
-- [ ] If any action genuinely triggers PayPal/Stripe/provider movement, describe exactly that movement and do not generalise it as SHARE custody.
+- [x] Audit `SharedAccounts.tsx` and `SharedAccountDetail.tsx` for custodial language.
+- [x] Change visible `Shared Account(s)` wording to a consistent approved term such as **Trip Fund** or **Shared Trip Costs**. Prefer **Trip Fund** only if nearby copy clearly explains that SHARE itself is not holding a bank balance.
+- [x] Change generic accounting labels to trip-specific labels: target, committed/recorded, remaining, contribution history, group members.
+- [x] Preserve internal API endpoints and model names unless there is a compelling engineering reason to refactor.
+- [x] Add a concise transparency note where a reasonable user could think SHARE is holding money.
+- [x] If `transfer`, `withdraw`, or `pay` actions merely create virtual finance records, relabel them so the UI does not present them as real banking actions.
+- [x] If any action genuinely triggers PayPal/Stripe/provider movement, describe exactly that movement and do not generalise it as SHARE custody.
 
 ### Acceptance
 - No screen falsely implies a SHARE-held bank account.

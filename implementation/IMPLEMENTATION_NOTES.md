@@ -247,3 +247,77 @@ Events → Trips; Add Event → Add trip; Location → Destination; Category lab
 - Primary nav: Trips, Shared Costs/Trip Money, Invitations; move Calendar/Gallery/Map/Accommodations under More
 - Brand label `SHARE Project` → `SHARE`
 - De-emphasise Finance in primary nav without deleting it
+
+---
+
+## 11. Phase 2 (user) / Phase 3 (pack) — Trip Money terminology
+
+**Branch:** `marketing-alignment`  
+**Mapping:** User-approved “Phase 2” = pack **Phase 3** (reframe Shared Accounts into trip money coordination). Pack Phase 2 (nav redesign) was **not** started.
+
+**Stash:** `stash@{0}` left untouched.
+
+### Objective
+Make customer-facing group-money UX describe virtual contribution / commitment / ledger tracking — not custody or banking.
+
+### Customer-facing terms changed
+
+| Before | After |
+|--------|--------|
+| Shared Accounts (nav) | Trip Money |
+| Shared Account(s) (primary group screens) | Shared trip costs / Trip Money |
+| Balance (group pot) | Recorded total |
+| Target / account limit | Contribution target |
+| Transfer / Transfer Funds | Record contribution |
+| Withdraw / Withdrawal | Reverse recorded contribution |
+| Available to withdraw | Available to reverse (recorded) |
+| Pay Full Balance | Request settlement record |
+| Pending payment approvals | Pending settlement approvals |
+| Personal account balance (in contribution UI) | Personal tracked total |
+| Insufficient funds… | Amount exceeds your personal tracked total |
+| Transfer would exceed the account limit… | Contribution would exceed the target… |
+
+### Transparency note (added on list + detail)
+> SHARE records and coordinates group contributions. It does not hold this tracked amount in a SHARE bank account.
+
+### BEFORE → AFTER examples
+- Navbar: **Shared Accounts** → **Trip Money** (route still `/shared-accounts`)
+- List H1: accounting shared-account framing → **Trip Money** + intro about shared trip costs / contribution targets
+- Action: **Transfer Funds** → **Record contribution** (still posts two `FinanceRecord`s)
+- Action: **Withdraw** → **Reverse recorded contribution** (still payment-request / ledger path)
+- Action: **Pay** → **Request settlement record** + explicit “SHARE does not send bank payments”
+- Empty state: create shared account → set up shared trip costs / pot for accommodation deposit, tickets, holiday costs
+
+### Files changed
+- `frontend/src/components/Navbar.tsx`
+- `frontend/src/components/SharedAccounts.tsx`
+- `frontend/src/components/SharedAccountDetail.tsx`
+- `frontend/src/components/FinancialRecords.tsx` (Trip Money section + empty state)
+- `frontend/src/components/Invitations.tsx` (invite target label only)
+- `implementation/TASKS.md` (pack Phase 3 checkboxes)
+- `implementation/IMPLEMENTATION_NOTES.md` (this section)
+
+### Misleading money language intentionally left unchanged (and why)
+- **Internal** names: `sharedAccount`, `/shared-accounts`, `transferForm`, `showWithdrawModal`, `personalBalance`, API paths, Mongo models — Phase 2 is UX/copy only.
+- **Personal Finance** page (`PersonalFinance.tsx`) and Financial Records **Total Balance** card — personal ledger summary, secondary to trip journey; full de-emphasis is pack Phase 6.
+- **Gallery filter “Shared Account”** — secondary lifestyle feature; pack Phase 6/8.
+- **Dashboard.tsx “Shared Accounts” / Net Balance** — not in current `App.tsx` routes; left alone.
+- Word **“deposit”** in empty-state example (“accommodation deposit”) — means a real-world trip cost type, not a SHARE bank deposit.
+- **“Transfer ownership”** — means admin rights, not money movement.
+
+### Confirmation: no real-money functionality added
+- No Stripe / PayPal settlement, cards, FX, wallets, withdrawals of real funds, or pooled custody.
+- Existing MongoDB ledger behaviour preserved; only customer-facing labels and help text changed.
+
+### Build / test results
+| Check | Result |
+|--------|--------|
+| `CI=true npm run build` (frontend) | **PASS** |
+| `CI=true npm test -- --watchAll=false` (frontend) | **PASS** (1/1) |
+
+### Recommendations for next approved phase (pack Phase 2 or Phase 4)
+1. **Pack Phase 2 — nav:** Trips, Trip Money, Invitations primary; More for Calendar/Gallery/Map/Accommodations; brand `SHARE`; demote Finance.
+2. **Pack Phase 4 — progress hero:** visual priority for target / recorded / remaining / member progress on list+detail.
+3. Later: invitation share UX (Phase 5), de-emphasise Personal Finance (Phase 6), non-custodial close-out summary (Phase 7).
+
+**STOP:** Do not start pack Phase 2/4 without explicit approval.

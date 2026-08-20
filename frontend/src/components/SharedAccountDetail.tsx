@@ -189,7 +189,7 @@ const SharedAccountDetail: React.FC = () => {
       setWithdrawDescription('');
       await fetchAccountDetails();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to process withdrawal');
+      setError(err.response?.data?.message || 'Failed to reverse recorded contribution');
     } finally {
       setWithdrawSubmitting(false);
     }
@@ -266,7 +266,7 @@ const SharedAccountDetail: React.FC = () => {
     }
 
     if (personalBalance !== null && amount > personalBalance) {
-      setError('Insufficient funds in your personal account');
+      setError('Amount exceeds your personal tracked total');
       return;
     }
 
@@ -276,8 +276,8 @@ const SharedAccountDetail: React.FC = () => {
       if (newBalance > account.targetAmount) {
         const remaining = account.targetAmount - currentBalance;
         setError(
-          `Transfer would exceed the account limit of £${account.targetAmount.toFixed(2)}. ` +
-          `Maximum transfer allowed: £${remaining.toFixed(2)}`
+          `Contribution would exceed the target of £${account.targetAmount.toFixed(2)}. ` +
+          `Maximum you can record now: £${remaining.toFixed(2)}`
         );
         return;
       }
@@ -286,7 +286,7 @@ const SharedAccountDetail: React.FC = () => {
     setTransferSubmitting(true);
     setError('');
     const date = new Date().toISOString();
-    const transferDescription = transferForm.description || `Transfer to ${account.name}`;
+    const transferDescription = transferForm.description || `Contribution to ${account.name}`;
 
     try {
       await axios.post('/finance', {
@@ -307,7 +307,7 @@ const SharedAccountDetail: React.FC = () => {
       await fetchAccountDetails();
       await fetchPersonalBalance();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to transfer funds');
+      setError(err.response?.data?.message || 'Failed to record contribution');
     } finally {
       setTransferSubmitting(false);
     }
@@ -325,12 +325,12 @@ const SharedAccountDetail: React.FC = () => {
 
     const balance = calculateBalance();
     if (balance <= 0) {
-      setError('No balance to pay. The shared account balance is £0.00 or negative.');
+      setError('Nothing recorded to settle. The tracked total for this trip pot is £0.00 or less.');
       return;
     }
 
     if (personalBalance !== null && balance > personalBalance) {
-      setError('Insufficient funds in your personal account to pay the full balance.');
+      setError('Your personal tracked total is lower than the amount to settle.');
       return;
     }
 
@@ -341,12 +341,12 @@ const SharedAccountDetail: React.FC = () => {
       await axios.post('/payment-requests', {
         sharedAccountId: accountId,
         amount: balance,
-        description: `Full payment for ${account.name}`
+        description: `Settlement record for ${account.name}`
       });
       setShowPayModal(false);
-      alert('Payment request created! All participants will be notified and must approve before the payment is processed.');
+      alert('Settlement request created. All travellers will be notified and must approve before the ledger settlement is recorded. SHARE does not send bank payments.');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create payment request');
+      setError(err.response?.data?.message || 'Failed to create settlement request');
     } finally {
       setPaySubmitting(false);
     }
@@ -399,7 +399,7 @@ const SharedAccountDetail: React.FC = () => {
       <div className="card">
         <p style={{ color: '#e53e3e' }}>{error || 'Account not found'}</p>
         <button className="btn btn-secondary" onClick={() => navigate('/shared-accounts')}>
-          Back to Shared Accounts
+          Back to Trip Money
         </button>
       </div>
     );
@@ -420,7 +420,7 @@ const SharedAccountDetail: React.FC = () => {
     <div>
       <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
         <button className="btn btn-secondary" onClick={() => navigate('/shared-accounts')}>
-          ← Back to Shared Accounts
+          ← Back to Trip Money
         </button>
         <h1 style={{ margin: 0 }}>{account.name}</h1>
       </div>
@@ -435,8 +435,8 @@ const SharedAccountDetail: React.FC = () => {
       <div className="card" style={{ marginBottom: '1.5rem', position: 'relative' }}>
         <button
           onClick={() => setShowRemoveModal(true)}
-          aria-label="Remove shared account"
-          title="Remove shared account"
+          aria-label="Remove shared trip costs"
+          title="Remove shared trip costs"
           style={{
             position: 'absolute',
             top: '12px',
@@ -451,30 +451,42 @@ const SharedAccountDetail: React.FC = () => {
         >
           ×
         </button>
-        <h2 className="card-title">Account Summary</h2>
+        <h2 className="card-title">Trip money summary</h2>
         {account.description && (
           <p style={{ color: '#4a5568', marginBottom: '1rem' }}>
-            <strong>Description:</strong> {account.description}
+            <strong>What this is for:</strong> {account.description}
           </p>
         )}
         
+        <div style={{
+          marginBottom: '1rem',
+          padding: '0.75rem 1rem',
+          background: '#f7fafc',
+          border: '1px solid #e2e8f0',
+          borderRadius: '8px',
+          color: '#4a5568',
+          fontSize: '0.9rem'
+        }}>
+          SHARE records and coordinates group contributions. It does not hold this tracked amount in a SHARE bank account.
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
           <div>
-            <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Shared Account Balance</p>
+            <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Recorded total</p>
             <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0.25rem 0 0 0' }}>
               £{calculateBalance().toFixed(2)}
             </p>
           </div>
           {account.targetAmount && (
             <div>
-              <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Target Amount</p>
+              <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Contribution target</p>
               <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0.25rem 0 0 0' }}>
                 £{account.targetAmount.toFixed(2)}
               </p>
             </div>
           )}
           <div>
-            <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Participants</p>
+            <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Travellers</p>
             <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0.25rem 0 0 0' }}>
               {allParticipants.length}
             </p>
@@ -482,13 +494,13 @@ const SharedAccountDetail: React.FC = () => {
           {user && (
             <>
               <div>
-                <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Your Contribution</p>
+                <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Your contribution</p>
                 <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#2b6cb0', margin: '0.25rem 0 0 0' }}>
                   £{userContribution.toFixed(2)}
                 </p>
               </div>
               <div>
-                <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Available to Withdraw</p>
+                <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: 0 }}>Available to reverse (recorded)</p>
                 <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#38a169', margin: '0.25rem 0 0 0' }}>
                   £{availableWithdrawal.toFixed(2)}
                 </p>
@@ -523,16 +535,16 @@ const SharedAccountDetail: React.FC = () => {
             <button className="btn btn-secondary" onClick={handleEditClick}>
               Edit / View Details
             </button>
-            <button className="btn btn-primary" onClick={handleTransferClick}>
-              Transfer Payment
-            </button>
+          <button className="btn btn-primary" onClick={handleTransferClick}>
+            Record contribution
+          </button>
             <button className="btn btn-success" onClick={handlePayClick}>
-              Pay
+              Request settlement
             </button>
           </div>
         </div>
 
-        {/* Withdrawal Button */}
+        {/* Reverse contribution */}
         {user && availableWithdrawal > 0 && (
           <div style={{ marginTop: '1rem' }}>
             <button
@@ -540,7 +552,7 @@ const SharedAccountDetail: React.FC = () => {
               onClick={handleWithdrawClick}
               style={{ width: '100%' }}
             >
-              Withdraw Your Funds (£{availableWithdrawal.toFixed(2)} available)
+              Reverse recorded contribution (£{availableWithdrawal.toFixed(2)} available)
             </button>
           </div>
         )}
@@ -583,7 +595,7 @@ const SharedAccountDetail: React.FC = () => {
                         background: transaction.type === 'input' ? '#c6f6d5' : '#fed7d7',
                         color: transaction.type === 'input' ? '#22543d' : '#742a2a'
                       }}>
-                        {transaction.type === 'input' ? 'Deposit' : 'Withdrawal'}
+                        {transaction.type === 'input' ? 'Contribution' : 'Cost / reverse'}
                       </span>
                     </td>
                     <td style={{ padding: '0.75rem', color: '#4a5568' }}>
@@ -750,7 +762,7 @@ const SharedAccountDetail: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>Transfer Payment</h2>
+              <h2 style={{ margin: 0 }}>Record contribution</h2>
               <button
                 onClick={() => setShowTransferModal(false)}
                 style={{
@@ -766,16 +778,19 @@ const SharedAccountDetail: React.FC = () => {
             </div>
 
             {loadingPersonalBalance ? (
-              <p style={{ color: '#4a5568' }}>Loading personal balance...</p>
+              <p style={{ color: '#4a5568' }}>Loading personal tracked total...</p>
             ) : personalBalance !== null ? (
               <p style={{ color: '#4a5568', marginTop: 0 }}>
-                Personal balance: <strong>£{personalBalance.toFixed(2)}</strong>
+                Personal tracked total: <strong>£{personalBalance.toFixed(2)}</strong>
               </p>
             ) : (
               <p style={{ color: '#4a5568', marginTop: 0 }}>
-                Personal balance unavailable.
+                Personal tracked total unavailable.
               </p>
             )}
+            <p style={{ color: '#4a5568', fontSize: '0.85rem' }}>
+              This updates the group ledger only — SHARE does not move bank funds.
+            </p>
 
             {error && (
               <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
@@ -785,7 +800,7 @@ const SharedAccountDetail: React.FC = () => {
 
             <form onSubmit={handleTransferSubmit}>
               <div className="form-group">
-                <label className="form-label">Amount (£)</label>
+                <label className="form-label">Contribution amount (£)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -805,7 +820,7 @@ const SharedAccountDetail: React.FC = () => {
                   className="form-input"
                   value={transferForm.description}
                   onChange={(e) => setTransferForm({ ...transferForm, description: e.target.value })}
-                  placeholder="Transfer description"
+                  placeholder="e.g., Accommodation deposit share"
                 />
               </div>
 
@@ -824,7 +839,7 @@ const SharedAccountDetail: React.FC = () => {
                   disabled={transferSubmitting}
                   style={{ flex: 1 }}
                 >
-                  {transferSubmitting ? <span className="spinner"></span> : 'Transfer'}
+                  {transferSubmitting ? <span className="spinner"></span> : 'Record contribution'}
                 </button>
               </div>
             </form>
@@ -859,7 +874,7 @@ const SharedAccountDetail: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>Pay Shared Account</h2>
+              <h2 style={{ margin: 0 }}>Request settlement record</h2>
               <button
                 onClick={() => setShowPayModal(false)}
                 style={{
@@ -875,20 +890,23 @@ const SharedAccountDetail: React.FC = () => {
             </div>
 
             <p style={{ color: '#4a5568', marginTop: 0 }}>
-              Payment amount: <strong>£{calculateBalance().toFixed(2)}</strong>
+              Settlement amount to record: <strong>£{calculateBalance().toFixed(2)}</strong>
             </p>
 
             {loadingPersonalBalance ? (
-              <p style={{ color: '#4a5568' }}>Loading personal balance...</p>
+              <p style={{ color: '#4a5568' }}>Loading personal tracked total...</p>
             ) : personalBalance !== null ? (
               <p style={{ color: '#4a5568' }}>
-                Personal balance: <strong>£{personalBalance.toFixed(2)}</strong>
+                Personal tracked total: <strong>£{personalBalance.toFixed(2)}</strong>
               </p>
             ) : (
               <p style={{ color: '#4a5568' }}>
-                Personal balance unavailable.
+                Personal tracked total unavailable.
               </p>
             )}
+            <p style={{ color: '#4a5568', fontSize: '0.85rem' }}>
+              Group approval records this against the trip pot ledger. SHARE does not send a bank payment.
+            </p>
 
             {error && (
               <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
@@ -912,7 +930,7 @@ const SharedAccountDetail: React.FC = () => {
                   disabled={paySubmitting}
                   style={{ flex: 1 }}
                 >
-                  {paySubmitting ? <span className="spinner"></span> : 'Request Payment'}
+                  {paySubmitting ? <span className="spinner"></span> : 'Request settlement record'}
                 </button>
               </div>
             </form>
@@ -947,7 +965,7 @@ const SharedAccountDetail: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>Remove Shared Account</h2>
+              <h2 style={{ margin: 0 }}>Leave shared trip costs</h2>
               <button
                 onClick={() => setShowRemoveModal(false)}
                 style={{
@@ -964,11 +982,11 @@ const SharedAccountDetail: React.FC = () => {
 
             {isOwner ? (
               <p style={{ color: '#4a5568', marginTop: 0 }}>
-                You are the creator. Select a new owner to transfer creator rights before you leave this account.
+                You are the creator. Select a new owner to transfer creator rights before you leave.
               </p>
             ) : (
               <p style={{ color: '#4a5568', marginTop: 0 }}>
-                This will remove you from the shared account.
+                This will remove you from these shared trip costs.
               </p>
             )}
 
@@ -1053,7 +1071,7 @@ const SharedAccountDetail: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>Withdraw Funds</h2>
+              <h2 style={{ margin: 0 }}>Reverse recorded contribution</h2>
               <button
                 onClick={() => {
                   setShowWithdrawModal(false);
@@ -1081,13 +1099,13 @@ const SharedAccountDetail: React.FC = () => {
               marginBottom: '1rem'
             }}>
               <p style={{ color: '#0369a1', fontSize: '0.9rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
-                Available to Withdraw:
+                Available to reverse (recorded):
               </p>
               <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#0284c7', margin: 0 }}>
                 £{availableWithdrawal.toFixed(2)}
               </p>
               <p style={{ fontSize: '0.75rem', color: '#0369a1', margin: '0.5rem 0 0 0' }}>
-                This is the amount you've contributed minus any previous withdrawals.
+                Your recorded contributions minus any previous reversals. This does not withdraw bank funds.
               </p>
             </div>
 
@@ -1099,7 +1117,7 @@ const SharedAccountDetail: React.FC = () => {
 
             <form onSubmit={handleWithdrawSubmit}>
               <div className="form-group">
-                <label className="form-label">Withdrawal Amount (£)</label>
+                <label className="form-label">Amount to reverse (£)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -1123,7 +1141,7 @@ const SharedAccountDetail: React.FC = () => {
                   className="form-input"
                   value={withdrawDescription}
                   onChange={(e) => setWithdrawDescription(e.target.value)}
-                  placeholder="Reason for withdrawal"
+                  placeholder="Reason for reversing this recorded contribution"
                 />
               </div>
 
@@ -1147,7 +1165,7 @@ const SharedAccountDetail: React.FC = () => {
                   disabled={withdrawSubmitting || !withdrawAmount || parseFloat(withdrawAmount) <= 0 || parseFloat(withdrawAmount) > availableWithdrawal}
                   style={{ flex: 1 }}
                 >
-                  {withdrawSubmitting ? <span className="spinner"></span> : 'Withdraw Funds'}
+                  {withdrawSubmitting ? <span className="spinner"></span> : 'Reverse recorded contribution'}
                 </button>
               </div>
             </form>

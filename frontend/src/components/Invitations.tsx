@@ -260,7 +260,7 @@ const Invitations: React.FC = () => {
           
           <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label className="form-label">Shared Account</label>
+              <label className="form-label">Shared trip costs</label>
               {accounts.length === 0 ? (
                 <div style={{
                   padding: '1rem',
@@ -270,7 +270,7 @@ const Invitations: React.FC = () => {
                   textAlign: 'center'
                 }}>
                   <p style={{ color: '#4a5568', margin: '0 0 1rem 0' }}>
-                    No shared accounts available. You need to create a shared account first.
+                    No shared trip costs available. Set up Trip Money first.
                   </p>
                   <button
                     type="button"
@@ -281,7 +281,7 @@ const Invitations: React.FC = () => {
                     className="btn btn-primary"
                     style={{ padding: '8px 16px' }}
                   >
-                    Create Shared Account
+                    Set up Trip Money
                   </button>
                 </div>
               ) : (

@@ -54,7 +54,7 @@ const Navbar: React.FC = () => {
               Finance
             </Link>
             <Link to="/shared-accounts" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
-              Shared Accounts
+              Trip Money
             </Link>
             <Link to="/invitations" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
               Invitations

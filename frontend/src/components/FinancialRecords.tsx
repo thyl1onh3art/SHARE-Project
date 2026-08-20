@@ -216,9 +216,9 @@ const FinancialRecords: React.FC = () => {
       {sharedAccounts.length > 0 && (
         <div style={{ marginBottom: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Shared Accounts</h2>
+            <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Trip Money</h2>
             <Link to="/shared-accounts" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
-              View All Shared Accounts
+              View all shared trip costs
             </Link>
           </div>
           <div className="grid grid-2" style={{ gap: '1rem' }}>
@@ -296,8 +296,8 @@ const FinancialRecords: React.FC = () => {
                         color: '#4a5568',
                         marginBottom: '0.25rem'
                       }}>
-                        Balance
-                      </div>
+                      Recorded total
+                    </div>
                       <div style={{
                         fontSize: '1.75rem',
                         fontWeight: 'bold',
@@ -328,10 +328,10 @@ const FinancialRecords: React.FC = () => {
       {sharedAccounts.length === 0 && (
         <div className="card" style={{ textAlign: 'center', padding: '2rem', marginBottom: '2rem' }}>
           <p style={{ color: '#4a5568', marginBottom: '1rem' }}>
-            You don't have any shared accounts yet.
+            You don't have any shared trip costs yet.
           </p>
           <Link to="/shared-accounts" className="btn btn-primary">
-            Create Shared Account
+            Set up shared trip costs
           </Link>
         </div>
       )}
