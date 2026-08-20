@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import InviteRecipientsForm, {
+  createEmptyInviteRecipient,
+  InviteRecipient
+} from './InviteRecipientsForm';
+import { sendInvitesForAccount } from '../utils/inviteHelpers';
 
 interface SharedAccountRef {
   _id: string;
@@ -24,6 +29,7 @@ interface Invitation {
   recipientPhone?: string;
   sharedAccount: string | SharedAccountRef | null;
   status: 'pending' | 'accepted' | 'cancelled';
+  readAt?: string | null;
   expiresAt: string;
   createdAt: string;
 }
@@ -42,9 +48,12 @@ const Invitations: React.FC = () => {
   const [error, setError] = useState('');
   const [shareNotice, setShareNotice] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    sharedAccountId: string;
+    recipients: InviteRecipient[];
+  }>({
     sharedAccountId: '',
-    recipients: [{ recipientEmail: '', recipientPhone: '' }]
+    recipients: [createEmptyInviteRecipient()]
   });
   const [submitting, setSubmitting] = useState(false);
   const [searchParams] = useSearchParams();
@@ -61,7 +70,9 @@ const Invitations: React.FC = () => {
         setFormData(prev => ({
           ...prev,
           sharedAccountId: accountId,
-          recipients: prev.recipients || [{ recipientEmail: '', recipientPhone: '' }]
+          recipients: prev.recipients?.length
+            ? prev.recipients
+            : [createEmptyInviteRecipient()]
         }));
         setShowForm(true);
       }
@@ -78,6 +89,20 @@ const Invitations: React.FC = () => {
 
       setInvitations(invitesResponse.data);
       setAccounts(accountsResponse.data);
+
+      // Clear recipient unread badge when opening Invitations (recipient-owned read state only)
+      try {
+        await axios.post('/invites/mark-read');
+        setInvitations((prev) =>
+          prev.map((invite) =>
+            invite.status === 'pending' && !invite.readAt
+              ? { ...invite, readAt: new Date().toISOString() }
+              : invite
+          )
+        );
+      } catch {
+        // Non-blocking — list still loads
+      }
     } catch (err: any) {
       setError('Failed to load trip invitations');
     } finally {
@@ -177,36 +202,18 @@ const Invitations: React.FC = () => {
     setError('');
 
     try {
-      const validRecipients = formData.recipients.filter(
-        r => r.recipientEmail.trim() || r.recipientPhone.trim()
-      );
-
       if (!formData.sharedAccountId) {
         setError('Select which shared trip costs to invite people to');
         setSubmitting(false);
         return;
       }
 
-      if (validRecipients.length === 0) {
+      const results = await sendInvitesForAccount(formData.sharedAccountId, formData.recipients);
+
+      if (results.success === 0 && results.failed.length === 0) {
         setError('Add at least one traveller with an email or phone number');
         setSubmitting(false);
         return;
-      }
-
-      // Backend has no /invites/send-bulk route — send sequentially via existing /invites/send
-      const results = { success: 0, failed: [] as string[] };
-      for (const recipient of validRecipients) {
-        try {
-          await axios.post('/invites/send', {
-            sharedAccountId: formData.sharedAccountId,
-            recipientEmail: recipient.recipientEmail.trim() || undefined,
-            recipientPhone: recipient.recipientPhone.trim() || undefined
-          });
-          results.success += 1;
-        } catch (err: any) {
-          const label = recipient.recipientEmail || recipient.recipientPhone || 'recipient';
-          results.failed.push(`${label}: ${err.response?.data?.message || 'failed'}`);
-        }
       }
 
       if (results.failed.length > 0) {
@@ -215,7 +222,10 @@ const Invitations: React.FC = () => {
         );
       }
 
-      setFormData({ sharedAccountId: formData.sharedAccountId, recipients: [{ recipientEmail: '', recipientPhone: '' }] });
+      setFormData({
+        sharedAccountId: formData.sharedAccountId,
+        recipients: [createEmptyInviteRecipient()]
+      });
       setShowForm(false);
       await fetchData();
     } catch (err: any) {
@@ -223,28 +233,6 @@ const Invitations: React.FC = () => {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const addRecipient = () => {
-    setFormData({
-      ...formData,
-      recipients: [...formData.recipients, { recipientEmail: '', recipientPhone: '' }]
-    });
-  };
-
-  const removeRecipient = (index: number) => {
-    if (formData.recipients.length > 1) {
-      setFormData({
-        ...formData,
-        recipients: formData.recipients.filter((_, i) => i !== index)
-      });
-    }
-  };
-
-  const updateRecipient = (index: number, field: 'recipientEmail' | 'recipientPhone', value: string) => {
-    const updatedRecipients = [...formData.recipients];
-    updatedRecipients[index] = { ...updatedRecipients[index], [field]: value };
-    setFormData({ ...formData, recipients: updatedRecipients });
   };
 
   const handleAccept = async (inviteId: string) => {
@@ -289,12 +277,38 @@ const Invitations: React.FC = () => {
   const renderInviteCard = (invitation: Invitation, role: 'received' | 'sent') => {
     const tripName = getAccountName(invitation.sharedAccount);
     const expired = isExpired(invitation.expiresAt) && invitation.status === 'pending';
+    const isUnread =
+      role === 'received' &&
+      invitation.status === 'pending' &&
+      !expired &&
+      !invitation.readAt;
 
     return (
-      <div key={invitation._id} className="list-item invite-card">
+      <div
+        key={invitation._id}
+        className="list-item invite-card"
+        style={
+          isUnread
+            ? { borderLeft: '4px solid #2b6cb0', background: '#ebf8ff' }
+            : undefined
+        }
+      >
         <div style={{ flex: 1, minWidth: 0 }}>
           <strong style={{ fontSize: '1.05rem' }}>
             {role === 'received' ? `Join ${tripName}` : tripName}
+            {isUnread && (
+              <span
+                style={{
+                  marginLeft: '0.5rem',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  color: '#2b6cb0',
+                  textTransform: 'uppercase'
+                }}
+              >
+                New
+              </span>
+            )}
           </strong>
           <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.35rem 0' }}>
             {role === 'received' ? (
@@ -515,85 +529,10 @@ const Invitations: React.FC = () => {
             </div>
 
             <div className="form-group">
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '0.5rem',
-                  gap: '0.5rem',
-                  flexWrap: 'wrap'
-                }}
-              >
-                <label className="form-label" style={{ margin: 0 }}>Travellers to invite</label>
-                <button
-                  type="button"
-                  onClick={addRecipient}
-                  className="btn btn-secondary"
-                  style={{ padding: '4px 12px', fontSize: '0.85rem' }}
-                >
-                  + Add traveller
-                </button>
-              </div>
-
-              {formData.recipients.map((recipient, index) => (
-                <div
-                  key={index}
-                  style={{
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '6px',
-                    padding: '1rem',
-                    marginBottom: '0.75rem',
-                    background: '#f7fafc',
-                    position: 'relative'
-                  }}
-                >
-                  {formData.recipients.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeRecipient(index)}
-                      style={{
-                        position: 'absolute',
-                        top: '0.5rem',
-                        right: '0.5rem',
-                        background: '#fee2e2',
-                        border: 'none',
-                        borderRadius: '4px',
-                        padding: '4px 8px',
-                        cursor: 'pointer',
-                        fontSize: '0.75rem',
-                        color: '#991b1b'
-                      }}
-                      title="Remove traveller"
-                    >
-                      ×
-                    </button>
-                  )}
-                  <p style={{ fontSize: '0.85rem', color: '#4a5568', marginBottom: '0.75rem', fontWeight: 'bold' }}>
-                    Traveller {index + 1}
-                  </p>
-                  <div style={{ marginBottom: '0.5rem' }}>
-                    <label className="form-label" style={{ fontSize: '0.85rem' }}>Email</label>
-                    <input
-                      type="email"
-                      className="form-input"
-                      value={recipient.recipientEmail}
-                      onChange={(e) => updateRecipient(index, 'recipientEmail', e.target.value)}
-                      placeholder="friend@example.com"
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label" style={{ fontSize: '0.85rem' }}>Phone (optional)</label>
-                    <input
-                      type="tel"
-                      className="form-input"
-                      value={recipient.recipientPhone}
-                      onChange={(e) => updateRecipient(index, 'recipientPhone', e.target.value)}
-                      placeholder="+447700900123"
-                    />
-                  </div>
-                </div>
-              ))}
+              <InviteRecipientsForm
+                recipients={formData.recipients}
+                onChange={(recipients) => setFormData({ ...formData, recipients })}
+              />
             </div>
 
             <button

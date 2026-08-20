@@ -3,6 +3,12 @@ const FinanceRecord = require('../models/FinanceRecord');
 const Invite = require('../models/Invite');
 const nodemailer = require('nodemailer');
 const twilio = require('twilio');
+const mongoose = require('mongoose');
+const {
+  canReadSharedAccount,
+  canMutateSharedAccount,
+  isArchivedSharedAccount
+} = require('../utils/sharedAccountAccess');
 
 // Helper: Send SMS via Twilio
 const sendSMS = (to, body) => {
@@ -151,16 +157,26 @@ exports.createSharedAccount = async (req, res) => {
 };
 
 // List shared accounts for the user (owner or member)
+// Default: active Trip Money only. ?archived=true returns archived pots only.
 exports.getUserSharedAccounts = async (req, res) => {
   try {
     const userId = req.user.userId;
-    // Fetch accounts and populate owner and members with user details
-    const accounts = await SharedAccount.find({
+    const archivedOnly = req.query.archived === 'true';
+
+    const filter = {
       $or: [
         { owner: userId },
         { members: userId }
       ]
-    })
+    };
+
+    if (archivedOnly) {
+      filter.isDeleted = true;
+    } else {
+      filter.isDeleted = { $ne: true };
+    }
+
+    const accounts = await SharedAccount.find(filter)
       .populate('owner', 'name firstName lastName email')
       .populate('members', 'name firstName lastName email')
       .populate({
@@ -168,12 +184,12 @@ exports.getUserSharedAccounts = async (req, res) => {
         populate: { path: 'user', select: 'firstName lastName email' }
       });
     
-    // Recalculate perPersonAmount for each account to ensure it's always accurate
+    // Recalculate perPersonAmount for active accounts only
     for (const account of accounts) {
+      if (isArchivedSharedAccount(account)) continue;
       if (account.targetAmount && account.targetAmount > 0) {
         const currentMemberCount = Array.isArray(account.members) ? account.members.length : 0;
         account.perPersonAmount = Math.round(calculatePerPersonAmount(account.targetAmount, currentMemberCount) * 100) / 100;
-        // Save the updated perPersonAmount
         await account.save();
       }
     }
@@ -185,9 +201,13 @@ exports.getUserSharedAccounts = async (req, res) => {
 };
 
 // Get details of a shared account (including finance records)
+// Read: current owner/member, or former participant with own historical FinanceRecord on this pot.
 exports.getSharedAccountDetails = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({ message: 'Shared account not found' });
+    }
     const account = await SharedAccount.findById(id)
       .populate('members', 'name email')
       .populate({
@@ -197,16 +217,14 @@ exports.getSharedAccountDetails = async (req, res) => {
     if (!account) {
       return res.status(404).json({ message: 'Shared account not found' });
     }
-    // Only allow if user is a member or owner
-    if (!account.members.some(m => m._id.equals(req.user.userId)) && !account.owner.equals(req.user.userId)) {
+    if (!(await canReadSharedAccount(account, req.user.userId))) {
       return res.status(403).json({ message: 'Access denied' });
     }
     
-    // Recalculate perPersonAmount to ensure it's always accurate
-    if (account.targetAmount && account.targetAmount > 0) {
+    // Recalculate perPersonAmount on active pots only (do not mutate archived history)
+    if (!isArchivedSharedAccount(account) && account.targetAmount && account.targetAmount > 0) {
       const currentMemberCount = Array.isArray(account.members) ? account.members.length : 0;
       account.perPersonAmount = Math.round(calculatePerPersonAmount(account.targetAmount, currentMemberCount) * 100) / 100;
-      // Save the updated perPersonAmount
       await account.save();
     }
     
@@ -227,6 +245,12 @@ exports.updateSharedAccount = async (req, res) => {
     const account = await SharedAccount.findById(id);
     if (!account) {
       return res.status(404).json({ message: 'Shared account not found' });
+    }
+
+    if (isArchivedSharedAccount(account)) {
+      return res.status(400).json({
+        message: 'This Trip Money pot is archived. Recorded history is read-only.'
+      });
     }
 
     // Only the owner can update the account
@@ -320,7 +344,7 @@ exports.updateSharedAccount = async (req, res) => {
   }
 };
 
-// Transfer ownership of a shared account (owner only)
+// Transfer organiser role (owner only; current member required)
 exports.transferOwnership = async (req, res) => {
   try {
     const { id } = req.params;
@@ -328,7 +352,11 @@ exports.transferOwnership = async (req, res) => {
     const { newOwnerId, removeCurrentOwner } = req.body;
 
     if (!newOwnerId) {
-      return res.status(400).json({ message: 'New owner ID is required' });
+      return res.status(400).json({ message: 'New organiser ID is required' });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(newOwnerId)) {
+      return res.status(400).json({ message: 'New organiser ID is invalid' });
     }
 
     const account = await SharedAccount.findById(id);
@@ -336,18 +364,26 @@ exports.transferOwnership = async (req, res) => {
       return res.status(404).json({ message: 'Shared account not found' });
     }
 
+    if (isArchivedSharedAccount(account)) {
+      return res.status(400).json({
+        message: 'This Trip Money pot is archived. Organiser role cannot be transferred.'
+      });
+    }
+
     if (!account.owner.equals(userId)) {
-      return res.status(403).json({ message: 'Only the account owner can transfer ownership' });
+      return res.status(403).json({ message: 'Only the current organiser can transfer organiser rights' });
     }
 
     const memberIds = account.members.map((member) => member.toString());
-    if (!memberIds.includes(newOwnerId)) {
-      return res.status(400).json({ message: 'New owner must be an existing member of the account' });
+    if (!memberIds.includes(newOwnerId.toString())) {
+      return res.status(400).json({
+        message: 'New organiser must be a current traveller on this Trip Money pot'
+      });
     }
 
     const previousOwnerId = account.owner.toString();
     account.owner = newOwnerId;
-    account.members = account.members.filter((member) => member.toString() !== newOwnerId);
+    account.members = account.members.filter((member) => member.toString() !== newOwnerId.toString());
 
     if (!removeCurrentOwner) {
       if (!account.members.some((member) => member.toString() === previousOwnerId)) {
@@ -364,7 +400,7 @@ exports.transferOwnership = async (req, res) => {
       .populate('members', 'firstName lastName email');
 
     res.json({
-      message: 'Ownership transferred successfully',
+      message: 'Organiser role transferred successfully',
       account: updatedAccount
     });
   } catch (err) {
@@ -372,41 +408,131 @@ exports.transferOwnership = async (req, res) => {
   }
 };
 
-// Delete a shared account (owner only)
+// Archive Trip Money (owner/organiser only) — soft-archive; history remains readable
 exports.deleteSharedAccount = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
 
-    // Find the shared account
     const account = await SharedAccount.findById(id);
     if (!account) {
       return res.status(404).json({ message: 'Shared account not found' });
     }
 
-    // Only the owner can delete the account
     if (!account.owner.equals(userId)) {
-      return res.status(403).json({ message: 'Only the account owner can delete this account' });
+      return res.status(403).json({ message: 'Only the organiser can archive this Trip Money pot' });
     }
 
-    // Remove sharedAccount reference from related finance records
-    if (account.financeRecords && account.financeRecords.length > 0) {
-      await FinanceRecord.updateMany(
-        { _id: { $in: account.financeRecords } },
-        { $unset: { sharedAccount: '' } }
-      );
+    if (isArchivedSharedAccount(account)) {
+      return res.status(400).json({ message: 'This Trip Money pot is already archived' });
     }
 
-    // Delete the shared account
-    await SharedAccount.findByIdAndDelete(id);
+    // Stamp pot name on linked records for readable history; keep sharedAccount link for Integration 3 reads
+    await FinanceRecord.updateMany(
+      { sharedAccount: id },
+      { $set: { archivedAccountName: account.name } }
+    );
 
-    res.json({ message: 'Shared account deleted successfully' });
+    account.isDeleted = true;
+    account.deletedAt = new Date();
+    await account.save();
+
+    res.json({
+      message: 'Trip Money pot archived successfully',
+      account: {
+        id: account._id,
+        name: account.name,
+        isDeleted: true,
+        deletedAt: account.deletedAt
+      }
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
-// Withdraw funds from shared account (participant can withdraw their contributions)
+// Permanently delete an already-archived Trip Money pot (owner only)
+// Preserves FinanceRecord rows with archivedAccountName; unsets sharedAccount refs.
+exports.permanentlyDeleteSharedAccount = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({ message: 'Shared account not found' });
+    }
+
+    const account = await SharedAccount.findById(id);
+    if (!account) {
+      return res.status(404).json({ message: 'Shared account not found' });
+    }
+
+    if (!account.owner.equals(userId)) {
+      return res.status(403).json({ message: 'Only the organiser can permanently delete this Trip Money pot' });
+    }
+
+    if (!isArchivedSharedAccount(account)) {
+      return res.status(400).json({
+        message: 'Archive this Trip Money pot before permanently deleting it.'
+      });
+    }
+
+    const potName = account.name;
+
+    await FinanceRecord.updateMany(
+      { sharedAccount: id },
+      {
+        $set: { archivedAccountName: potName },
+        $unset: { sharedAccount: '' }
+      }
+    );
+
+    // Pending invitations for a deleted pot must not remain actionable
+    await Invite.deleteMany({ sharedAccount: id });
+
+    // Settlement/payment requests are meaningful history (approved/rejected/executed)
+    // and pending ones must not stay actionable against a deleted pot.
+    try {
+      const PaymentRequest = require('../models/PaymentRequest');
+
+      await PaymentRequest.updateMany(
+        { sharedAccount: id, status: 'pending' },
+        {
+          $set: {
+            status: 'cancelled',
+            archivedAccountName: potName
+          },
+          $unset: { sharedAccount: '' }
+        }
+      );
+
+      await PaymentRequest.updateMany(
+        {
+          sharedAccount: id,
+          status: { $in: ['approved', 'rejected', 'executed', 'cancelled'] }
+        },
+        {
+          $set: { archivedAccountName: potName },
+          $unset: { sharedAccount: '' }
+        }
+      );
+    } catch (e) {
+      // PaymentRequest model may be unavailable in some environments — continue cleanup
+    }
+
+    await SharedAccount.findByIdAndDelete(id);
+
+    res.json({
+      message:
+        'Trip Money pot permanently deleted. Recorded activity and settlement history are retained with the archived pot name.',
+      archivedAccountName: potName
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+// Withdraw / reverse recorded contribution (participant; active pot only)
 exports.withdrawFunds = async (req, res) => {
   try {
     const { id } = req.params;
@@ -423,17 +549,8 @@ exports.withdrawFunds = async (req, res) => {
       return res.status(404).json({ message: 'Shared account not found' });
     }
 
-    // Check if user is owner or member
-    const ownerId = typeof sharedAccount.owner === 'object' 
-      ? sharedAccount.owner._id.toString() 
-      : sharedAccount.owner.toString();
-    const isOwner = ownerId === userId;
-    const isMember = sharedAccount.members.some((m) => {
-      const memberId = typeof m === 'object' ? m._id.toString() : m.toString();
-      return memberId === userId;
-    });
-
-    if (!isOwner && !isMember) {
+    // Mutations require current owner/member — historical read access is not enough
+    if (!canMutateSharedAccount(sharedAccount, userId)) {
       return res.status(403).json({ message: 'Access denied. You must be a member of this account.' });
     }
 
@@ -459,8 +576,8 @@ exports.withdrawFunds = async (req, res) => {
     const availableAmount = totalContributions - totalWithdrawals;
 
     if (amount > availableAmount) {
-      return res.status(400).json({ 
-        message: `Insufficient funds. You can withdraw up to £${availableAmount.toFixed(2)} (your total contributions: £${totalContributions.toFixed(2)}, already withdrawn: £${totalWithdrawals.toFixed(2)})` 
+      return res.status(400).json({
+        message: `Cannot reverse more than your recorded contribution. You can reverse up to £${availableAmount.toFixed(2)} (recorded contributions: £${totalContributions.toFixed(2)}, already reversed: £${totalWithdrawals.toFixed(2)}).`
       });
     }
 

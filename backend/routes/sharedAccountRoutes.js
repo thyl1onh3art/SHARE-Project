@@ -17,13 +17,16 @@ router.get('/:id', auth, asyncHandler(sharedAccountController.getSharedAccountDe
 // Update a shared account
 router.put('/:id', auth, asyncHandler(sharedAccountController.updateSharedAccount));
 
-// Transfer ownership of a shared account
+// Transfer organiser role
 router.post('/:id/transfer-ownership', auth, asyncHandler(sharedAccountController.transferOwnership));
 
-// Delete a shared account
+// Archive Trip Money (soft-archive)
 router.delete('/:id', auth, asyncHandler(sharedAccountController.deleteSharedAccount));
 
-// Withdraw funds from shared account
+// Permanently delete an archived Trip Money pot
+router.delete('/:id/permanent', auth, asyncHandler(sharedAccountController.permanentlyDeleteSharedAccount));
+
+// Reverse / withdraw recorded contribution from shared account
 router.post('/:id/withdraw', auth, asyncHandler(sharedAccountController.withdrawFunds));
 
 module.exports = router;

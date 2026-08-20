@@ -9,6 +9,9 @@ const sharedAccountSchema = new mongoose.Schema({
   targetDate: { type: Date },
   perPersonAmount: { type: Number },
   financeRecords: [{ type: mongoose.Schema.Types.ObjectId, ref: 'FinanceRecord' }],
+  /** Soft-archive: inactive Trip Money pot; history remains readable. */
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date },
 }, { timestamps: true });
 
 module.exports = mongoose.model('SharedAccount', sharedAccountSchema);

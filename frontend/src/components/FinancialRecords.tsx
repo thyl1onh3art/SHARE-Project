@@ -8,7 +8,8 @@ interface FinancialRecord {
   amount: number;
   description: string;
   date: string;
-  sharedAccount?: string;
+  sharedAccount?: string | null;
+  archivedAccountName?: string;
 }
 
 interface SharedAccount {
@@ -22,6 +23,7 @@ interface SharedAccount {
 
 const FinancialRecords: React.FC = () => {
   const [records, setRecords] = useState<FinancialRecord[]>([]);
+  const [archivedRecords, setArchivedRecords] = useState<FinancialRecord[]>([]);
   const [sharedAccounts, setSharedAccounts] = useState<SharedAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -47,14 +49,19 @@ const FinancialRecords: React.FC = () => {
     fetchData();
   }, []);
 
+  const isPermanentlyDeletedHistory = (record: FinancialRecord) =>
+    !!record.archivedAccountName && !record.sharedAccount;
+
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [financeResponse, accountsResponse] = await Promise.all([
+      const [financeResponse, accountsResponse, archivedResponse] = await Promise.all([
         axios.get('/finance'),
-        axios.get('/shared-accounts')
+        axios.get('/shared-accounts'),
+        axios.get('/finance/archived').catch(() => ({ data: [] }))
       ]);
       setRecords(financeResponse.data);
+      setArchivedRecords(archivedResponse.data || []);
       // Sort shared accounts by creation date (most recent first)
       const sortedAccounts = accountsResponse.data.sort((a: SharedAccount, b: SharedAccount) => {
         const dateA = new Date((a as any).createdAt || 0).getTime();
@@ -63,7 +70,7 @@ const FinancialRecords: React.FC = () => {
       });
       setSharedAccounts(sortedAccounts);
     } catch (err: any) {
-      setError('Failed to load financial records');
+      setError('Failed to load activity history');
     } finally {
       setLoading(false);
     }
@@ -120,8 +127,10 @@ const FinancialRecords: React.FC = () => {
     return income - expenses;
   };
 
-  // Calculate totals - only count personal transactions (not shared account transactions)
-  const personalRecords = records.filter(record => !record.sharedAccount);
+  // Personal tracked total excludes Trip Money rows and permanently deleted Trip Money history
+  const personalRecords = records.filter(
+    (record) => !record.sharedAccount && !isPermanentlyDeletedHistory(record)
+  );
   
   const totalIncome = personalRecords
     .filter(record => record.type === 'input')
@@ -137,11 +146,15 @@ const FinancialRecords: React.FC = () => {
   const incomeCount = personalRecords.filter(record => record.type === 'input').length;
   const expenseCount = personalRecords.filter(record => record.type === 'output').length;
 
+  const currentActivity = [...personalRecords].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '2rem' }}>
         <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
-        <p style={{ marginTop: '1rem', color: '#4a5568' }}>Loading financial records...</p>
+        <p style={{ marginTop: '1rem', color: '#4a5568' }}>Loading activity history...</p>
       </div>
     );
   }
@@ -178,7 +191,7 @@ const FinancialRecords: React.FC = () => {
         </div>
       )}
 
-      {/* Total Balance Card */}
+      {/* Personal tracked total */}
       <div className="card" style={{
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         color: 'white',
@@ -230,7 +243,7 @@ const FinancialRecords: React.FC = () => {
         </div>
       </div>
 
-      {/* Shared Accounts Grid - Show only 2 most recent */}
+      {/* Recent Trip Money pots */}
       {sharedAccounts.length > 0 && (
         <div style={{ marginBottom: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -332,7 +345,10 @@ const FinancialRecords: React.FC = () => {
                       display: 'flex',
                       justifyContent: 'space-between'
                     }}>
-                      <span>{memberCount + 1} member{memberCount !== 0 ? 's' : ''}</span>
+                      <span>
+                        {memberCount + 1}{' '}
+                        {memberCount + 1 === 1 ? 'traveller' : 'travellers'}
+                      </span>
                       <span>{account.financeRecords?.length || 0} recorded item{(account.financeRecords?.length || 0) !== 1 ? 's' : ''}</span>
                     </div>
                   </div>
@@ -351,6 +367,75 @@ const FinancialRecords: React.FC = () => {
           <Link to="/shared-accounts" className="btn btn-primary">
             Set up shared trip costs
           </Link>
+        </div>
+      )}
+
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <h2 style={{ marginTop: 0, marginBottom: '0.35rem' }}>Current activity</h2>
+        <p style={{ color: '#4a5568', fontSize: '0.9rem', marginBottom: '1rem' }}>
+          Personal tracked items only. Live Trip Money ledgers stay on Trip Money.
+        </p>
+        {currentActivity.length === 0 ? (
+          <p style={{ color: '#718096', margin: 0 }}>No personal activity recorded yet.</p>
+        ) : (
+          <div className="list">
+            {currentActivity.slice(0, 20).map((record) => (
+              <div key={record._id} className="list-item">
+                <div>
+                  <strong>{record.description || (record.type === 'input' ? 'Recorded contribution' : 'Recorded settlement')}</strong>
+                  <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
+                    {new Date(record.date).toLocaleDateString()} ·{' '}
+                    {record.type === 'input' ? 'Contribution / in' : 'Settlement / out'}
+                  </p>
+                </div>
+                <span
+                  style={{
+                    color: record.type === 'input' ? '#38a169' : '#e53e3e',
+                    fontWeight: 'bold',
+                    fontSize: '1.05rem'
+                  }}
+                >
+                  {record.type === 'input' ? '+' : '-'}£{record.amount.toFixed(2)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {archivedRecords.length > 0 && (
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <h2 style={{ marginTop: 0, marginBottom: '0.35rem' }}>Archived Trip Money history</h2>
+          <p style={{ color: '#4a5568', fontSize: '0.9rem', marginBottom: '1rem' }}>
+            This Trip Money pot was permanently removed, but your recorded activity has been kept for history.
+            Soft-archived pots still appear under Trip Money → Archived.
+          </p>
+          <div className="list">
+            {archivedRecords.map((record) => (
+              <div key={record._id} className="list-item">
+                <div>
+                  <strong>{record.description || 'Recorded activity'}</strong>
+                  <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
+                    {new Date(record.date).toLocaleDateString()} ·{' '}
+                    {record.type === 'input' ? 'Contribution / in' : 'Settlement / out'}
+                    {record.archivedAccountName ? ` · ${record.archivedAccountName}` : ''}
+                  </p>
+                  <p style={{ color: '#718096', fontSize: '0.8rem', margin: 0 }}>
+                    Historical only — no Trip Money link or actions
+                  </p>
+                </div>
+                <span
+                  style={{
+                    color: record.type === 'input' ? '#38a169' : '#e53e3e',
+                    fontWeight: 'bold',
+                    fontSize: '1.05rem'
+                  }}
+                >
+                  {record.type === 'input' ? '+' : '-'}£{record.amount.toFixed(2)}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
