@@ -45,6 +45,11 @@ const settlementBadgeStyle: React.CSSProperties = {
   lineHeight: 1,
 };
 
+const invitationBadgeStyle: React.CSSProperties = {
+  ...settlementBadgeStyle,
+  background: '#2b6cb0',
+};
+
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -53,6 +58,7 @@ const Navbar: React.FC = () => {
   const [showMoreDropdown, setShowMoreDropdown] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [settlementActionCount, setSettlementActionCount] = useState(0);
+  const [invitationUnreadCount, setInvitationUnreadCount] = useState(0);
   const profileRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLDivElement>(null);
 
@@ -64,25 +70,31 @@ const Navbar: React.FC = () => {
   useEffect(() => {
     if (!user) {
       setSettlementActionCount(0);
+      setInvitationUnreadCount(0);
       return;
     }
 
     let cancelled = false;
-    const loadActionableSettlements = async () => {
+    const loadAttentionCounts = async () => {
       try {
-        const response = await axios.get('/payment-requests/unread-count');
+        const [settlementResponse, inviteResponse] = await Promise.all([
+          axios.get('/payment-requests/unread-count'),
+          axios.get('/invites/unread-count')
+        ]);
         if (!cancelled) {
-          setSettlementActionCount(Number(response.data?.count) || 0);
+          setSettlementActionCount(Number(settlementResponse.data?.count) || 0);
+          setInvitationUnreadCount(Number(inviteResponse.data?.count) || 0);
         }
       } catch {
         if (!cancelled) {
           setSettlementActionCount(0);
+          setInvitationUnreadCount(0);
         }
       }
     };
 
-    loadActionableSettlements();
-    const intervalId = window.setInterval(loadActionableSettlements, 60000);
+    loadAttentionCounts();
+    const intervalId = window.setInterval(loadAttentionCounts, 60000);
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
@@ -160,6 +172,14 @@ const Navbar: React.FC = () => {
                         aria-label={`${settlementActionCount} settlement records awaiting your review`}
                       >
                         {settlementActionCount > 9 ? '9+' : settlementActionCount}
+                      </span>
+                    )}
+                    {link.to === '/invitations' && invitationUnreadCount > 0 && (
+                      <span
+                        style={invitationBadgeStyle}
+                        aria-label={`${invitationUnreadCount} unread trip invitations`}
+                      >
+                        {invitationUnreadCount > 9 ? '9+' : invitationUnreadCount}
                       </span>
                     )}
                   </Link>
@@ -263,6 +283,14 @@ const Navbar: React.FC = () => {
                   aria-label={`${settlementActionCount} settlement records awaiting your review`}
                 >
                   {settlementActionCount > 9 ? '9+' : settlementActionCount}
+                </span>
+              )}
+              {link.to === '/invitations' && invitationUnreadCount > 0 && (
+                <span
+                  style={invitationBadgeStyle}
+                  aria-label={`${invitationUnreadCount} unread trip invitations`}
+                >
+                  {invitationUnreadCount > 9 ? '9+' : invitationUnreadCount}
                 </span>
               )}
             </Link>

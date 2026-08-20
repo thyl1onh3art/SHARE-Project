@@ -1271,4 +1271,114 @@ Combined archive + access + friends: **39/39 PASS**.
 Integration 6 — Invitation helpers is **safe to begin** after this commit.  
 **Do not push** unless separately requested.
 
+---
+
+## Integration 6 — Trip invitation helpers
+
+**Branch:** `integrate-pre-marketing-features`  
+**Source inspected:** `pre-marketing-wip` (no merge / no wholesale cherry-pick / stash not restored)
+
+### Current invitation lifecycle (unchanged core)
+
+| State | Representation |
+|-------|----------------|
+| Created/sent | `status: pending`, `expiresAt` (~7 days) |
+| Pending | Listed while not expired |
+| Accepted | `status: accepted`; user added to pot members |
+| Cancelled | Document **deleted** by sender (not a status enum value) |
+| Expired | `expiresAt` in the past; accept rejected; list filter excludes expired |
+| Resend | Sender-only; pending + active (non-archived) pot; re-notifies email/SMS |
+
+Each Invite belongs to **one** recipient (`recipientEmail` / optional phone).
+
+### Features recovered / adapted
+
+| Feature | Decision |
+|---------|----------|
+| Friend picker (`InviteRecipientsForm`) | **Recovered/adapted** into current Invitations form — convenience only |
+| Multi-recipient | **Keep sequential** `/invites/send` via `sendInvitesForAccount` |
+| Bulk `/send-bulk` | **Deferred** — sequential already returns clear per-recipient failures; avoids a second write path |
+| `readAt` | **Added** — safe because one recipient per Invite |
+| Unread count + mark-read | **Added** — recipient-owned pending unread only |
+| Invitations navbar badge | **Added** (blue) — separate from Trip Money settlement badge (amber) |
+| Auto-friend on send | **Deferred** — surprising one-sided contact from a mere send |
+| Auto-friend on accept | **Implemented** — `rememberFriendsMutual(sender, accepter)` after successful accept |
+| `messageNotifications.ts` Messages hub | **Not migrated** |
+| Public invite tokens | **Deferred** — keep login URL + authenticated accept |
+
+### Friend picker
+
+- Organiser can pick from `/friends` and/or enter email
+- Friendship does **not** grant Trip Money access
+- Existing invite auth rules still apply
+
+### Sequential vs bulk
+
+Kept sequential sends because the current product already multi-sends this way with mixed success/failure messaging. Bulk would only reimplement the same loop server-side without transactional multi-document guarantees worth the extra surface.
+
+### Read / unread
+
+- `readAt` optional on Invite
+- Unread = pending + not expired + `readAt` null/missing + matches authenticated recipient
+- `GET /invites/unread-count`, `POST /invites/mark-read`, `POST /invites/:inviteId/mark-read`
+- Sender cannot mark recipient read state
+- Accepted/expired not actionable as unread
+
+### Auto-friend semantics
+
+Friends remain **one-way saved contact lists** (`User.friends` + `$addToSet`).  
+On **accepted** trip invitation only: both parties are added to each other’s lists (mutual convenience for future pickers).  
+Rejected/cancelled/expired/send-only paths do **not** add friends.  
+Friendship still grants **no** Trip Money membership.
+
+### Share / WhatsApp preserved
+
+- Trip-specific copy + WhatsApp + Web Share
+- Real `/login` link only
+- No public invitation tokens
+
+### Security notes
+
+- Auth required on invite APIs
+- Sender must be current owner/member; archived pot blocks send/resend/accept
+- Recipient identity resolved server-side (DB email), not client-supplied authority
+- Historical-only readers still cannot invite
+
+### Files
+
+- `backend/models/Invite.js`
+- `backend/controllers/inviteController.js`
+- `backend/routes/inviteRoutes.js`
+- `backend/tests/inviteHelpers.test.js`
+- `frontend/src/components/InviteRecipientsForm.tsx` (new)
+- `frontend/src/utils/inviteHelpers.ts` (new)
+- `frontend/src/components/Invitations.tsx` (surgical)
+- `frontend/src/components/Navbar.tsx` (Invitations badge)
+
+### Tests
+
+| Suite | Result |
+|-------|--------|
+| `inviteHelpers.test.js` | **19/19 PASS** |
+| `friends.test.js` | **8/8 PASS** |
+| `paymentRequestSettlement.test.js` | **16/16 PASS** |
+| `sharedAccountArchive.test.js` | **PASS** |
+| `sharedAccountAccess.test.js` | **12/12 PASS** |
+| Combined above | **74/74 PASS** |
+| Frontend build | **PASS** |
+| Frontend `App.test.tsx` | **1/1 PASS** |
+
+### Deferred
+
+- `/invites/send-bulk`
+- Tokenised public invite links
+- Auto-friend on send
+- Generic Messages / PaymentRequestMessages product
+- Invitations rename
+
+### Next
+
+Integration 7 — ParticipantCount / archived finance UI is **safe to begin**.  
+**Do not push** unless separately requested.
+
 
