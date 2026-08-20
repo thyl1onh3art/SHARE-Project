@@ -1160,7 +1160,115 @@ Archive+integrity, access, Friends: **39 passed**; frontend build/tests **PASS**
 Integration 5 is safe to begin (settlement history no longer wiped on permanent delete).  
 **Do not push** unless separately requested.
 
+---
 
+## Integration 5 — Trip Money settlement record workflow
 
+**Branch:** `integrate-pre-marketing-features`  
+**Source inspected:** `pre-marketing-wip` (no merge / no wholesale cherry-pick / stash not restored)
+
+### PaymentRequest lifecycle (current)
+
+| Status | Meaning | Mutability |
+|--------|---------|------------|
+| `pending` | Open settlement-record approval among travellers | Approve / reject / cancel (rules below) |
+| `approved` | Legacy/compat status; completion path sets `executed` | No further ledger execution |
+| `rejected` | A traveller rejected; no ledger output | Historical only |
+| `executed` | Ledger `FinanceRecord` output written once | Historical only |
+| `cancelled` | Requester cancelled, expired, or pot permanently deleted while pending | Historical only |
+
+`archivedAccountName` + optional `sharedAccount` from Integration 4.5 remain intact.
+
+### Features recovered / adapted
+
+| Feature | Decision |
+|---------|----------|
+| Cancel pending | **Recovered** — requester only; pending only; history retained as `cancelled`; blocked on archived pots |
+| Actionable count | **Adapted** — `GET /payment-requests/unread-count` counts pending requests where the auth user has not approved/rejected and is not the requester (per-user derivation) |
+| Shared `readAt` | **Skipped** — unsafe for multi-recipient notifications; not implemented |
+| Approve / reject | **Hardened** — status guards; archived pot blocks mutations; atomic `pending`→`executed` claim before ledger write |
+| Duplicate execution | **Guarded** — cannot approve executed/approved/cancelled/rejected; concurrent claim prevents double FinanceRecord |
+| UI actions | Trip Money list + Trip Close-out settlement section; Trip Money nav badge for actionable count |
+| Invitations / Messages | **Unchanged** — no rename; no PaymentRequestMessages hub |
+
+### requestType / withdrawal
+
+- Schema keeps `requestType: payment | withdrawal` for WIP compatibility (default `payment`).
+- Create API **rejects** non-`payment` types with ledger-accurate messaging.
+- Customer-facing **withdrawal request** deferred — recovered path implied custodial fund release; contribution reversal remains the existing Trip Money reverse-recorded-contribution flow.
+
+### Read / unread design
+
+- Not a single shared `readAt`.
+- “Unread” = **actionable settlement approvals** for the authenticated user only.
+- Badge on **Trip Money** primary nav (not Invitations).
+
+### Cancellation rules
+
+- Requester only
+- Status must be `pending`
+- Cannot rewrite approved / rejected / executed as cancelled via this endpoint
+- Archived pot → 400 (read-only)
+- Document is not deleted
+
+### Idempotency / duplicate ledger protection
+
+- Approve rejects non-pending terminal states
+- Execution uses `findOneAndUpdate({ status: 'pending' }, { status: 'executed' })` so only one concurrent approver can write the FinanceRecord
+
+### Archive / permanent-delete compatibility
+
+- Archived: no create / approve / reject / cancel
+- Permanent delete (I4.5): pending → cancelled + `archivedAccountName`; completed/rejected/cancelled history preserved
+
+### Customer wording
+
+| Before (risk) | After |
+|---------------|--------|
+| Cancel payment / withdraw request | Cancel settlement request |
+| Payment approved / funds | Approve / Reject settlement record; ledger recording disclaimer |
+| Withdrawal request type | Not exposed; deferred |
+
+### Files
+
+- `backend/models/PaymentRequest.js`
+- `backend/controllers/paymentRequestController.js`
+- `backend/routes/paymentRequestRoutes.js`
+- `backend/tests/paymentRequestSettlement.test.js`
+- `frontend/src/components/SharedAccountDetail.tsx`
+- `frontend/src/components/SharedAccounts.tsx`
+- `frontend/src/components/Navbar.tsx` (Trip Money badge only)
+
+### Tests
+
+| Suite | Result |
+|-------|--------|
+| `paymentRequestSettlement.test.js` | **16/16 PASS** |
+| `sharedAccountArchive.test.js` | **PASS** (incl. settlement history preservation) |
+| `sharedAccountAccess.test.js` | **12/12 PASS** |
+| `friends.test.js` | **8/8 PASS** |
+| Frontend build | **PASS** |
+| Frontend `App.test.tsx` | **1/1 PASS** |
+
+Combined archive + access + friends: **39/39 PASS**.
+
+### Deliberately skipped
+
+- PaymentRequestMessages as Messages product
+- Invitations rename / wholesale Navbar replace
+- Shared `readAt` multi-user semantics
+- Customer-facing withdrawal requestType
+- Stripe / PayPal / wallets / real payouts
+
+### Remaining risks
+
+- List endpoint still returns **pending** requests only (full historical status list not a separate API)
+- Solo-traveller pots with `requiredApprovals: 0` still do not auto-execute on create (pre-existing)
+- Actionable badge polls `/unread-count` (path-change refresh + 60s interval)
+
+### Next
+
+Integration 6 — Invitation helpers is **safe to begin** after this commit.  
+**Do not push** unless separately requested.
 
 

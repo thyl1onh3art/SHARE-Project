@@ -407,6 +407,19 @@ const SharedAccounts: React.FC = () => {
     }
   };
 
+  const handleCancelSettlement = async (requestId: string) => {
+    try {
+      await axios.post(`/payment-requests/${requestId}/cancel`);
+      await fetchPaymentRequests();
+      await fetchAccounts();
+      setError('');
+    } catch (err: any) {
+      const errorMessage =
+        err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to cancel settlement request';
+      setError(errorMessage);
+    }
+  };
+
   // handleDeleteClick removed - UI simplified to clickable cards only
   // const handleDeleteClick = (account: SharedAccount) => {
   //   setSelectedAccount(account);
@@ -609,7 +622,11 @@ const SharedAccounts: React.FC = () => {
           <h2 style={{ marginBottom: '1rem', color: '#92400e' }}>Pending settlement approvals</h2>
           {paymentRequests.map((request: any) => {
             // Get current user ID from auth context
-            const currentUserId = user?.id || '';
+            const currentUserId = user?.id || (user as any)?._id || '';
+            const requesterId =
+              typeof request.requestedBy === 'object' ? request.requestedBy?._id : request.requestedBy;
+            const isRequester =
+              String(requesterId) === String(currentUserId);
             const hasApproved = request.approvals?.some((a: any) => {
               const userId = typeof a.user === 'object' ? a.user?._id : a.user;
               return userId === currentUserId || userId?.toString() === currentUserId;
@@ -648,7 +665,7 @@ const SharedAccounts: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                {request.status === 'pending' && !hasApproved && !hasRejected && (
+                {request.status === 'pending' && !isRequester && !hasApproved && !hasRejected && (
                   <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
                     <button
                       className="btn btn-success"
@@ -663,6 +680,17 @@ const SharedAccounts: React.FC = () => {
                       style={{ flex: 1 }}
                     >
                       Reject settlement record
+                    </button>
+                  </div>
+                )}
+                {request.status === 'pending' && isRequester && (
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => handleCancelSettlement(request._id)}
+                      style={{ flex: 1 }}
+                    >
+                      Cancel settlement request
                     </button>
                   </div>
                 )}

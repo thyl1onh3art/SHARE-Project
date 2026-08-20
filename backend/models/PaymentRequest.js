@@ -23,7 +23,16 @@ const paymentRequestSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    default: 'Full payment from shared account'
+    default: 'Settlement record for shared trip costs'
+  },
+  /**
+   * Schema compatibility with recovered WIP.
+   * Customer create API only accepts settlement ('payment'); 'withdrawal' is deferred.
+   */
+  requestType: {
+    type: String,
+    enum: ['payment', 'withdrawal'],
+    default: 'payment'
   },
   status: {
     type: String,

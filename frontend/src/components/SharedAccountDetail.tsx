@@ -379,11 +379,42 @@ const SharedAccountDetail: React.FC = () => {
         description: `Settlement record for ${account.name}`
       });
       setShowPayModal(false);
+      await fetchAccountDetails();
       alert('Settlement request created. All travellers will be notified and must approve before the ledger settlement is recorded. SHARE does not send bank payments.');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create settlement request');
     } finally {
       setPaySubmitting(false);
+    }
+  };
+
+  const handleApproveSettlement = async (requestId: string) => {
+    setError('');
+    try {
+      await axios.post(`/payment-requests/${requestId}/approve`);
+      await fetchAccountDetails();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to approve settlement record');
+    }
+  };
+
+  const handleRejectSettlement = async (requestId: string) => {
+    setError('');
+    try {
+      await axios.post(`/payment-requests/${requestId}/reject`);
+      await fetchAccountDetails();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to reject settlement record');
+    }
+  };
+
+  const handleCancelSettlement = async (requestId: string) => {
+    setError('');
+    try {
+      await axios.post(`/payment-requests/${requestId}/cancel`);
+      await fetchAccountDetails();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to cancel settlement request');
     }
   };
 
@@ -1029,35 +1060,90 @@ const SharedAccountDetail: React.FC = () => {
         </h3>
         {pendingSettlementRequests.length === 0 ? (
           <p style={{ color: '#4a5568', fontSize: '0.95rem' }}>
-            No pending settlement records for this pot. The list API only returns open requests awaiting review —
-            approved or rejected history is not exposed separately yet.
+            No pending settlement records for this pot.
           </p>
         ) : (
           <div className="trip-money-member-list">
-            {pendingSettlementRequests.map((req) => (
-              <div key={req._id} className="trip-money-member-row">
-                <div className="trip-money-member-main">
-                  <div>
-                    <strong>£{(req.amount || 0).toFixed(2)} settlement record</strong>
-                    <div className="trip-money-member-meta">
-                      Requested by{' '}
-                      {req.requestedBy
-                        ? `${req.requestedBy.firstName || ''} ${req.requestedBy.lastName || ''}`.trim() ||
-                          req.requestedBy.email
-                        : 'a traveller'}
-                      {req.description ? ` · ${req.description}` : ''}
+            {pendingSettlementRequests.map((req) => {
+              const currentUserId = getCurrentUserId();
+              const requesterId =
+                typeof req.requestedBy === 'object' ? req.requestedBy?._id : req.requestedBy;
+              const isRequester = String(requesterId) === String(currentUserId);
+              const hasApproved = (req.approvals || []).some((a: any) => {
+                const approvalUserId = typeof a.user === 'object' ? a.user?._id : a.user;
+                return String(approvalUserId) === String(currentUserId);
+              });
+              const hasRejected = (req.rejections || []).some((r: any) => {
+                const rejectionUserId = typeof r.user === 'object' ? r.user?._id : r.user;
+                return String(rejectionUserId) === String(currentUserId);
+              });
+              const canAct =
+                !isArchived && !isRequester && !hasApproved && !hasRejected && req.status === 'pending';
+
+              return (
+                <div key={req._id} className="trip-money-member-row">
+                  <div className="trip-money-member-main">
+                    <div>
+                      <strong>£{(req.amount || 0).toFixed(2)} settlement record</strong>
+                      <div className="trip-money-member-meta">
+                        Requested by{' '}
+                        {req.requestedBy
+                          ? `${req.requestedBy.firstName || ''} ${req.requestedBy.lastName || ''}`.trim() ||
+                            req.requestedBy.email
+                          : 'a traveller'}
+                        {req.description ? ` · ${req.description}` : ''}
+                      </div>
                     </div>
+                    <span className="trip-money-status-pill trip-money-status-pending">
+                      Pending review
+                    </span>
                   </div>
-                  <span className="trip-money-status-pill trip-money-status-pending">
-                    Pending review
-                  </span>
+                  <p style={{ margin: '0.35rem 0 0', fontSize: '0.85rem', color: '#4a5568' }}>
+                    Approvals: {req.approvals?.length || 0} / {req.requiredApprovals || 0}. Approving records a ledger
+                    settlement — SHARE does not send bank payments.
+                  </p>
+                  {canAct && (
+                    <div className="trip-money-actions" style={{ marginTop: '0.75rem' }}>
+                      <button
+                        type="button"
+                        className="btn btn-success"
+                        onClick={() => handleApproveSettlement(req._id)}
+                      >
+                        Approve settlement record
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-danger"
+                        onClick={() => handleRejectSettlement(req._id)}
+                      >
+                        Reject settlement record
+                      </button>
+                    </div>
+                  )}
+                  {!isArchived && isRequester && req.status === 'pending' && (
+                    <div className="trip-money-actions" style={{ marginTop: '0.75rem' }}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => handleCancelSettlement(req._id)}
+                      >
+                        Cancel settlement request
+                      </button>
+                    </div>
+                  )}
+                  {hasApproved && (
+                    <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: '#22543d' }}>
+                      You have approved this settlement request
+                    </p>
+                  )}
+                  {hasRejected && (
+                    <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: '#742a2a' }}>
+                      You have rejected this settlement request
+                    </p>
+                  )}
                 </div>
-                <p style={{ margin: '0.35rem 0 0', fontSize: '0.85rem', color: '#4a5568' }}>
-                  Approvals: {req.approvals?.length || 0} / {req.requiredApprovals || 0}. Approving records a ledger
-                  settlement — SHARE does not send bank payments.
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

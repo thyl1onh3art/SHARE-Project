@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 
 const primaryLinks = [
@@ -28,12 +29,30 @@ const dropdownLinkStyle: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
+const settlementBadgeStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minWidth: '1.1rem',
+  height: '1.1rem',
+  marginLeft: '0.35rem',
+  padding: '0 0.3rem',
+  borderRadius: '999px',
+  background: '#c05621',
+  color: '#fff',
+  fontSize: '0.7rem',
+  fontWeight: 600,
+  lineHeight: 1,
+};
+
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [showMoreDropdown, setShowMoreDropdown] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [settlementActionCount, setSettlementActionCount] = useState(0);
   const profileRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLDivElement>(null);
 
@@ -41,6 +60,34 @@ const Navbar: React.FC = () => {
     logout();
     navigate('/login');
   };
+
+  useEffect(() => {
+    if (!user) {
+      setSettlementActionCount(0);
+      return;
+    }
+
+    let cancelled = false;
+    const loadActionableSettlements = async () => {
+      try {
+        const response = await axios.get('/payment-requests/unread-count');
+        if (!cancelled) {
+          setSettlementActionCount(Number(response.data?.count) || 0);
+        }
+      } catch {
+        if (!cancelled) {
+          setSettlementActionCount(0);
+        }
+      }
+    };
+
+    loadActionableSettlements();
+    const intervalId = window.setInterval(loadActionableSettlements, 60000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [user, location.pathname]);
 
   const closeAllMenus = () => {
     setShowProfileDropdown(false);
@@ -107,6 +154,14 @@ const Navbar: React.FC = () => {
                 {primaryLinks.map((link) => (
                   <Link key={link.to} to={link.to} className="share-nav-link">
                     {link.label}
+                    {link.to === '/shared-accounts' && settlementActionCount > 0 && (
+                      <span
+                        style={settlementBadgeStyle}
+                        aria-label={`${settlementActionCount} settlement records awaiting your review`}
+                      >
+                        {settlementActionCount > 9 ? '9+' : settlementActionCount}
+                      </span>
+                    )}
                   </Link>
                 ))}
 
@@ -202,6 +257,14 @@ const Navbar: React.FC = () => {
               onClick={closeAllMenus}
             >
               {link.label}
+              {link.to === '/shared-accounts' && settlementActionCount > 0 && (
+                <span
+                  style={settlementBadgeStyle}
+                  aria-label={`${settlementActionCount} settlement records awaiting your review`}
+                >
+                  {settlementActionCount > 9 ? '9+' : settlementActionCount}
+                </span>
+              )}
             </Link>
           ))}
 
