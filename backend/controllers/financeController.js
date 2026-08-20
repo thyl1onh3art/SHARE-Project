@@ -88,6 +88,28 @@ exports.getUserRecords = async (req, res) => {
   }
 };
 
+/**
+ * Permanently deleted Trip Money history for the authenticated user only.
+ * Soft-archived pots keep sharedAccount and are viewed via Trip Money ?archived=true.
+ * Permanently deleted rows have archivedAccountName and no sharedAccount link.
+ */
+exports.getArchivedRecords = async (req, res) => {
+  try {
+    const records = await FinanceRecord.find({
+      user: req.user.userId,
+      archivedAccountName: { $exists: true, $nin: [null, ''] },
+      $or: [
+        { sharedAccount: null },
+        { sharedAccount: { $exists: false } }
+      ]
+    }).sort({ date: -1 });
+
+    res.json(records);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
 // Update a finance record
 exports.updateRecord = async (req, res) => {
   try {
@@ -95,6 +117,13 @@ exports.updateRecord = async (req, res) => {
     const existing = await FinanceRecord.findOne({ _id: id, user: req.user.userId });
     if (!existing) {
       return res.status(404).json({ message: 'Record not found' });
+    }
+
+    // Preserved history from permanently deleted Trip Money is read-only
+    if (existing.archivedAccountName && !existing.sharedAccount) {
+      return res.status(400).json({
+        message: 'This archived Trip Money activity is historical only and cannot be changed.'
+      });
     }
 
     if (existing.sharedAccount) {
@@ -127,6 +156,12 @@ exports.deleteRecord = async (req, res) => {
     const existing = await FinanceRecord.findOne({ _id: id, user: req.user.userId });
     if (!existing) {
       return res.status(404).json({ message: 'Record not found' });
+    }
+
+    if (existing.archivedAccountName && !existing.sharedAccount) {
+      return res.status(400).json({
+        message: 'This archived Trip Money activity is historical only and cannot be removed here.'
+      });
     }
 
     if (existing.sharedAccount) {

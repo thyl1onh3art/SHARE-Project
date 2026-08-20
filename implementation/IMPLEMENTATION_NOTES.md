@@ -1381,4 +1381,81 @@ Friendship still grants **no** Trip Money membership.
 Integration 7 — ParticipantCount / archived finance UI is **safe to begin**.  
 **Do not push** unless separately requested.
 
+---
+
+## Integration 7 — Participant count decision + archived activity history
+
+**Branch:** `integrate-pre-marketing-features`  
+**Source inspected:** `pre-marketing-wip` (no merge / no wholesale cherry-pick / stash not restored)
+
+### ParticipantCount decision: **SKIPPED**
+
+Recovered `ParticipantCount.tsx` is a tooltip/modal “N members / Participants” control.
+
+Current product already shows traveller counts on Trip Money list cards and detail (`getParticipantCount` → “N travellers”), plus contribution progress hero and Close-out traveller rows.
+
+Migrating the component would add clutter and regress wording (“members” / “Participants”). No new component was added.
+
+### Archived vs permanently deleted
+
+| State | SharedAccount | FinanceRecord | Where to view |
+|-------|---------------|---------------|---------------|
+| Soft-archived | Exists (`isDeleted`) | May have `archivedAccountName` **and** still linked `sharedAccount` | Trip Money → Archived (read-only) |
+| Permanently deleted | Removed | `archivedAccountName` set; `sharedAccount` unset | Activity history → Archived Trip Money history |
+
+### Archived activity endpoint
+
+`GET /api/finance/archived` (auth required)
+
+Authorisation rule:
+
+- `user: req.user.userId` only (no client-supplied user id)
+- `archivedAccountName` present and non-empty
+- `sharedAccount` null/missing (permanently deleted history only)
+
+Sorted newest first. Soft-archived linked rows are **excluded** (still belong to archived Trip Money views).
+
+Mutations: update/delete of permanently deleted history rows return **400** (historical only).
+
+### UI placement
+
+`FinancialRecords.tsx` (Activity history under More):
+
+- **Current activity** — personal tracked rows (excludes permanently deleted history from personal totals)
+- **Archived Trip Money history** — preserved rows with pot name; no `/shared-accounts/...` links; no mutation actions
+
+Personal Finance: **unchanged** (no duplicate archive section).
+
+### Files
+
+- `backend/controllers/financeController.js`
+- `backend/routes/financeRoutes.js`
+- `backend/tests/archivedFinanceHistory.test.js`
+- `frontend/src/components/FinancialRecords.tsx`
+- `implementation/IMPLEMENTATION_NOTES.md`
+
+### Tests
+
+| Suite | Result |
+|-------|--------|
+| `archivedFinanceHistory.test.js` | **5/5 PASS** |
+| `inviteHelpers.test.js` | **19/19 PASS** |
+| `friends.test.js` | **8/8 PASS** |
+| `paymentRequestSettlement.test.js` | **16/16 PASS** |
+| `sharedAccountArchive` + `sharedAccountAccess` | **PASS** |
+| Combined above | **79/79 PASS** |
+| Frontend build | **PASS** |
+| Frontend `App.test.tsx` | **1/1 PASS** |
+
+### Deferred
+
+- Migrating `ParticipantCount.tsx`
+- Duplicating archived history into Personal Finance
+- Group-wide archive endpoints (would leak other travellers’ personal rows)
+
+### Next
+
+Integration 8 — documentation consolidation / final integration review is **safe to begin**.  
+**Do not push** unless separately requested.
+
 
