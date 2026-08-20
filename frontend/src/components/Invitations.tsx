@@ -1,18 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SharedAccountRef {
   _id: string;
   name: string;
+  description?: string;
+}
+
+interface SenderRef {
+  _id?: string;
+  firstName?: string;
+  lastName?: string;
+  name?: string;
+  email?: string;
 }
 
 interface Invitation {
   _id: string;
-  sender: string;
+  sender: string | SenderRef;
   recipientEmail?: string;
   recipientPhone?: string;
-  sharedAccount: string | SharedAccountRef | null; // Can be ID string, populated object, or null
+  sharedAccount: string | SharedAccountRef | null;
   status: 'pending' | 'accepted' | 'cancelled';
   expiresAt: string;
   createdAt: string;
@@ -21,17 +31,20 @@ interface Invitation {
 interface SharedAccount {
   _id: string;
   name: string;
+  description?: string;
 }
 
 const Invitations: React.FC = () => {
+  const { user } = useAuth();
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [accounts, setAccounts] = useState<SharedAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [shareNotice, setShareNotice] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     sharedAccountId: '',
-    recipients: [{ recipientEmail: '', recipientPhone: '' }] // Array of recipients
+    recipients: [{ recipientEmail: '', recipientPhone: '' }]
   });
   const [submitting, setSubmitting] = useState(false);
   const [searchParams] = useSearchParams();
@@ -41,12 +54,15 @@ const Invitations: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Check if we should pre-select an account and show the form
     const accountId = searchParams.get('account');
     if (accountId && accounts.length > 0) {
       const account = accounts.find(acc => acc._id === accountId);
       if (account) {
-        setFormData(prev => ({ ...prev, sharedAccountId: accountId, recipients: prev.recipients || [{ recipientEmail: '', recipientPhone: '' }] }));
+        setFormData(prev => ({
+          ...prev,
+          sharedAccountId: accountId,
+          recipients: prev.recipients || [{ recipientEmail: '', recipientPhone: '' }]
+        }));
         setShowForm(true);
       }
     }
@@ -59,67 +75,149 @@ const Invitations: React.FC = () => {
         axios.get('/invites/list'),
         axios.get('/shared-accounts')
       ]);
-      
+
       setInvitations(invitesResponse.data);
       setAccounts(accountsResponse.data);
     } catch (err: any) {
-      setError('Failed to load invitations');
+      setError('Failed to load trip invitations');
     } finally {
       setLoading(false);
     }
   };
 
+  const getAccountName = (accountIdOrObject: string | SharedAccountRef | null) => {
+    if (accountIdOrObject === null || accountIdOrObject === undefined) {
+      return 'Shared trip costs';
+    }
+    if (typeof accountIdOrObject === 'object' && accountIdOrObject !== null && 'name' in accountIdOrObject) {
+      return accountIdOrObject.name;
+    }
+    if (typeof accountIdOrObject === 'string') {
+      const account = accounts.find(acc => acc._id === accountIdOrObject);
+      return account ? account.name : 'Shared trip costs';
+    }
+    return 'Shared trip costs';
+  };
+
+  const getSenderName = (sender: string | SenderRef) => {
+    if (typeof sender === 'object' && sender !== null) {
+      if (sender.name) return sender.name;
+      const full = `${sender.firstName || ''} ${sender.lastName || ''}`.trim();
+      if (full) return full;
+      if (sender.email) return sender.email;
+    }
+    return 'A traveller';
+  };
+
+  const getSenderId = (sender: string | SenderRef) => {
+    if (typeof sender === 'object' && sender !== null) {
+      return sender._id || '';
+    }
+    return sender || '';
+  };
+
+  const isSentByMe = (invitation: Invitation) => {
+    const senderId = getSenderId(invitation.sender);
+    return !!(user && senderId && (senderId === user.id || String(senderId) === String(user.id)));
+  };
+
+  const isReceivedByMe = (invitation: Invitation) => {
+    if (!user?.email) return false;
+    return !!(
+      invitation.recipientEmail &&
+      invitation.recipientEmail.toLowerCase() === user.email.toLowerCase()
+    );
+  };
+
+  const buildShareMessage = (tripName: string) => {
+    const inviter = user?.name || 'A friend';
+    const loginUrl = `${window.location.origin}/login`;
+    return (
+      `${inviter} invited you to join "${tripName}" on SHARE — coordinate shared trip costs together.\n\n` +
+      `Log in or register here: ${loginUrl}\n` +
+      `Then open Invitations to accept. SHARE records contributions; it does not hold a group bank balance.`
+    );
+  };
+
+  const copyInviteMessage = async (tripName: string) => {
+    const message = buildShareMessage(tripName);
+    try {
+      await navigator.clipboard.writeText(message);
+      setShareNotice('Invite message copied. Paste it into WhatsApp or any chat.');
+    } catch {
+      setShareNotice('Could not copy automatically. Use Share via WhatsApp instead.');
+    }
+  };
+
+  const shareViaWhatsApp = (tripName: string) => {
+    const message = buildShareMessage(tripName);
+    const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const shareNative = async (tripName: string) => {
+    const message = buildShareMessage(tripName);
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Join ${tripName} on SHARE`,
+          text: message
+        });
+        return;
+      } catch {
+        // User cancelled or share failed — fall through to copy
+      }
+    }
+    await copyInviteMessage(tripName);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setError('');
 
     try {
-      // Filter out empty recipients and validate
       const validRecipients = formData.recipients.filter(
         r => r.recipientEmail.trim() || r.recipientPhone.trim()
       );
 
-      if (validRecipients.length === 0) {
-        setError('Please add at least one recipient with email or phone');
+      if (!formData.sharedAccountId) {
+        setError('Select which shared trip costs to invite people to');
         setSubmitting(false);
         return;
       }
 
-      // Use bulk endpoint if multiple recipients, otherwise use single endpoint
-      if (validRecipients.length === 1) {
-        // Single recipient - use original endpoint for backward compatibility
-        await axios.post('/invites/send', {
-          sharedAccountId: formData.sharedAccountId,
-          recipientEmail: validRecipients[0].recipientEmail.trim() || undefined,
-          recipientPhone: validRecipients[0].recipientPhone.trim() || undefined
-        });
-      } else {
-        // Multiple recipients - use bulk endpoint
-        const response = await axios.post('/invites/send-bulk', {
-          sharedAccountId: formData.sharedAccountId,
-          recipients: validRecipients.map(r => ({
-            recipientEmail: r.recipientEmail.trim() || undefined,
-            recipientPhone: r.recipientPhone.trim() || undefined
-          }))
-        });
+      if (validRecipients.length === 0) {
+        setError('Add at least one traveller with an email or phone number');
+        setSubmitting(false);
+        return;
+      }
 
-        // Show detailed results if some failed
-        if (response.data.failedCount > 0) {
-          const failedMessages = response.data.results.failed.map((f: any) => 
-            `${f.recipient.recipientEmail || f.recipient.recipientPhone}: ${f.error}`
-          ).join('\n');
-          alert(`${response.data.successCount} invitation(s) sent successfully.\n\nFailed:\n${failedMessages}`);
-        } else {
-          alert(`${response.data.successCount} invitation(s) sent successfully!`);
+      // Backend has no /invites/send-bulk route — send sequentially via existing /invites/send
+      const results = { success: 0, failed: [] as string[] };
+      for (const recipient of validRecipients) {
+        try {
+          await axios.post('/invites/send', {
+            sharedAccountId: formData.sharedAccountId,
+            recipientEmail: recipient.recipientEmail.trim() || undefined,
+            recipientPhone: recipient.recipientPhone.trim() || undefined
+          });
+          results.success += 1;
+        } catch (err: any) {
+          const label = recipient.recipientEmail || recipient.recipientPhone || 'recipient';
+          results.failed.push(`${label}: ${err.response?.data?.message || 'failed'}`);
         }
       }
-      
-      setFormData({ sharedAccountId: '', recipients: [{ recipientEmail: '', recipientPhone: '' }] });
+
+      if (results.failed.length > 0) {
+        setError(
+          `${results.success} invitation(s) sent. Failed:\n${results.failed.join('\n')}`
+        );
+      }
+
+      setFormData({ sharedAccountId: formData.sharedAccountId, recipients: [{ recipientEmail: '', recipientPhone: '' }] });
       setShowForm(false);
-      fetchData();
-      
-      // Clear any previous errors
-      setError('');
+      await fetchData();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to send invitation(s)');
     } finally {
@@ -154,7 +252,7 @@ const Invitations: React.FC = () => {
       await axios.post('/invites/accept', { inviteId });
       fetchData();
     } catch (err: any) {
-      setError('Failed to accept invitation');
+      setError(err.response?.data?.message || 'Failed to accept invitation');
     }
   };
 
@@ -163,166 +261,293 @@ const Invitations: React.FC = () => {
       await axios.post('/invites/cancel', { inviteId });
       fetchData();
     } catch (err: any) {
-      setError('Failed to cancel invitation');
+      setError(err.response?.data?.message || 'Failed to cancel invitation');
     }
-  };
-
-  const getAccountName = (accountIdOrObject: string | SharedAccountRef | null) => {
-    // Handle null case
-    if (accountIdOrObject === null || accountIdOrObject === undefined) {
-      return 'Unknown Account';
-    }
-    // If it's already a populated object with name, use it directly
-    if (typeof accountIdOrObject === 'object' && accountIdOrObject !== null && 'name' in accountIdOrObject) {
-      return accountIdOrObject.name;
-    }
-    // Otherwise, it's an ID string - look it up in the accounts list
-    if (typeof accountIdOrObject === 'string') {
-      const account = accounts.find(acc => acc._id === accountIdOrObject);
-      return account ? account.name : 'Unknown Account';
-    }
-    // Fallback for any other case
-    return 'Unknown Account';
   };
 
   const isExpired = (expiresAt: string) => {
     return new Date(expiresAt) < new Date();
   };
 
+  const receivedInvites = invitations.filter(isReceivedByMe);
+  const sentInvites = invitations.filter(isSentByMe);
+  const pendingReceived = receivedInvites.filter(i => i.status === 'pending' && !isExpired(i.expiresAt));
+  const pendingSent = sentInvites.filter(i => i.status === 'pending' && !isExpired(i.expiresAt));
+  const selectedTripName = formData.sharedAccountId
+    ? getAccountName(formData.sharedAccountId)
+    : '';
+
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '2rem' }}>
         <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
-        <p style={{ marginTop: '1rem', color: '#4a5568' }}>Loading invitations...</p>
+        <p style={{ marginTop: '1rem', color: '#4a5568' }}>Loading trip invitations...</p>
       </div>
     );
   }
 
+  const renderInviteCard = (invitation: Invitation, role: 'received' | 'sent') => {
+    const tripName = getAccountName(invitation.sharedAccount);
+    const expired = isExpired(invitation.expiresAt) && invitation.status === 'pending';
+
+    return (
+      <div key={invitation._id} className="list-item invite-card">
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <strong style={{ fontSize: '1.05rem' }}>
+            {role === 'received' ? `Join ${tripName}` : tripName}
+          </strong>
+          <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.35rem 0' }}>
+            {role === 'received' ? (
+              <>Invited by <strong>{getSenderName(invitation.sender)}</strong></>
+            ) : (
+              <>
+                Invited{' '}
+                <strong>
+                  {invitation.recipientEmail || invitation.recipientPhone || 'traveller'}
+                </strong>
+              </>
+            )}
+          </p>
+          <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
+            Status:{' '}
+            <span
+              style={{
+                color:
+                  invitation.status === 'pending'
+                    ? '#2b6cb0'
+                    : invitation.status === 'accepted'
+                      ? '#38a169'
+                      : '#e53e3e',
+                fontWeight: 600,
+                textTransform: 'capitalize'
+              }}
+            >
+              {invitation.status}
+            </span>
+            {expired && (
+              <span style={{ color: '#e53e3e', marginLeft: '0.5rem' }}>· Expired</span>
+            )}
+          </p>
+          <p style={{ color: '#718096', fontSize: '0.85rem', margin: '0.25rem 0' }}>
+            Sent {new Date(invitation.createdAt).toLocaleDateString()}
+          </p>
+        </div>
+
+        <div className="invite-card-actions">
+          {role === 'received' && invitation.status === 'pending' && !expired && (
+            <button
+              onClick={() => handleAccept(invitation._id)}
+              className="btn btn-success"
+              style={{ padding: '6px 12px', fontSize: '13px' }}
+            >
+              Accept invitation
+            </button>
+          )}
+          {role === 'sent' && invitation.status === 'pending' && !expired && (
+            <>
+              <button
+                type="button"
+                onClick={() => copyInviteMessage(tripName)}
+                className="btn btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '13px' }}
+              >
+                Copy invite
+              </button>
+              <button
+                type="button"
+                onClick={() => shareViaWhatsApp(tripName)}
+                className="btn btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '13px' }}
+              >
+                WhatsApp
+              </button>
+              <button
+                onClick={() => handleCancel(invitation._id)}
+                className="btn btn-danger"
+                style={{ padding: '6px 12px', fontSize: '13px' }}
+              >
+                Cancel invite
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div>
+    <div className="invite-page">
       <div className="card">
-        <div className="card-header">
-          <h1 className="card-title">Invitations</h1>
-          <button 
+        <div className="card-header" style={{ alignItems: 'flex-start', gap: '1rem' }}>
+          <div>
+            <h1 className="card-title" style={{ marginBottom: '0.35rem' }}>Trip invitations</h1>
+            <p style={{ margin: 0, color: '#4a5568', fontSize: '0.95rem' }}>
+              Invite friends to your shared trip costs so everyone can record contributions and finish square.
+            </p>
+          </div>
+          <button
             onClick={() => setShowForm(!showForm)}
             className="btn btn-primary"
+            disabled={accounts.length === 0}
           >
-            {showForm ? 'Cancel' : 'Send Invitation'}
+            {showForm ? 'Cancel' : 'Invite travellers'}
           </button>
+        </div>
+        <div className="trip-money-transparency" style={{ marginTop: '1rem' }}>
+          Invitations join people to shared trip costs in SHARE. Accepting happens after they log in — there is no public invite token link yet.
         </div>
       </div>
 
       {error && (
-        <div className="alert alert-error">
+        <div className="alert alert-error" style={{ whiteSpace: 'pre-wrap' }}>
           {error}
         </div>
       )}
 
-      {accounts.length === 0 && (
-        <div className="alert" style={{
-          background: '#e6fffa',
-          border: '1px solid #81e6d9',
-          color: '#234e52',
-          padding: '1rem',
-          borderRadius: '8px',
-          marginBottom: '1rem'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-            <strong>Getting Started</strong>
-          </div>
-          <p style={{ margin: 0 }}>
-            To send invitations, you first need to create a shared account. 
-            <a href="/shared-accounts" style={{ color: '#234e52', textDecoration: 'underline', marginLeft: '0.5rem' }}>
-              Create your first shared account →
-            </a>
-          </p>
+      {shareNotice && (
+        <div
+          className="alert"
+          style={{
+            background: '#e6fffa',
+            border: '1px solid #81e6d9',
+            color: '#234e52',
+            marginBottom: '1rem'
+          }}
+        >
+          {shareNotice}
+          <button
+            type="button"
+            onClick={() => setShareNotice('')}
+            style={{
+              marginLeft: '0.75rem',
+              background: 'transparent',
+              border: 'none',
+              color: '#234e52',
+              textDecoration: 'underline',
+              cursor: 'pointer'
+            }}
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
-      {/* Send Invitation Form */}
-      {showForm && (
+      {accounts.length === 0 && (
         <div className="card">
-          <h2 style={{ marginBottom: '1rem' }}>Send New Invitation</h2>
-          
+          <h2 style={{ marginTop: 0 }}>Nobody to invite yet</h2>
+          <p style={{ color: '#4a5568' }}>
+            Set up shared trip costs in Trip Money first, then invite your travel group to start coordinating.
+          </p>
+          <Link to="/shared-accounts" className="btn btn-primary">
+            Set up Trip Money
+          </Link>
+        </div>
+      )}
+
+      {showForm && accounts.length > 0 && (
+        <div className="card">
+          <h2 style={{ marginBottom: '0.5rem' }}>Invite friends to this trip</h2>
+          <p style={{ color: '#4a5568', marginTop: 0 }}>
+            Choose the shared trip costs pot, add travellers, then share a WhatsApp-friendly message if you like.
+          </p>
+
           {formData.sharedAccountId && (
-            <div style={{
-              background: '#f0f9ff',
-              border: '1px solid #bae6fd',
-              borderRadius: '6px',
-              padding: '1rem',
-              marginBottom: '1rem'
-            }}>
+            <div
+              style={{
+                background: '#f0f9ff',
+                border: '1px solid #bae6fd',
+                borderRadius: '6px',
+                padding: '1rem',
+                marginBottom: '1rem'
+              }}
+            >
               <p style={{ color: '#0369a1', margin: 0, fontSize: '0.9rem' }}>
-                <strong>Inviting to:</strong> {getAccountName(formData.sharedAccountId)}
+                <strong>Inviting to:</strong> {selectedTripName}
+              </p>
+              <div className="invite-share-row" style={{ marginTop: '0.75rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ padding: '6px 12px', fontSize: '13px' }}
+                  onClick={() => copyInviteMessage(selectedTripName)}
+                >
+                  Copy invite
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ padding: '6px 12px', fontSize: '13px' }}
+                  onClick={() => shareViaWhatsApp(selectedTripName)}
+                >
+                  Share on WhatsApp
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ padding: '6px 12px', fontSize: '13px' }}
+                  onClick={() => shareNative(selectedTripName)}
+                >
+                  Share…
+                </button>
+              </div>
+              <p style={{ color: '#0369a1', fontSize: '0.8rem', margin: '0.65rem 0 0' }}>
+                Share copies a message with the SHARE login page. Friends still need an email invite (or matching account email) to accept in Invitations — SHARE does not yet issue public invite links.
               </p>
             </div>
           )}
-          
+
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label className="form-label">Shared trip costs</label>
-              {accounts.length === 0 ? (
-                <div style={{
-                  padding: '1rem',
-                  background: '#f7fafc',
-                  border: '2px dashed #cbd5e0',
-                  borderRadius: '8px',
-                  textAlign: 'center'
-                }}>
-                  <p style={{ color: '#4a5568', margin: '0 0 1rem 0' }}>
-                    No shared trip costs available. Set up Trip Money first.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      // Navigate to shared accounts page
-                      window.location.href = '/shared-accounts';
-                    }}
-                    className="btn btn-primary"
-                    style={{ padding: '8px 16px' }}
-                  >
-                    Set up Trip Money
-                  </button>
-                </div>
-              ) : (
-                <select
-                  className="form-select"
-                  value={formData.sharedAccountId}
-                  onChange={(e) => setFormData({ ...formData, sharedAccountId: e.target.value })}
-                  required
-                >
-                  <option value="">Select an account</option>
-                  {accounts.map((account) => (
-                    <option key={account._id} value={account._id}>
-                      {account.name}
-                    </option>
-                  ))}
-                </select>
-              )}
+              <select
+                className="form-select"
+                value={formData.sharedAccountId}
+                onChange={(e) => setFormData({ ...formData, sharedAccountId: e.target.value })}
+                required
+              >
+                <option value="">Select a trip pot</option>
+                {accounts.map((account) => (
+                  <option key={account._id} value={account._id}>
+                    {account.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="form-group">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <label className="form-label">Recipients</label>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '0.5rem',
+                  gap: '0.5rem',
+                  flexWrap: 'wrap'
+                }}
+              >
+                <label className="form-label" style={{ margin: 0 }}>Travellers to invite</label>
                 <button
                   type="button"
                   onClick={addRecipient}
-                  className="btn btn-outline"
+                  className="btn btn-secondary"
                   style={{ padding: '4px 12px', fontSize: '0.85rem' }}
                 >
-                  + Add Recipient
+                  + Add traveller
                 </button>
               </div>
 
               {formData.recipients.map((recipient, index) => (
-                <div key={index} style={{
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '6px',
-                  padding: '1rem',
-                  marginBottom: '0.75rem',
-                  background: '#f7fafc',
-                  position: 'relative'
-                }}>
+                <div
+                  key={index}
+                  style={{
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '6px',
+                    padding: '1rem',
+                    marginBottom: '0.75rem',
+                    background: '#f7fafc',
+                    position: 'relative'
+                  }}
+                >
                   {formData.recipients.length > 1 && (
                     <button
                       type="button"
@@ -339,13 +564,13 @@ const Invitations: React.FC = () => {
                         fontSize: '0.75rem',
                         color: '#991b1b'
                       }}
-                      title="Remove recipient"
+                      title="Remove traveller"
                     >
                       ×
                     </button>
                   )}
                   <p style={{ fontSize: '0.85rem', color: '#4a5568', marginBottom: '0.75rem', fontWeight: 'bold' }}>
-                    Recipient {index + 1}
+                    Traveller {index + 1}
                   </p>
                   <div style={{ marginBottom: '0.5rem' }}>
                     <label className="form-label" style={{ fontSize: '0.85rem' }}>Email</label>
@@ -364,112 +589,93 @@ const Invitations: React.FC = () => {
                       className="form-input"
                       value={recipient.recipientPhone}
                       onChange={(e) => updateRecipient(index, 'recipientPhone', e.target.value)}
-                      placeholder="+1234567890"
+                      placeholder="+447700900123"
                     />
                   </div>
                 </div>
               ))}
-
-              <p style={{ fontSize: '0.8rem', color: '#4a5568', marginTop: '0.5rem' }}>
-                Tip: Add multiple recipients to invite several people at once. Each recipient needs at least an email or phone number.
-              </p>
             </div>
 
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={submitting || accounts.length === 0}
+              disabled={submitting}
             >
-              {submitting ? <span className="spinner"></span> : `Send ${formData.recipients.length > 1 ? `${formData.recipients.length} ` : ''}Invitation${formData.recipients.length > 1 ? 's' : ''}`}
+              {submitting ? (
+                <span className="spinner"></span>
+              ) : (
+                `Send trip invitation${formData.recipients.length > 1 ? 's' : ''}`
+              )}
             </button>
           </form>
         </div>
       )}
 
-      {/* Invitations List */}
       <div className="card">
-        <h2 style={{ marginBottom: '1rem' }}>Your Invitations</h2>
-        
-        {invitations.length === 0 ? (
-          <p style={{ color: '#4a5568', textAlign: 'center', padding: '2rem' }}>
-            No invitations yet. Send your first invitation above!
-          </p>
+        <h2 style={{ marginBottom: '0.35rem' }}>Pending invitations for you</h2>
+        <p style={{ color: '#4a5568', marginTop: 0, fontSize: '0.9rem' }}>
+          Accept to join the shared trip costs pot.
+        </p>
+        {pendingReceived.length === 0 ? (
+          <div className="trip-money-empty-panel">
+            <p className="trip-money-empty-title">No pending invitations</p>
+            <p style={{ marginBottom: 0 }}>
+              When a friend invites your email to their trip pot, it will show up here.
+            </p>
+          </div>
         ) : (
           <div className="list">
-            {invitations.map((invitation) => (
-              <div key={invitation._id} className="list-item">
-                <div>
-                  <strong>{getAccountName(invitation.sharedAccount)}</strong>
-                  <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
-                    {invitation.recipientEmail && `Email: ${invitation.recipientEmail}`}
-                    {invitation.recipientEmail && invitation.recipientPhone && ' • '}
-                    {invitation.recipientPhone && `Phone: ${invitation.recipientPhone}`}
-                  </p>
-                  <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
-                    Status: <span style={{ 
-                      color: invitation.status === 'pending' ? '#2b6cb0' : 
-                             invitation.status === 'accepted' ? '#38a169' : '#e53e3e'
-                    }}>
-                      {invitation.status}
-                    </span>
-                    {isExpired(invitation.expiresAt) && invitation.status === 'pending' && (
-                      <span style={{ color: '#e53e3e', marginLeft: '0.5rem' }}>• Expired</span>
-                    )}
-                  </p>
-                  <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
-                    Sent: {new Date(invitation.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-                
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  {invitation.status === 'pending' && !isExpired(invitation.expiresAt) && (
-                    <>
-                      <button
-                        onClick={() => handleAccept(invitation._id)}
-                        className="btn btn-success"
-                        style={{ padding: '4px 8px', fontSize: '12px' }}
-                      >
-                        Accept
-                      </button>
-                      <button
-                        onClick={() => handleCancel(invitation._id)}
-                        className="btn btn-danger"
-                        style={{ padding: '4px 8px', fontSize: '12px' }}
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
+            {pendingReceived.map((invitation) => renderInviteCard(invitation, 'received'))}
           </div>
         )}
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-3">
-        <div className="card">
-          <h3 style={{ color: '#2b6cb0', marginBottom: '1rem' }}>Total Invitations</h3>
-          <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#2b6cb0' }}>
-            {invitations.length}
-          </p>
-        </div>
-        
-        <div className="card">
-          <h3 style={{ color: '#38a169', marginBottom: '1rem' }}>Accepted</h3>
-          <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#38a169' }}>
-            {invitations.filter(inv => inv.status === 'accepted').length}
-          </p>
-        </div>
-        
-        <div className="card">
-          <h3 style={{ color: '#e53e3e', marginBottom: '1rem' }}>Pending</h3>
-          <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#e53e3e' }}>
-            {invitations.filter(inv => inv.status === 'pending').length}
-          </p>
-        </div>
+      <div className="card">
+        <h2 style={{ marginBottom: '0.35rem' }}>Invitations you sent</h2>
+        <p style={{ color: '#4a5568', marginTop: 0, fontSize: '0.9rem' }}>
+          Track who you invited and reshare the invite message.
+        </p>
+        {sentInvites.length === 0 ? (
+          <div className="trip-money-empty-panel">
+            <p className="trip-money-empty-title">Nobody has been invited yet</p>
+            <p>
+              Invite your travel group to start coordinating the trip.
+            </p>
+            {accounts.length > 0 && (
+              <button type="button" className="btn btn-primary" onClick={() => setShowForm(true)}>
+                Invite travellers
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="list">
+            {sentInvites.map((invitation) => renderInviteCard(invitation, 'sent'))}
+          </div>
+        )}
       </div>
+
+      {(pendingReceived.length > 0 || pendingSent.length > 0 || invitations.some(i => i.status === 'accepted')) && (
+        <div className="grid grid-3 invite-stats">
+          <div className="card">
+            <h3 style={{ color: '#2b6cb0', marginBottom: '0.5rem', fontSize: '1rem' }}>Your invitations</h3>
+            <p style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#2b6cb0', margin: 0 }}>
+              {invitations.length}
+            </p>
+          </div>
+          <div className="card">
+            <h3 style={{ color: '#38a169', marginBottom: '0.5rem', fontSize: '1rem' }}>Accepted</h3>
+            <p style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#38a169', margin: 0 }}>
+              {invitations.filter(inv => inv.status === 'accepted').length}
+            </p>
+          </div>
+          <div className="card">
+            <h3 style={{ color: '#dd6b20', marginBottom: '0.5rem', fontSize: '1rem' }}>Pending</h3>
+            <p style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#dd6b20', margin: 0 }}>
+              {invitations.filter(inv => inv.status === 'pending').length}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

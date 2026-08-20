@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 
 interface Event {
   _id?: string;
@@ -278,6 +279,11 @@ const EventCountdown: React.FC = () => {
             <h1 className="card-title">Trips</h1>
             <p style={{ margin: '0.35rem 0 0', color: '#4a5568', fontSize: '0.95rem' }}>
               Plan the group holiday in one place — destination, dates, and shared trip costs.
+            </p>
+            <p style={{ margin: '0.65rem 0 0', fontSize: '0.9rem' }}>
+              <Link to="/invitations" style={{ color: '#2b6cb0' }}>Invite travellers</Link>
+              {' · '}
+              <Link to="/shared-accounts" style={{ color: '#2b6cb0' }}>Trip Money</Link>
             </p>
           </div>
           <button 

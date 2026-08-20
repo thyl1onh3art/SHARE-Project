@@ -57,11 +57,11 @@ Cursor: complete these in order. Update `[ ]` to `[x]` only after code is change
 - The group target and remaining amount are visible immediately.
 
 ## Phase 5 — Strengthen invitations for group travel
-- [ ] Audit `Invitations.tsx` and invite backend flow.
-- [ ] Update invitation copy to include the named trip/context where supported.
-- [ ] Provide a clear share/copy invitation action suitable for WhatsApp sharing if the repository already exposes or can safely construct an invite URL.
-- [ ] Do not add WhatsApp API dependencies unless necessary; a normal share link or `wa.me`/Web Share action can be used only if safe and appropriate.
-- [ ] Avoid claiming recipient app install is unnecessary unless the actual invite flow proves that.
+- [x] Audit `Invitations.tsx` and invite backend flow.
+- [x] Update invitation copy to include the named trip/context where supported.
+- [x] Provide a clear share/copy invitation action suitable for WhatsApp sharing if the repository already exposes or can safely construct an invite URL.
+- [x] Do not add WhatsApp API dependencies unless necessary; a normal share link or `wa.me`/Web Share action can be used only if safe and appropriate.
+- [x] Avoid claiming recipient app install is unnecessary unless the actual invite flow proves that.
 
 ### Acceptance
 - Invite clearly says who invited the user and what trip/group it relates to when data allows.

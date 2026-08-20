@@ -525,3 +525,84 @@ No real-money / PSP / wallet / withdrawal / pooled-funds functionality added.
 **Safe to begin** after approval (invitation share UX). Schema integrity for targets is addressed.
 
 **STOP:** Do not start Pack Phase 5 in this turn.
+
+---
+
+## 15. Pack Phase 5 — Strengthen invitations for group travel
+
+**Branch:** `marketing-alignment`  
+**Stash:** `stash@{0}` left untouched.  
+**Not pushed.**
+
+### Invitations BEFORE → AFTER
+| Before | After |
+|--------|--------|
+| Generic “Invitations / Send Invitation / Shared account” | **Trip invitations**, **Invite travellers**, trip-pot context |
+| Flat list; Accept+Cancel on every pending row | Split **Pending for you** vs **Invitations you sent**; role-correct actions |
+| No share/copy | **Copy invite**, **WhatsApp**, optional **Web Share** with login URL (not a forged invite token) |
+| Frontend called missing `/invites/send-bulk` | Sequential `/invites/send` (existing route) |
+| Owner often blocked from inviting (`members.includes` only) | Owner **or** member may send invites |
+| Sender not populated on list | Sender populated (`firstName`/`lastName`/`name`/`email`) |
+
+### Trip context shown
+- Pot/trip name from `sharedAccount.name`
+- Inviter name when receiving
+- Invitee email/phone when sent
+- Status + expiry
+- Organiser entry: Trip Money **Invite traveller** (`?account=`), Trips page links to Invitations
+
+### Organiser invite journey
+1. Trip Money detail → Invite traveller (preselects pot) **or** Invitations → Invite travellers  
+2. Add emails/phones → Send trip invitation(s)  
+3. Optionally Copy invite / WhatsApp / Share… with trip-specific text + `/login` URL
+
+### WhatsApp / share / copy
+- **No genuine public invite-accept URL/token exists** in the Invite model or routes.
+- Share message includes real `origin/login` only; recipient must log in and accept under Invitations (email match).
+- Documented backend need for true shareable links: signed/random token + authenticated or validated accept endpoint + no guessable IDs.
+
+### Messages vs Invitations
+- App route is `/invitations` only; primary nav already **Invitations**. No separate person-to-person Messages product surface — left as Invitations / trip invitations (no global Messages rename conflict).
+
+### Empty states
+- No Trip Money pots → Set up Trip Money  
+- No pending received → explanation  
+- Nobody invited yet → Invite travellers CTA  
+
+### Files changed
+- `frontend/src/components/Invitations.tsx`
+- `frontend/src/components/EventCountdown.tsx`
+- `frontend/src/App.css`
+- `backend/controllers/inviteController.js`
+- `implementation/TASKS.md`
+- `implementation/IMPLEMENTATION_NOTES.md`
+
+### Security considerations
+- Did not invent public invite URLs or expose accept-by-ID without auth/email match
+- Accept still requires logged-in user whose email matches `recipientEmail`
+- Cancel still sender-only
+- Share text does not embed private invite Mongo IDs
+
+### Backend limitations discovered
+- No invite token / public join URL
+- Invites attach to **SharedAccount** (Trip Money), not Event/Trip documents (no schema link)
+- `/invites/send-bulk` was referenced by UI but **never existed** (fixed client-side)
+- Email/SMS delivery still depends on env credentials (unchanged)
+
+### Desktop / mobile
+- Share/action buttons wrap; invite cards stack actions full-width under 768px
+
+### Build / tests
+| Check | Result |
+|--------|--------|
+| `CI=true npm run build` | **PASS** |
+| Frontend tests | **PASS** (1/1) |
+| Backend `invite` tests | **Not runnable here** — Mongo `Topology is closed` / process exit (existing env baseline; not repaired) |
+
+### Confirmation
+No real-money / wallet / PSP functionality added.
+
+### Next phase recommendation
+Pack Phase 6 — further de-emphasise Personal Finance / secondary lifestyle framing in page copy (nav already under More).
+
+**STOP:** Do not start Pack Phase 6 without approval.
