@@ -1580,4 +1580,22 @@ Branch is ready for a later GitHub push + PR into `main` when explicitly request
 
 **Manual check:** Trip Money → Set up Trip Money → create pot → lands on detail page.
 
+---
+
+## Trip Money close-out progressive UI (main)
+
+**Cause:** Reaching the contribution target only changed Close-out copy. Collection actions stayed primary, and archive lived only in organiser settings — no clear finish-square close.
+
+**Fix (frontend only):** When Close-out status is `ready_to_review` or `review_difference` and the pot is not archived:
+
+- Banner: **Contribution target reached** (or above-target wording). No paid/payout language.
+- Primary: **Review Trip Close-out** (scroll/focus existing section).
+- Optional: **Request settlement record** — documents a ledger adjustment; not required to close; execution semantics unchanged.
+- Finish: **Close Trip Money** reuses existing organiser archive (`DELETE /api/shared-accounts/:id`). Modal: Close Trip Money? / Keep open. No new schema or close endpoint.
+- Collection actions (record contribution, invite, reverse, edit) sit under **More actions**.
+- Organiser transfer demoted under **More organiser actions**.
+- Closed pots show **This Trip Money is closed** (read-only history). Admin settings may still say Archived.
+
+**Deliberately unchanged:** PaymentRequest execute still writes a ledger `output` (can reduce recorded total). Separate design later. No auto-settlement, no auto-archive, no real-money action.
+
 

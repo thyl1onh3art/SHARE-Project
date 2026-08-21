@@ -84,6 +84,7 @@ const SharedAccountDetail: React.FC = () => {
   const [showOrganiserTransferModal, setShowOrganiserTransferModal] = useState(false);
   const [organiserTransferId, setOrganiserTransferId] = useState('');
   const [organiserTransferSubmitting, setOrganiserTransferSubmitting] = useState(false);
+  const [showMoreActions, setShowMoreActions] = useState(false);
 
   useEffect(() => {
     if (accountId) {
@@ -572,17 +573,28 @@ const SharedAccountDetail: React.FC = () => {
     closeOutDetail = 'The contribution target is reached on the ledger. Review each traveller’s recorded position. Reaching the target does not mean real-world settlements are finished.';
   }
 
+  const isCloseOutFocus =
+    !isArchived && (closeOutStatus === 'ready_to_review' || closeOutStatus === 'review_difference');
+
+  const scrollToCloseOut = () => {
+    const section = document.getElementById('trip-closeout');
+    section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    section?.focus();
+  };
+
   let organiserNextStep = 'Record a contribution when money has been committed for this trip.';
   if (isArchived) {
-    organiserNextStep = 'This Trip Money pot is archived. Review recorded history only.';
+    organiserNextStep = 'This Trip Money is closed. Review recorded history only.';
   } else if (!hasTarget && isOwner) {
     organiserNextStep = 'Set a contribution target so travellers can see what the group is aiming for.';
-  } else if (allParticipants.length <= 1) {
+  } else if (allParticipants.length <= 1 && !isCloseOutFocus) {
     organiserNextStep = 'Invite travellers so everyone can record their share of the trip costs.';
   } else if (hasTarget && remainingToContribute !== null && remainingToContribute > 0) {
     organiserNextStep = `£${remainingToContribute.toFixed(2)} still to contribute toward the group target.`;
-  } else if (hasTarget && remainingToContribute === 0) {
-    organiserNextStep = 'Contribution target reached on the ledger. Request a settlement record when the group is ready to close out.';
+  } else if (isCloseOutFocus) {
+    organiserNextStep = closeOutStatus === 'review_difference'
+      ? 'Recorded total is above the contribution target. Review Trip Close-out, then close this pot when the group is finished. SHARE does not move money.'
+      : 'Contribution target reached on the ledger. Review Trip Close-out, then close this pot when the group is finished. SHARE does not move money.';
   }
 
   return (
@@ -618,9 +630,9 @@ const SharedAccountDetail: React.FC = () => {
             border: '1px solid #cbd5e0'
           }}
         >
-          <h2 className="card-title" style={{ marginBottom: '0.35rem' }}>Archived Trip Money</h2>
+          <h2 className="card-title" style={{ marginBottom: '0.35rem' }}>This Trip Money is closed</h2>
           <p style={{ margin: 0, color: '#4a5568' }}>
-            This record is kept for your trip history. New contribution activity cannot be recorded.
+            Its recorded history is kept for reference. New contributions, invitations and settlement requests cannot be added.
           </p>
         </div>
       )}
@@ -674,12 +686,14 @@ const SharedAccountDetail: React.FC = () => {
                 <p className="trip-money-stat-label">Recorded total</p>
                 <p className="trip-money-stat-value">£{recordedTotal.toFixed(2)}</p>
               </div>
-              <div>
-                <p className="trip-money-stat-label">Remaining to contribute</p>
-                <p className="trip-money-stat-value">
-                  £{(remainingToContribute as number).toFixed(2)}
-                </p>
-              </div>
+              {!isCloseOutFocus && remainingToContribute !== null && (
+                <div>
+                  <p className="trip-money-stat-label">Remaining to contribute</p>
+                  <p className="trip-money-stat-value">
+                    £{(remainingToContribute as number).toFixed(2)}
+                  </p>
+                </div>
+              )}
               <div>
                 <p className="trip-money-stat-label">Travellers</p>
                 <p className="trip-money-stat-value">{allParticipants.length}</p>
@@ -690,7 +704,7 @@ const SharedAccountDetail: React.FC = () => {
                 Target date: {new Date(account.targetDate).toLocaleDateString()}
               </p>
             )}
-            {suggestedEqualShare !== null && (
+            {!isCloseOutFocus && suggestedEqualShare !== null && (
               <p className="trip-money-equal-share">
                 Suggested equal share (illustrative, not mandatory): £{suggestedEqualShare.toFixed(2)} each
               </p>
@@ -721,17 +735,53 @@ const SharedAccountDetail: React.FC = () => {
           <strong>{isOwner ? 'Organiser next step:' : 'Next step:'}</strong> {organiserNextStep}
         </div>
 
+        {isCloseOutFocus && (
+          <div className="trip-closeout-banner" role="status">
+            <strong>
+              {closeOutStatus === 'review_difference' ? 'Recorded total is above target' : 'Contribution target reached'}
+            </strong>
+            <p style={{ margin: '0.35rem 0 0' }}>
+              {closeOutStatus === 'review_difference'
+                ? 'The recorded total is above the contribution target on the ledger. Review the group before closing this Trip Money pot.'
+                : 'The recorded contribution target has been reached. Review the group before closing this Trip Money pot.'}
+            </p>
+          </div>
+        )}
+
         {user && (
           <p className="trip-money-your-contribution">
             Your recorded contribution: <strong>£{userContribution.toFixed(2)}</strong>
-            {availableWithdrawal > 0 && (
+            {availableWithdrawal > 0 && !isCloseOutFocus && (
               <> · Available to reverse (recorded): <strong>£{availableWithdrawal.toFixed(2)}</strong></>
             )}
           </p>
         )}
 
         <div className="trip-money-actions">
-          {!isArchived && (
+          {!isArchived && isCloseOutFocus && (
+            <>
+              <button type="button" className="btn btn-primary" onClick={scrollToCloseOut}>
+                Review Trip Close-out
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={handlePayClick}>
+                Request settlement record
+              </button>
+              {isOwner && (
+                <button type="button" className="btn btn-secondary" onClick={() => setShowArchiveModal(true)}>
+                  Close Trip Money
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowMoreActions((open) => !open)}
+                aria-expanded={showMoreActions}
+              >
+                {showMoreActions ? 'Hide more actions' : 'More actions'}
+              </button>
+            </>
+          )}
+          {!isArchived && !isCloseOutFocus && (
             <>
               <button className="btn btn-primary" onClick={handleTransferClick}>
                 Record contribution
@@ -764,7 +814,40 @@ const SharedAccountDetail: React.FC = () => {
           )}
         </div>
 
-        {user && availableWithdrawal > 0 && !isArchived && (
+        {!isArchived && isCloseOutFocus && showMoreActions && (
+          <div className="trip-money-more-actions">
+            <p className="trip-money-more-actions-label">Collection and admin</p>
+            <div className="trip-money-actions" style={{ marginTop: 0, paddingTop: 0, borderTop: 'none' }}>
+              <button type="button" className="btn btn-secondary" onClick={handleTransferClick}>
+                Record contribution
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => navigate(`/invitations?account=${account._id}`)}
+              >
+                Invite traveller
+              </button>
+              {isOwner && (
+                <button type="button" className="btn btn-secondary" onClick={handleEditClick}>
+                  {hasTarget ? 'Edit details' : 'Set contribution target'}
+                </button>
+              )}
+              {!isOwner && (
+                <button type="button" className="btn btn-secondary" onClick={handleEditClick}>
+                  View details
+                </button>
+              )}
+              {availableWithdrawal > 0 && (
+                <button type="button" className="btn btn-secondary" onClick={handleWithdrawClick}>
+                  Reverse recorded contribution (£{availableWithdrawal.toFixed(2)} available)
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {user && availableWithdrawal > 0 && !isArchived && !isCloseOutFocus && (
           <div style={{ marginTop: '0.75rem' }}>
             <button className="btn btn-secondary" onClick={handleWithdrawClick} style={{ width: '100%' }}>
               Reverse recorded contribution (£{availableWithdrawal.toFixed(2)} available)
@@ -780,7 +863,7 @@ const SharedAccountDetail: React.FC = () => {
           <div className="trip-money-empty-panel">
             <p className="trip-money-empty-title">No other travellers yet</p>
             <p>Invite friends so everyone can record their share of the trip costs.</p>
-            {!isArchived && (
+            {!isArchived && !isCloseOutFocus && (
               <button
                 className="btn btn-primary"
                 onClick={() => navigate(`/invitations?account=${account._id}`)}
@@ -872,9 +955,11 @@ const SharedAccountDetail: React.FC = () => {
           <div className="trip-money-empty-panel">
             <p className="trip-money-empty-title">Nothing recorded yet</p>
             <p>Use Record contribution when someone has committed money toward these shared trip costs.</p>
-            <button className="btn btn-primary" onClick={handleTransferClick}>
-              Record contribution
-            </button>
+            {!isArchived && !isCloseOutFocus && (
+              <button className="btn btn-primary" onClick={handleTransferClick}>
+                Record contribution
+              </button>
+            )}
           </div>
         ) : recentTransactions.length === 0 ? (
           <p style={{ color: '#4a5568' }}>No activity in the last 24 hours.</p>
@@ -931,7 +1016,7 @@ const SharedAccountDetail: React.FC = () => {
       </div>
 
       {/* Trip Close-out — final review stage (non-custodial) */}
-      <div className="card trip-closeout">
+      <div className="card trip-closeout" id="trip-closeout" tabIndex={-1}>
         <p className="trip-money-kicker">End of trip review</p>
         <h2 className="card-title" style={{ marginBottom: '0.35rem' }}>Trip Close-out</h2>
         <p style={{ color: '#4a5568', marginTop: 0 }}>
@@ -947,6 +1032,7 @@ const SharedAccountDetail: React.FC = () => {
           <p style={{ margin: '0.35rem 0 0' }}>{closeOutDetail}</p>
         </div>
 
+        {!isCloseOutFocus && (
         <div className="trip-money-stat-grid" style={{ marginTop: '1rem' }}>
           <div>
             <p className="trip-money-stat-label">Contribution target</p>
@@ -989,6 +1075,26 @@ const SharedAccountDetail: React.FC = () => {
             <p className="trip-money-stat-value">{activityCount}</p>
           </div>
         </div>
+        )}
+
+        {isCloseOutFocus && (
+          <div className="trip-money-stat-grid" style={{ marginTop: '1rem' }}>
+            {amountAboveTarget > 0 && (
+              <div>
+                <p className="trip-money-stat-label">Recorded above target</p>
+                <p className="trip-money-stat-value">£{amountAboveTarget.toFixed(2)}</p>
+              </div>
+            )}
+            <div>
+              <p className="trip-money-stat-label">Contribution records</p>
+              <p className="trip-money-stat-value">{contributionCount}</p>
+            </div>
+            <div>
+              <p className="trip-money-stat-label">Ledger activity items</p>
+              <p className="trip-money-stat-value">{activityCount}</p>
+            </div>
+          </div>
+        )}
 
         {account.targetDate && (
           <p className="trip-money-target-date">
@@ -1058,6 +1164,10 @@ const SharedAccountDetail: React.FC = () => {
         <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1.05rem', color: '#2d3748' }}>
           Settlement records
         </h3>
+        <p style={{ color: '#4a5568', fontSize: '0.9rem', marginTop: 0 }}>
+          Optional. Settlement records document an agreed ledger adjustment in SHARE. They do not move money between bank accounts.
+          You can close this Trip Money pot without creating one.
+        </p>
         {pendingSettlementRequests.length === 0 ? (
           <p style={{ color: '#4a5568', fontSize: '0.95rem' }}>
             No pending settlement records for this pot.
@@ -1147,7 +1257,42 @@ const SharedAccountDetail: React.FC = () => {
           </div>
         )}
 
-        {!isArchived && (
+        {!isArchived && isCloseOutFocus && (
+          <>
+            <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1.05rem', color: '#2d3748' }}>
+              Close this pot
+            </h3>
+            <p style={{ color: '#4a5568', fontSize: '0.9rem', marginTop: 0 }}>
+              Closing archives this Trip Money pot and keeps its recorded history available as read-only.
+              SHARE does not move or pay out money.
+            </p>
+            <div className="trip-money-actions">
+              {isOwner ? (
+                <button type="button" className="btn btn-primary" onClick={() => setShowArchiveModal(true)}>
+                  Close Trip Money
+                </button>
+              ) : (
+                <p style={{ margin: 0, color: '#4a5568', fontSize: '0.9rem' }}>
+                  The organiser can close this Trip Money pot when the group has finished reviewing.
+                </p>
+              )}
+              <button type="button" className="btn btn-secondary" onClick={handlePayClick}>
+                Request settlement record
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  document.getElementById('group-activity')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+              >
+                Review activity history
+              </button>
+            </div>
+          </>
+        )}
+
+        {!isArchived && !isCloseOutFocus && (
           <>
             <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1.05rem', color: '#2d3748' }}>
               Organiser next steps
@@ -1161,11 +1306,6 @@ const SharedAccountDetail: React.FC = () => {
               {closeOutStatus === 'still_collecting' && (
                 <button className="btn btn-primary" onClick={handleTransferClick}>
                   Record contribution
-                </button>
-              )}
-              {(closeOutStatus === 'ready_to_review' || closeOutStatus === 'review_difference') && (
-                <button className="btn btn-primary" onClick={handlePayClick}>
-                  Request settlement record
                 </button>
               )}
               <button
@@ -1193,8 +1333,9 @@ const SharedAccountDetail: React.FC = () => {
           </>
         )}
         <p style={{ marginTop: '0.85rem', fontSize: '0.85rem', color: '#718096' }}>
-          There is no “close account” or automatic refund action in SHARE today. When the group is finished reviewing,
-          use your own bank apps or cash to settle any real-world differences you agree on.
+          There is no automatic refund action in SHARE today. When the group is finished reviewing,
+          use your own bank apps or cash to settle any real-world differences you agree on. Closing this pot
+          archives it for history — it does not move money.
         </p>
       </div>
 
@@ -1208,7 +1349,7 @@ const SharedAccountDetail: React.FC = () => {
             Administration only — this does not move money or change recorded history totals.
           </p>
           <div className="trip-money-actions" style={{ flexWrap: 'wrap' }}>
-            {!isArchived && account.members.length > 0 && (
+            {!isArchived && !isCloseOutFocus && account.members.length > 0 && (
               <button
                 type="button"
                 className="btn btn-secondary"
@@ -1222,7 +1363,7 @@ const SharedAccountDetail: React.FC = () => {
             )}
             {!isArchived && (
               <button type="button" className="btn btn-secondary" onClick={() => setShowArchiveModal(true)}>
-                Archive Trip Money
+                {isCloseOutFocus ? 'Close Trip Money' : 'Archive Trip Money'}
               </button>
             )}
             {isArchived && (
@@ -1236,6 +1377,25 @@ const SharedAccountDetail: React.FC = () => {
               </button>
             )}
           </div>
+          {!isArchived && isCloseOutFocus && account.members.length > 0 && (
+            <details style={{ marginTop: '0.85rem' }}>
+              <summary style={{ cursor: 'pointer', color: '#4a5568', fontSize: '0.9rem' }}>
+                More organiser actions
+              </summary>
+              <div className="trip-money-actions" style={{ marginTop: '0.65rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setOrganiserTransferId('');
+                    setShowOrganiserTransferModal(true);
+                  }}
+                >
+                  Transfer organiser role
+                </button>
+              </div>
+            </details>
+          )}
         </div>
       )}
 
@@ -1845,16 +2005,19 @@ const SharedAccountDetail: React.FC = () => {
           justifyContent: 'center', alignItems: 'center', zIndex: 1000
         }}>
           <div className="card" style={{ width: '90%', maxWidth: '480px' }}>
-            <h2 style={{ marginTop: 0 }}>Archive Trip Money</h2>
+            <h2 style={{ marginTop: 0 }}>Close Trip Money?</h2>
             <p style={{ color: '#4a5568' }}>
-              Archive <strong>{account.name}</strong>? It will leave the active list. Recorded history stays available as read-only. SHARE does not hold or move money.
+              Closing archives this Trip Money pot and keeps its recorded history available as read-only.
             </p>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowArchiveModal(false)} disabled={archiveSubmitting}>
-                Cancel
+            <p style={{ color: '#4a5568' }}>
+              SHARE does not move or pay out money when you close a pot.
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <button type="button" className="btn btn-secondary" style={{ flex: 1, minWidth: '8rem' }} onClick={() => setShowArchiveModal(false)} disabled={archiveSubmitting}>
+                Keep open
               </button>
-              <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={handleArchiveTripMoney} disabled={archiveSubmitting}>
-                {archiveSubmitting ? <span className="spinner"></span> : 'Archive Trip Money'}
+              <button type="button" className="btn btn-primary" style={{ flex: 1, minWidth: '8rem' }} onClick={handleArchiveTripMoney} disabled={archiveSubmitting}>
+                {archiveSubmitting ? <span className="spinner"></span> : 'Close Trip Money'}
               </button>
             </div>
           </div>

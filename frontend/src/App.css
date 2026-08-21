@@ -673,6 +673,33 @@ body {
   font-size: 0.95rem;
 }
 
+.trip-closeout-banner {
+  margin: 1rem 0 0;
+  padding: 0.85rem 1rem;
+  background: #f0fff4;
+  border: 1px solid #9ae6b4;
+  border-radius: 8px;
+  color: #22543d;
+  font-size: 0.95rem;
+}
+
+.trip-money-more-actions {
+  margin-top: 0.85rem;
+  padding: 0.85rem 1rem;
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.trip-money-more-actions-label {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #718096;
+}
+
 .trip-money-actions {
   display: flex;
   flex-wrap: wrap;
@@ -788,6 +815,10 @@ body {
   .trip-money-actions .btn {
     width: 100%;
     margin-bottom: 0;
+  }
+
+  .trip-money-more-actions .trip-money-actions .btn {
+    width: 100%;
   }
 
   .trip-money-member-main {
