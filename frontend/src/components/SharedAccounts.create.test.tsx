@@ -1,0 +1,103 @@
+import React from 'react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import axios from 'axios';
+import SharedAccounts from './SharedAccounts';
+
+jest.mock('axios', () => ({
+  __esModule: true,
+  default: {
+    get: jest.fn(),
+    post: jest.fn(),
+    defaults: { headers: { common: {} } }
+  }
+}));
+
+jest.mock('../contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: { id: 'user-1', name: 'Sam Brown', firstName: 'Sam', lastName: 'Brown', email: 'sam@example.com' },
+    token: 'test-token',
+    loading: false,
+    login: jest.fn(),
+    register: jest.fn(),
+    logout: jest.fn(),
+    sendVerificationCode: jest.fn(),
+    verifyEmail: jest.fn(),
+    updateProfile: jest.fn(),
+    refreshUser: jest.fn(),
+    deleteAccount: jest.fn()
+  })
+}));
+
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+describe('SharedAccounts create Trip Money', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (mockedAxios.get as jest.Mock).mockImplementation((url: string) => {
+      if (url.startsWith('/shared-accounts')) {
+        return Promise.resolve({ data: [] });
+      }
+      if (url.startsWith('/payment-requests')) {
+        return Promise.resolve({ data: [] });
+      }
+      if (url.startsWith('/finance')) {
+        return Promise.resolve({ data: [] });
+      }
+      return Promise.resolve({ data: [] });
+    });
+  });
+
+  it('opens create flow and posts a new Trip Money pot', async () => {
+    const createdId = 'new-pot-id';
+    (mockedAxios.post as jest.Mock).mockResolvedValue({
+      data: {
+        sharedAccount: {
+          _id: createdId,
+          name: 'Canada',
+          description: 'Flights and cabin',
+          targetAmount: 2000
+        }
+      }
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/shared-accounts']}>
+        <Routes>
+          <Route path="/shared-accounts" element={<SharedAccounts />} />
+          <Route path="/shared-accounts/:accountId" element={<div>Trip Money detail {createdId}</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: /set up trip money/i }).length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByRole('button', { name: /set up trip money/i })[0]);
+
+    expect(await screen.findByRole('heading', { name: /set up trip money/i })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/trip money name/i), { target: { value: 'Canada' } });
+    fireEvent.change(screen.getByLabelText(/what are you collecting for/i), {
+      target: { value: 'Flights and cabin' }
+    });
+    fireEvent.change(screen.getByLabelText(/target amount/i), { target: { value: '2000' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /^create trip money$/i }));
+
+    await waitFor(() => {
+      expect(mockedAxios.post).toHaveBeenCalledWith(
+        '/shared-accounts',
+        expect.objectContaining({
+          name: 'Canada',
+          description: 'Flights and cabin',
+          targetAmount: 2000,
+          targetDate: expect.any(String)
+        })
+      );
+    });
+
+    expect(await screen.findByText(`Trip Money detail ${createdId}`)).toBeInTheDocument();
+  });
+});

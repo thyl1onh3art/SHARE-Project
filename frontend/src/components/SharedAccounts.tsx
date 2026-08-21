@@ -1,7 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+
+const emptyCreateForm = () => {
+  const defaultDate = new Date();
+  defaultDate.setMonth(defaultDate.getMonth() + 3);
+  return {
+    name: '',
+    description: '',
+    targetAmount: '',
+    targetDate: defaultDate.toISOString().split('T')[0]
+  };
+};
 
 interface SharedAccount {
   _id: string;
@@ -47,8 +58,14 @@ const SharedAccounts: React.FC = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [paymentRequests, setPaymentRequests] = useState<any[]>([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState(emptyCreateForm);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const createPrefillApplied = useRef(false);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Calculate balance for a shared account
   const calculateAccountBalance = (account: SharedAccount): number => {
@@ -165,6 +182,98 @@ const SharedAccounts: React.FC = () => {
     }, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  const openCreateModal = (prefillName?: string) => {
+    const next = emptyCreateForm();
+    if (prefillName?.trim()) {
+      next.name = prefillName.trim();
+    }
+    setCreateForm(next);
+    setCreateError('');
+    setShowCreateModal(true);
+  };
+
+  const closeCreateModal = () => {
+    if (createSubmitting) return;
+    setShowCreateModal(false);
+    setCreateError('');
+    setCreateForm(emptyCreateForm());
+  };
+
+  const handleCreateAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (createSubmitting) return;
+
+    const name = createForm.name.trim();
+    const description = createForm.description.trim();
+    const amount = parseFloat(createForm.targetAmount);
+    const targetDate = createForm.targetDate ? new Date(createForm.targetDate) : null;
+
+    if (name.length < 2) {
+      setCreateError('Enter a Trip Money name (at least 2 characters).');
+      return;
+    }
+    if (!description) {
+      setCreateError('Describe what you are collecting for.');
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setCreateError('Enter a valid target amount greater than zero.');
+      return;
+    }
+    if (!targetDate || Number.isNaN(targetDate.getTime())) {
+      setCreateError('Choose a valid target date.');
+      return;
+    }
+    if (targetDate.getTime() <= Date.now()) {
+      setCreateError('Target date must be in the future.');
+      return;
+    }
+
+    setCreateSubmitting(true);
+    setCreateError('');
+
+    try {
+      const response = await axios.post('/shared-accounts', {
+        name,
+        description,
+        targetAmount: amount,
+        targetDate: targetDate.toISOString()
+      });
+
+      const created = response.data?.sharedAccount;
+      setShowCreateModal(false);
+      setCreateForm(emptyCreateForm());
+
+      if (created?._id) {
+        navigate(`/shared-accounts/${created._id}`);
+        return;
+      }
+
+      await fetchAccounts();
+    } catch (err: any) {
+      const message =
+        err.response?.data?.message ||
+        err.response?.data?.errors?.map((item: any) => item.msg || item.message).filter(Boolean).join(', ') ||
+        'Could not set up Trip Money. Please check the details and try again.';
+      setCreateError(message);
+    } finally {
+      setCreateSubmitting(false);
+    }
+  };
+
+  // Optional: /shared-accounts?name=Canada prefills and opens create once
+  useEffect(() => {
+    if (createPrefillApplied.current) return;
+    const namePrefill = searchParams.get('name');
+    if (!namePrefill?.trim()) return;
+
+    createPrefillApplied.current = true;
+    openCreateModal(namePrefill);
+    const next = new URLSearchParams(searchParams);
+    next.delete('name');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   // Fetch personal balance (total balance from personal account)
   const fetchPersonalBalance = async () => {
@@ -578,7 +687,21 @@ const SharedAccounts: React.FC = () => {
         }}>
           SHARE records and coordinates group contributions. It does not hold this tracked amount in a SHARE bank account.
         </div>
-        <div style={{ marginTop: '0.85rem' }}>
+        <div style={{
+          marginTop: '0.85rem',
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '0.75rem',
+          alignItems: 'center'
+        }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ padding: '8px 14px', fontSize: '0.85rem' }}
+            onClick={() => openCreateModal()}
+          >
+            Set up Trip Money
+          </button>
           <button
             type="button"
             className="btn btn-secondary"
@@ -747,8 +870,16 @@ const SharedAccounts: React.FC = () => {
 
       {/* Accounts List */}
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
           <h2 style={{ margin: 0 }}>Your shared trip costs</h2>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ padding: '8px 14px', fontSize: '0.85rem' }}
+            onClick={() => openCreateModal()}
+          >
+            Set up Trip Money
+          </button>
         </div>
         
         {accounts.length === 0 ? (
@@ -765,9 +896,9 @@ const SharedAccounts: React.FC = () => {
             <button
               type="button"
               className="btn btn-primary"
-              onClick={() => navigate('/invitations')}
+              onClick={() => openCreateModal()}
             >
-              Go to Invitations
+              Set up Trip Money
             </button>
           </div>
         ) : (
@@ -1185,6 +1316,155 @@ const SharedAccounts: React.FC = () => {
                   style={{ flex: 1 }}
                 >
                   {transferSubmitting ? <span className="spinner"></span> : 'Record contribution'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Create Trip Money Modal */}
+      {showCreateModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000
+          }}
+          onClick={closeCreateModal}
+        >
+          <div
+            className="card"
+            style={{
+              width: '90%',
+              maxWidth: '560px',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              position: 'relative'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '1rem'
+            }}>
+              <h2 style={{ margin: 0 }}>Set up Trip Money</h2>
+              <button
+                type="button"
+                onClick={closeCreateModal}
+                disabled={createSubmitting}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: createSubmitting ? 'not-allowed' : 'pointer',
+                  color: '#4a5568'
+                }}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            <p style={{ color: '#4a5568', marginTop: 0, fontSize: '0.9rem' }}>
+              Create a pot to record shared trip costs and contributions. SHARE does not hold a bank balance.
+            </p>
+
+            {createError && (
+              <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
+                {createError}
+              </div>
+            )}
+
+            <form onSubmit={handleCreateAccount}>
+              <div className="form-group">
+                <label className="form-label" htmlFor="trip-money-name">Trip Money name</label>
+                <input
+                  id="trip-money-name"
+                  type="text"
+                  className="form-input"
+                  value={createForm.name}
+                  onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                  required
+                  maxLength={100}
+                  placeholder="e.g. Canada trip costs"
+                  disabled={createSubmitting}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="trip-money-description">What are you collecting for?</label>
+                <textarea
+                  id="trip-money-description"
+                  className="form-input"
+                  value={createForm.description}
+                  onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+                  required
+                  rows={3}
+                  placeholder="Accommodation deposit, tickets, shared meals…"
+                  disabled={createSubmitting}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="trip-money-target-amount">Target amount</label>
+                <input
+                  id="trip-money-target-amount"
+                  type="number"
+                  className="form-input"
+                  value={createForm.targetAmount}
+                  onChange={(e) => setCreateForm({ ...createForm, targetAmount: e.target.value })}
+                  required
+                  min="0.01"
+                  step="0.01"
+                  placeholder="1000.00"
+                  disabled={createSubmitting}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="trip-money-target-date">Target date</label>
+                <input
+                  id="trip-money-target-date"
+                  type="date"
+                  className="form-input"
+                  value={createForm.targetDate}
+                  onChange={(e) => setCreateForm({ ...createForm, targetDate: e.target.value })}
+                  required
+                  min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
+                  disabled={createSubmitting}
+                />
+                <p style={{ margin: '0.35rem 0 0', fontSize: '0.8rem', color: '#718096' }}>
+                  Must be a future date — when you hope the group has recorded enough contributions.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ flex: 1 }}
+                  onClick={closeCreateModal}
+                  disabled={createSubmitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ flex: 1 }}
+                  disabled={createSubmitting}
+                >
+                  {createSubmitting ? <span className="spinner"></span> : 'Create Trip Money'}
                 </button>
               </div>
             </form>

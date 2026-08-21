@@ -1570,4 +1570,14 @@ Did **not** import the bulk Railway incident dump. Root README now points here.
 Branch is ready for a later GitHub push + PR into `main` when explicitly requested.
 **Do not push / do not open PR from this integration task.**
 
+---
+
+## Trip Money create surface restored (main)
+
+**Cause:** `POST /api/shared-accounts` still worked, but `SharedAccounts.tsx` on marketing-aligned `main` had no create control (empty state incorrectly sent users to Invitations). Create UI still existed on `pre-marketing-wip` only.
+
+**Fix (smallest):** Restored a **Set up Trip Money** button (header + list + empty state) and a create modal posting `name`, `description`, `targetAmount`, `targetDate` to the existing endpoint. Optional `?name=` prefill supported. No Event↔SharedAccount schema link. No stash/WIP merge.
+
+**Manual check:** Trip Money → Set up Trip Money → create pot → lands on detail page.
+
 
