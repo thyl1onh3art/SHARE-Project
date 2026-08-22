@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   formatGbp,
   tripCountdownLabel,
+  tripMoneyPrimaryAction,
   TripMoneySummary
 } from '../utils/tripHome';
 
@@ -607,11 +608,15 @@ const EventCountdown: React.FC = () => {
             {events.map((event) => {
               const recorded = Number(event.tripMoney?.recordedTotal) || 0;
               const target = Number(event.tripMoney?.targetAmount) || 0;
-              const tripHomePath = `/events/${event._id}`;
+              const destination = tripMoneyPrimaryAction(
+                event._id || '',
+                event.title,
+                event.tripMoney
+              ).to;
 
-              const openTripHome = () => {
-                if (event._id) {
-                  navigate(tripHomePath);
+              const openTrip = () => {
+                if (destination) {
+                  navigate(destination);
                 }
               };
 
@@ -626,7 +631,7 @@ const EventCountdown: React.FC = () => {
                     if ((e.target as HTMLElement).closest('.trip-list-remove')) {
                       return;
                     }
-                    openTripHome();
+                    openTrip();
                   }}
                   onKeyDown={(e) => {
                     if (e.target !== e.currentTarget) {
@@ -634,7 +639,7 @@ const EventCountdown: React.FC = () => {
                     }
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      openTripHome();
+                      openTrip();
                     }
                   }}
                 >

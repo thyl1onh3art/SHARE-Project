@@ -1629,9 +1629,11 @@ Branch is ready for a later GitHub push + PR into `main` when explicitly request
 
 **Trip Home before:** There was no `/events/:id` page. `/events` (`EventCountdown.tsx`) was both create-trip and a dense card per trip. Members were not shown. Money was only a Set up / Open / View closed button with explanatory copy. Countdown was `Xd Xh Xm Xs` (or “Trip has passed”).
 
-**Trip Home after:** New route `/events/:id` (`TripHome.tsx`). Hierarchy: trip name + days-to-go hero → compact money summary → one primary CTA → Group → lightweight Photos/Map links. The `/events` list is now an index: name, countdown, optional money line, clickable card → Trip Home, secondary Remove trip. Budget/accommodation blocks, Total/Upcoming/Recurring stats, and list-level Trip Money buttons are gone.
+**Trip Home after / correction:** `/events` is an index (name, countdown, optional money line, clickable card, secondary Remove trip). Card clicks go **directly** to Trip Money, Set up Trip Money, or the closed pot. `/events/:id` is a redirect only. Budget/accommodation blocks, stats, and list-level Trip Money buttons are gone.
 
-**Trip card navigation polish:** The whole card is the entry point (`role="link"`, Enter/Space, hover/focus). Clicks on Remove trip do not navigate. Open / Review / View closed Trip Money buttons are only on Trip Home, not the list.
+**Trip card navigation polish:** The whole card is the entry point (`role="link"`, Enter/Space, hover/focus). Clicks on Remove trip do not navigate. Open / Review / View closed Trip Money buttons are not on the list.
+
+**Trip Home step removed:** Card clicks go directly to the linked pot, the Set up Trip Money flow (`?event=&name=`), or the closed pot. `/events/:id` no longer renders a working page; it redirects with `replace` to the same destination. Countdown/group helpers remain in `frontend/src/utils/tripHome.ts` for later reuse. No duplicate Trip UI.
 
 **Countdown:** Uses the Trip `eventDate` (not the contribution deadline). Future → `42 days to go`; same calendar day → `Today`; past → `Trip completed`. Shared helper `tripCountdownLabel` (no second live ticker).
 

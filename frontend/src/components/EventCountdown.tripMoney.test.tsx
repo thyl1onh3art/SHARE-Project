@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import EventCountdown from './EventCountdown';
 
@@ -26,12 +26,28 @@ const baseTrip = {
   isRecurring: false
 };
 
+const OpenedPot = () => {
+  const { accountId } = useParams();
+  return <div>Opened pot {accountId}</div>;
+};
+
+const SetupTripMoney = () => {
+  const [search] = useSearchParams();
+  return (
+    <div>
+      Set up Trip Money event={search.get('event')} name={search.get('name')}
+    </div>
+  );
+};
+
 const renderTrips = () =>
   render(
     <MemoryRouter initialEntries={['/events']}>
       <Routes>
         <Route path="/events" element={<EventCountdown />} />
-        <Route path="/events/:eventId" element={<div>Opened trip Canada</div>} />
+        <Route path="/events/:eventId" element={<div>Unexpected Trip Home</div>} />
+        <Route path="/shared-accounts" element={<SetupTripMoney />} />
+        <Route path="/shared-accounts/:accountId" element={<OpenedPot />} />
       </Routes>
     </MemoryRouter>
   );
@@ -42,7 +58,7 @@ describe('EventCountdown trip cards', () => {
     window.confirm = jest.fn(() => true);
   });
 
-  it('opens Trip Home when the main card surface is clicked', async () => {
+  it('opens linked Trip Money directly from the card', async () => {
     (mockedAxios.get as jest.Mock).mockResolvedValue({
       data: [{
         ...baseTrip,
@@ -59,7 +75,41 @@ describe('EventCountdown trip cards', () => {
     renderTrips();
 
     fireEvent.click(await screen.findByText('£1,800 of £2,400 contributed'));
-    expect(screen.getByText('Opened trip Canada')).toBeInTheDocument();
+    expect(screen.getByText('Opened pot pot-canada')).toBeInTheDocument();
+    expect(screen.queryByText('Unexpected Trip Home')).not.toBeInTheDocument();
+  });
+
+  it('opens Set up Trip Money when the trip has no linked pot', async () => {
+    (mockedAxios.get as jest.Mock).mockResolvedValue({
+      data: [{ ...baseTrip, tripMoney: null }]
+    });
+
+    renderTrips();
+
+    fireEvent.click(await screen.findByRole('heading', { name: 'Canada' }));
+    expect(screen.getByText('Set up Trip Money event=trip-canada name=Canada')).toBeInTheDocument();
+    expect(screen.queryByText('Unexpected Trip Home')).not.toBeInTheDocument();
+  });
+
+  it('opens closed Trip Money directly from the card', async () => {
+    (mockedAxios.get as jest.Mock).mockResolvedValue({
+      data: [{
+        ...baseTrip,
+        tripMoney: {
+          _id: 'pot-closed',
+          name: 'Canada costs',
+          isDeleted: true,
+          targetAmount: 2400,
+          recordedTotal: 2400
+        }
+      }]
+    });
+
+    renderTrips();
+
+    fireEvent.click(await screen.findByText('Trip Money closed'));
+    expect(screen.getByText('Opened pot pot-closed')).toBeInTheDocument();
+    expect(screen.queryByText('Unexpected Trip Home')).not.toBeInTheDocument();
   });
 
   it('does not show Trip Money action buttons on the list', async () => {
@@ -104,7 +154,7 @@ describe('EventCountdown trip cards', () => {
     expect(screen.getByText('Trip Money closed')).toBeInTheDocument();
   });
 
-  it('keeps Remove trip independent of opening Trip Home', async () => {
+  it('keeps Remove trip independent of opening Trip Money', async () => {
     (mockedAxios.get as jest.Mock).mockResolvedValue({
       data: [{ ...baseTrip, tripMoney: null }]
     });
@@ -118,19 +168,8 @@ describe('EventCountdown trip cards', () => {
     await waitFor(() => {
       expect(mockedAxios.delete).toHaveBeenCalledWith('/events/trip-canada');
     });
-    expect(screen.queryByText('Opened trip Canada')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Opened pot/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Set up Trip Money event=/)).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Canada' })).toBeInTheDocument();
-  });
-
-  it('opens Trip Home with Enter on the focused card', async () => {
-    (mockedAxios.get as jest.Mock).mockResolvedValue({
-      data: [{ ...baseTrip, tripMoney: null }]
-    });
-
-    renderTrips();
-
-    const card = await screen.findByRole('link', { name: 'Open Canada' });
-    fireEvent.keyDown(card, { key: 'Enter' });
-    expect(screen.getByText('Opened trip Canada')).toBeInTheDocument();
   });
 });
