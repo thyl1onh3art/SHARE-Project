@@ -1,26 +1,61 @@
 const Event = require('../models/Event');
 const SharedAccount = require('../models/SharedAccount');
 
-const summarizeTripMoney = (account) => ({
+const personSummary = (person) => {
+  if (!person) return null;
+  if (typeof person === 'string') return { _id: person };
+  return {
+    _id: person._id,
+    firstName: person.firstName || '',
+    lastName: person.lastName || ''
+  };
+};
+
+const recordedTotalFromRecords = (records) =>
+  (records || []).reduce((sum, record) => {
+    if (!record || typeof record === 'string') return sum;
+    const amount = Number(record.amount) || 0;
+    return sum + (record.type === 'input' ? amount : -amount);
+  }, 0);
+
+const yourContributionFromRecords = (records, userId) =>
+  (records || []).reduce((sum, record) => {
+    if (!record || record.type !== 'input') return sum;
+    const recordUser = record.user && (record.user._id || record.user);
+    if (String(recordUser) !== String(userId)) return sum;
+    return sum + (Number(record.amount) || 0);
+  }, 0);
+
+const summarizeTripMoney = (account, userId) => ({
   _id: account._id,
   name: account.name,
-  isDeleted: !!account.isDeleted
+  isDeleted: !!account.isDeleted,
+  targetAmount: account.targetAmount || null,
+  targetDate: account.targetDate || null,
+  recordedTotal: recordedTotalFromRecords(account.financeRecords),
+  yourContribution: yourContributionFromRecords(account.financeRecords, userId),
+  owner: personSummary(account.owner),
+  members: (account.members || []).map(personSummary).filter(Boolean)
 });
 
-const attachTripMoneyToEvents = async (events) => {
+const attachTripMoneyToEvents = async (events, userId) => {
   const list = Array.isArray(events) ? events : [events];
   const ids = list.map((event) => event._id).filter(Boolean);
   if (ids.length === 0) {
     return Array.isArray(events) ? [] : events;
   }
 
-  const pots = await SharedAccount.find({ event: { $in: ids } }).select('_id name isDeleted event');
+  const pots = await SharedAccount.find({ event: { $in: ids } })
+    .select('_id name isDeleted event targetAmount targetDate owner members financeRecords')
+    .populate('owner', 'firstName lastName')
+    .populate('members', 'firstName lastName')
+    .populate('financeRecords', 'type amount user');
   const byEvent = new Map(pots.map((pot) => [String(pot.event), pot]));
 
   const decorated = list.map((event) => {
     const plain = typeof event.toObject === 'function' ? event.toObject() : { ...event };
     const linked = byEvent.get(String(event._id));
-    plain.tripMoney = linked ? summarizeTripMoney(linked) : null;
+    plain.tripMoney = linked ? summarizeTripMoney(linked, userId) : null;
     return plain;
   });
 
@@ -103,8 +138,11 @@ function calculateSavingsPlan(totalAmount, eventDate, frequency = 'monthly') {
 // Get all events for the user
 exports.getUserEvents = async (req, res) => {
   try {
-    const events = await Event.find({ user: req.user.userId }).sort({ eventDate: 1, eventTime: 1 });
-    res.json(await attachTripMoneyToEvents(events));
+    const events = await Event.find({ user: req.user.userId })
+      .populate('user', 'firstName lastName')
+      .populate('sharedWith', 'firstName lastName')
+      .sort({ eventDate: 1, eventTime: 1 });
+    res.json(await attachTripMoneyToEvents(events, req.user.userId));
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -113,16 +151,18 @@ exports.getUserEvents = async (req, res) => {
 // Get a specific event
 exports.getEvent = async (req, res) => {
   try {
-    const event = await Event.findOne({ 
-      _id: req.params.id, 
-      user: req.user.userId 
-    });
-    
+    const event = await Event.findOne({
+      _id: req.params.id,
+      user: req.user.userId
+    })
+      .populate('user', 'firstName lastName')
+      .populate('sharedWith', 'firstName lastName');
+
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
 
-    res.json(await attachTripMoneyToEvents(event));
+    res.json(await attachTripMoneyToEvents(event, req.user.userId));
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

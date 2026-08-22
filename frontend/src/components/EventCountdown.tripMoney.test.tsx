@@ -56,7 +56,13 @@ describe('EventCountdown Trip Money entry', () => {
     (mockedAxios.get as jest.Mock).mockResolvedValue({
       data: [{
         ...baseTrip,
-        tripMoney: { _id: 'pot-canada', name: 'Canada costs', isDeleted: false }
+        tripMoney: {
+          _id: 'pot-canada',
+          name: 'Canada costs',
+          isDeleted: false,
+          targetAmount: 2400,
+          recordedTotal: 1800
+        }
       }]
     });
 
@@ -66,8 +72,35 @@ describe('EventCountdown Trip Money entry', () => {
       </MemoryRouter>
     );
 
-    const openLink = await screen.findByRole('link', { name: /open trip money/i });
+    expect(await screen.findByText('£1,800 of £2,400 contributed')).toBeInTheDocument();
+    const openLink = screen.getByRole('link', { name: /open trip money/i });
     expect(openLink).toHaveAttribute('href', '/shared-accounts/pot-canada');
     expect(screen.queryByRole('link', { name: /set up trip money/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Canada' })).toHaveAttribute('href', '/events/trip-canada');
+  });
+
+  it('shows Review Trip Money when the list card target is reached', async () => {
+    (mockedAxios.get as jest.Mock).mockResolvedValue({
+      data: [{
+        ...baseTrip,
+        tripMoney: {
+          _id: 'pot-canada',
+          name: 'Canada costs',
+          targetAmount: 2400,
+          recordedTotal: 2400
+        }
+      }]
+    });
+
+    render(
+      <MemoryRouter>
+        <EventCountdown />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('link', { name: /review trip money/i })).toHaveAttribute(
+      'href',
+      '/shared-accounts/pot-canada'
+    );
   });
 });

@@ -1,0 +1,136 @@
+export interface PersonSummary {
+  _id: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+export interface TripMoneySummary {
+  _id: string;
+  name: string;
+  isDeleted?: boolean;
+  targetAmount?: number | null;
+  targetDate?: string | null;
+  recordedTotal?: number;
+  yourContribution?: number;
+  owner?: PersonSummary | null;
+  members?: PersonSummary[];
+}
+
+export interface TripHomeEvent {
+  _id?: string;
+  title: string;
+  description?: string;
+  eventDate: string;
+  eventTime: string;
+  location?: string;
+  user?: PersonSummary | string;
+  sharedWith?: Array<PersonSummary | string>;
+  tripMoney?: TripMoneySummary | null;
+}
+
+export interface TripPrimaryAction {
+  label: string;
+  to: string;
+}
+
+export interface TripGroupMember {
+  id: string;
+  name: string;
+  isOrganiser: boolean;
+}
+
+export function tripCountdownLabel(
+  eventDate: string,
+  eventTime?: string,
+  now: Date = new Date()
+): string {
+  const start = new Date(`${eventDate}T${eventTime || '00:00'}`);
+  if (Number.isNaN(start.getTime())) {
+    return '';
+  }
+
+  const startDay = new Date(`${eventDate}T00:00:00`);
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  startDay.setHours(0, 0, 0, 0);
+
+  const dayDiff = Math.round((startDay.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+  if (dayDiff === 0) return 'Today';
+  if (dayDiff < 0) return 'Trip completed';
+  if (dayDiff === 1) return '1 day to go';
+  return `${dayDiff} days to go`;
+}
+
+export function formatGbp(amount: number): string {
+  const value = Number(amount) || 0;
+  return `£${value.toLocaleString('en-GB', {
+    minimumFractionDigits: value % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2
+  })}`;
+}
+
+export function formatContributionDeadline(targetDate?: string | null): string | null {
+  if (!targetDate) return null;
+  const parsed = new Date(targetDate);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+}
+
+export function tripMoneyPrimaryAction(
+  tripId: string,
+  tripTitle: string,
+  tripMoney?: TripMoneySummary | null
+): TripPrimaryAction {
+  if (!tripMoney?._id) {
+    return {
+      label: 'Set up Trip Money',
+      to: `/shared-accounts?event=${encodeURIComponent(tripId)}&name=${encodeURIComponent(tripTitle)}`
+    };
+  }
+
+  const potPath = `/shared-accounts/${tripMoney._id}`;
+  if (tripMoney.isDeleted) {
+    return { label: 'View closed Trip Money', to: potPath };
+  }
+
+  const target = Number(tripMoney.targetAmount) || 0;
+  const recorded = Number(tripMoney.recordedTotal) || 0;
+  if (target > 0 && recorded >= target) {
+    return { label: 'Review Trip Money', to: potPath };
+  }
+
+  return { label: 'Open Trip Money', to: potPath };
+}
+
+export function tripGroupMembers(event: TripHomeEvent): TripGroupMember[] {
+  const people = new Map<string, TripGroupMember>();
+
+  const add = (person: PersonSummary | string | null | undefined, isOrganiser = false) => {
+    if (!person) return;
+    const id = String(typeof person === 'string' ? person : person._id);
+    if (!id || id === 'undefined') return;
+
+    const existing = people.get(id);
+    if (existing) {
+      if (isOrganiser) existing.isOrganiser = true;
+      return;
+    }
+
+    const first = typeof person === 'string' ? '' : (person.firstName || '').trim();
+    const last = typeof person === 'string' ? '' : (person.lastName || '').trim();
+    people.set(id, {
+      id,
+      name: first || last || 'Traveller',
+      isOrganiser
+    });
+  };
+
+  add(event.user, true);
+  (event.sharedWith || []).forEach((person) => add(person));
+  if (event.tripMoney) {
+    add(event.tripMoney.owner);
+    (event.tripMoney.members || []).forEach((person) => add(person));
+  }
+
+  return Array.from(people.values());
+}

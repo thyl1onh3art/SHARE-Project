@@ -907,6 +907,162 @@ body {
   }
 }
 
+.trip-home {
+  max-width: 640px;
+}
+
+.trip-home-back {
+  margin: 0 0 1.25rem;
+  font-size: 0.9rem;
+}
+
+.trip-home-hero {
+  margin-bottom: 1.5rem;
+}
+
+.trip-home-title {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 2.75rem);
+  line-height: 1.15;
+  color: #1a202c;
+}
+
+.trip-home-countdown {
+  margin: 0.45rem 0 0;
+  font-size: 1.25rem;
+  color: #2b6cb0;
+  font-weight: 600;
+}
+
+.trip-home-location {
+  margin: 0.35rem 0 0;
+  color: #718096;
+}
+
+.trip-home-card {
+  margin-bottom: 1.25rem;
+  padding: 1.1rem 1.15rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.trip-home-closed {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+  color: #744210;
+}
+
+.trip-home-money-total {
+  margin: 0 0 0.65rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.trip-home-your-contribution,
+.trip-home-deadline {
+  margin: 0.5rem 0 0;
+  color: #4a5568;
+  font-size: 0.95rem;
+}
+
+.trip-home-primary {
+  margin: 0 0 1.5rem;
+}
+
+.trip-home-cta,
+.trip-list-cta {
+  display: inline-block;
+}
+
+.trip-home-section-title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  color: #2d3748;
+}
+
+.trip-home-group {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.trip-home-member {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #2d3748;
+}
+
+.trip-home-avatar {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: #ebf8ff;
+  color: #2b6cb0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.trip-home-organiser {
+  font-size: 0.75rem;
+  color: #2b6cb0;
+  background: #ebf8ff;
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+}
+
+.trip-home-supporting {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.9rem;
+}
+
+.trip-list-card {
+  margin: 0 0 1rem;
+}
+
+.trip-list-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.trip-list-title {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.trip-list-title a {
+  color: #1a202c;
+  text-decoration: none;
+}
+
+.trip-list-countdown {
+  margin: 0.3rem 0 0;
+  color: #2b6cb0;
+  font-weight: 600;
+}
+
+.trip-list-money {
+  margin: 0 0 0.85rem;
+  color: #4a5568;
+}
+
+.trip-list-remove {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
 /* Utility Classes */
 .text-center {
   text-align: center;

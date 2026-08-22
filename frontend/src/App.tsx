@@ -10,6 +10,7 @@ import SharedAccountDetail from './components/SharedAccountDetail';
 import Invitations from './components/Invitations';
 import Friends from './components/Friends';
 import EventCountdown from './components/EventCountdown';
+import TripHome from './components/TripHome';
 import Calendar from './components/Calendar';
 import SharedGallery from './components/SharedGallery';
 import EventMap from './components/EventMap';
@@ -86,6 +87,14 @@ function App() {
                     <EventCountdown />
                   </ProtectedRoute>
                 } 
+              />
+              <Route
+                path="/events/:eventId"
+                element={
+                  <ProtectedRoute>
+                    <TripHome />
+                  </ProtectedRoute>
+                }
               />
               <Route 
                 path="/calendar" 

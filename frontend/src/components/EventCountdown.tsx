@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-
-interface TripMoneySummary {
-  _id: string;
-  name: string;
-  isDeleted?: boolean;
-}
+import {
+  formatGbp,
+  tripCountdownLabel,
+  tripMoneyPrimaryAction,
+  TripMoneySummary
+} from '../utils/tripHome';
 
 interface Event {
   _id?: string;
@@ -39,13 +39,6 @@ interface Event {
   tripMoney?: TripMoneySummary | null;
   createdAt?: string;
   updatedAt?: string;
-}
-
-interface TimeLeft {
-  days: number;
-  hours: number;
-  minutes: number;
-  seconds: number;
 }
 
 const EventCountdown: React.FC = () => {
@@ -82,7 +75,6 @@ const EventCountdown: React.FC = () => {
     sharedWith: []
   });
   const [submitting, setSubmitting] = useState(false);
-  const [timeLeft, setTimeLeft] = useState<{ [key: string]: TimeLeft }>({});
 
   // Keep category values aligned with the existing Event API/model; only labels are trip-oriented.
   const categories = [
@@ -101,15 +93,6 @@ const EventCountdown: React.FC = () => {
     fetchEvents();
   }, []);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      updateCountdowns();
-    }, 1000);
-
-    return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events]);
-
   const fetchEvents = async () => {
     try {
       setLoading(true);
@@ -126,33 +109,6 @@ const EventCountdown: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const calculateTimeLeft = (eventDate: string, eventTime: string): TimeLeft => {
-    const now = new Date();
-    const eventDateTime = new Date(`${eventDate}T${eventTime}`);
-    
-    // If the event is in the past and not recurring, return zeros
-    if (eventDateTime <= now) {
-      return { days: 0, hours: 0, minutes: 0, seconds: 0 };
-    }
-
-    const difference = eventDateTime.getTime() - now.getTime();
-    
-    return {
-      days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-      hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
-      minutes: Math.floor((difference / 1000 / 60) % 60),
-      seconds: Math.floor((difference / 1000) % 60)
-    };
-  };
-
-  const updateCountdowns = () => {
-    const newTimeLeft: { [key: string]: TimeLeft } = {};
-    events.forEach(event => {
-      newTimeLeft[event._id || event.title] = calculateTimeLeft(event.eventDate, event.eventTime);
-    });
-    setTimeLeft(newTimeLeft);
   };
 
   const calculateAmountPerPeriod = (): number => {
@@ -255,18 +211,6 @@ const EventCountdown: React.FC = () => {
     } catch (err: any) {
       setError(`Failed to delete trip: ${err.response?.data?.message || err.message}`);
     }
-  };
-
-  const formatTimeLeft = (time: TimeLeft): string => {
-    if (time.days === 0 && time.hours === 0 && time.minutes === 0 && time.seconds === 0) {
-      return 'Trip has passed';
-    }
-    return `${time.days}d ${time.hours}h ${time.minutes}m ${time.seconds}s`;
-  };
-
-
-  const isEventUpcoming = (time: TimeLeft): boolean => {
-    return !(time.days === 0 && time.hours === 0 && time.minutes === 0 && time.seconds === 0);
   };
 
   if (loading) {
@@ -661,179 +605,46 @@ const EventCountdown: React.FC = () => {
         ) : (
           <div className="grid grid-1">
             {events.map((event) => {
-              const time = timeLeft[event._id || event.title] || { days: 0, hours: 0, minutes: 0, seconds: 0 };
-              const isUpcoming = isEventUpcoming(time);
-              
+              const action = tripMoneyPrimaryAction(event._id || '', event.title, event.tripMoney);
+              const recorded = Number(event.tripMoney?.recordedTotal) || 0;
+              const target = Number(event.tripMoney?.targetAmount) || 0;
+
               return (
-                <div key={event._id || event.title} className="card" style={{ margin: 0, marginBottom: '1rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <h3 style={{ margin: 0 }}>{event.title}</h3>
+                <div key={event._id || event.title} className="card trip-list-card">
+                  <div className="trip-list-card-header">
+                    <div>
+                      <h3 className="trip-list-title">
+                        <Link to={`/events/${event._id}`}>{event.title}</Link>
+                      </h3>
+                      <p className="trip-list-countdown">
+                        {tripCountdownLabel(event.eventDate, event.eventTime)}
+                      </p>
                     </div>
                     <button
                       onClick={() => handleDelete(event._id || '')}
-                      className="btn btn-danger"
-                      style={{ padding: '4px 8px', fontSize: '12px' }}
+                      className="btn btn-secondary trip-list-remove"
                     >
                       Remove trip
                     </button>
                   </div>
-                  
-                  {event.description && (
-                    <p style={{ color: '#4a5568', marginBottom: '1rem' }}>{event.description}</p>
+
+                  {event.tripMoney?.isDeleted && (
+                    <p className="trip-list-money">Trip Money closed</p>
                   )}
-                  
-                  <div style={{ marginBottom: '1rem' }}>
-                    <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
-                      <strong>Date:</strong> {new Date(`${event.eventDate}T${event.eventTime}`).toLocaleString()}
+                  {event.tripMoney && !event.tripMoney.isDeleted && target > 0 && (
+                    <p className="trip-list-money">
+                      {formatGbp(recorded)} of {formatGbp(target)} contributed
                     </p>
-                    {event.location && (
-                      <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
-                        <strong>Destination:</strong> {event.location}
-                      </p>
-                    )}
-                    {event.isRecurring && (
-                      <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
-                        <strong>Recurring:</strong> {event.recurringType}
-                      </p>
-                    )}
-                    
-                    {/* Budget Information */}
-                    {event.budget?.isActive && event.budget.totalAmount > 0 && (
-                      <div style={{ 
-                        background: '#e8f5e8', 
-                        padding: '0.75rem', 
-                        borderRadius: '6px', 
-                        marginTop: '0.5rem',
-                        border: '1px solid #c8e6c9'
-                      }}>
-                        <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#2e7d32' }}>
-                          <strong>Budget:</strong> {event.budget.currency} {event.budget.totalAmount.toLocaleString()}
-                        </p>
-                        <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#2e7d32' }}>
-                          <strong>Save per {event.budget.savingsFrequency}:</strong> {event.budget.currency} {event.budget.amountPerPeriod}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {/* Accommodation Information */}
-                    {event.accommodation?.name && (
-                      <div style={{ 
-                        background: '#fff3e0', 
-                        padding: '0.75rem', 
-                        borderRadius: '6px', 
-                        marginTop: '0.5rem',
-                        border: '1px solid #ffcc02'
-                      }}>
-                        <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#e65100' }}>
-                          <strong>{event.accommodation.name}</strong> ({event.accommodation.type})
-                        </p>
-                        {event.accommodation.price > 0 && (
-                          <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#e65100' }}>
-                            <strong>Price:</strong> {event.budget?.currency || 'GBP'} {event.accommodation.price}/night
-                          </p>
-                        )}
-                        {event.accommodation.bookingLink && (
-                          <p style={{ margin: '0.25rem 0', fontSize: '0.9rem' }}>
-                            <a href={event.accommodation.bookingLink} target="_blank" rel="noopener noreferrer" style={{ color: '#1976d2' }}>
-                              View Booking
-                            </a>
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  )}
 
-                  <div style={{
-                    background: isUpcoming ? '#f0f9ff' : '#fef3c7',
-                    border: `1px solid ${isUpcoming ? '#bae6fd' : '#f59e0b'}`,
-                    borderRadius: '8px',
-                    padding: '1rem',
-                    textAlign: 'center'
-                  }}>
-                    <div style={{
-                      fontSize: '1.5rem',
-                      fontWeight: 'bold',
-                      color: isUpcoming ? '#0369a1' : '#92400e',
-                      marginBottom: '0.5rem'
-                    }}>
-                      {isUpcoming ? 'Time until trip' : 'Trip passed'}
-                    </div>
-                    <div style={{
-                      fontSize: '2rem',
-                      fontWeight: 'bold',
-                      color: isUpcoming ? '#0369a1' : '#92400e',
-                      fontFamily: 'monospace'
-                    }}>
-                      {formatTimeLeft(time)}
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      marginTop: '1rem',
-                      padding: '0.85rem 1rem',
-                      background: '#f7fafc',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px'
-                    }}
-                  >
-                    <p style={{ margin: '0 0 0.35rem', fontWeight: 600, color: '#2d3748' }}>
-                      Trip Money
-                    </p>
-                    <p style={{ margin: '0 0 0.75rem', fontSize: '0.85rem', color: '#4a5568' }}>
-                      Record shared trip costs for this trip. SHARE does not hold a bank balance.
-                    </p>
-                    {event.tripMoney?._id ? (
-                      <Link
-                        to={`/shared-accounts/${event.tripMoney._id}`}
-                        className="btn btn-primary"
-                        style={{ display: 'inline-block' }}
-                      >
-                        {event.tripMoney.isDeleted ? 'View closed Trip Money' : 'Open Trip Money'}
-                      </Link>
-                    ) : (
-                      <Link
-                        to={`/shared-accounts?event=${encodeURIComponent(event._id || '')}&name=${encodeURIComponent(event.title)}`}
-                        className="btn btn-primary"
-                        style={{ display: 'inline-block' }}
-                      >
-                        Set up Trip Money
-                      </Link>
-                    )}
-                  </div>
+                  <Link to={action.to} className="btn btn-primary trip-list-cta">
+                    {action.label}
+                  </Link>
                 </div>
               );
             })}
           </div>
         )}
-      </div>
-
-      {/* Quick Stats */}
-      <div className="grid grid-3">
-        <div className="card">
-          <h3 style={{ color: '#2b6cb0', marginBottom: '1rem' }}>Total trips</h3>
-          <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#2b6cb0' }}>
-            {events.length}
-          </p>
-        </div>
-        
-        <div className="card">
-          <h3 style={{ color: '#38a169', marginBottom: '1rem' }}>Upcoming</h3>
-          <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#38a169' }}>
-            {events.filter(event => {
-              const time = timeLeft[event._id || event.title] || { days: 0, hours: 0, minutes: 0, seconds: 0 };
-              return isEventUpcoming(time);
-            }).length}
-          </p>
-        </div>
-        
-        <div className="card">
-          <h3 style={{ color: '#e53e3e', marginBottom: '1rem' }}>Recurring</h3>
-          <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#e53e3e' }}>
-            {events.filter(event => event.isRecurring).length}
-          </p>
-        </div>
       </div>
     </div>
   );

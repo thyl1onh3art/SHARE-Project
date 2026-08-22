@@ -6,6 +6,7 @@ const app = require('../app');
 const User = require('../models/User');
 const Event = require('../models/Event');
 const SharedAccount = require('../models/SharedAccount');
+const FinanceRecord = require('../models/FinanceRecord');
 
 describe('Trip ↔ Trip Money link', () => {
   let ownerUser;
@@ -30,6 +31,7 @@ describe('Trip ↔ Trip Money link', () => {
     await User.deleteMany({});
     await Event.deleteMany({});
     await SharedAccount.deleteMany({});
+    await FinanceRecord.deleteMany({});
 
     const hashedPassword = await bcrypt.hash('TestPass123', 10);
     ownerUser = await User.create({
@@ -89,6 +91,38 @@ describe('Trip ↔ Trip Money link', () => {
     expect(listed.body[0].tripMoney._id).toBe(String(response.body.sharedAccount._id));
     expect(listed.body[0].tripMoney.name).toBe('Canada costs');
     expect(listed.body[0].tripMoney.isDeleted).toBe(false);
+    expect(listed.body[0].tripMoney.targetAmount).toBe(2000);
+    expect(listed.body[0].tripMoney.recordedTotal).toBe(0);
+    expect(listed.body[0].tripMoney.yourContribution).toBe(0);
+  });
+
+  it('summarises recorded contributions on the trip', async () => {
+    const pot = await SharedAccount.create({
+      owner: ownerUser._id,
+      name: 'Canada costs',
+      description: 'Flights and cabin',
+      targetAmount: 2400,
+      targetDate: futureDate(),
+      event: trip._id
+    });
+    const record = await FinanceRecord.create({
+      user: ownerUser._id,
+      type: 'input',
+      amount: 1800,
+      description: 'First contribution',
+      sharedAccount: pot._id
+    });
+    pot.financeRecords.push(record._id);
+    await pot.save();
+
+    const listed = await request(app)
+      .get('/api/events')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(200);
+
+    expect(listed.body[0].tripMoney.recordedTotal).toBe(1800);
+    expect(listed.body[0].tripMoney.yourContribution).toBe(1800);
+    expect(listed.body[0].tripMoney.targetAmount).toBe(2400);
   });
 
   it('rejects a second Trip Money pot for the same trip', async () => {

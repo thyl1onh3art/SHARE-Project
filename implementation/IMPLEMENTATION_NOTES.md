@@ -1621,4 +1621,38 @@ Branch is ready for a later GitHub push + PR into `main` when explicitly request
 
 **Not in this task:** equal split, approvals redesign, chat, map, gallery, nav removal of standalone Trip Money.
 
+---
+
+## Task 2 — Simplify Trip Home
+
+**Purpose:** After Task 1 linked Trip → Trip Money, the trip list was still a busy event card (description, date, destination, budget, accommodation, live countdown, stats). Users needed a calm Trip Home that answers: which trip, how long until it, how the pot is doing, who is in the group, and what to do next.
+
+**Trip Home before:** There was no `/events/:id` page. `/events` (`EventCountdown.tsx`) was both create-trip and a dense card per trip. Members were not shown. Money was only a Set up / Open / View closed button with explanatory copy. Countdown was `Xd Xh Xm Xs` (or “Trip has passed”).
+
+**Trip Home after:** New route `/events/:id` (`TripHome.tsx`). Hierarchy: trip name + days-to-go hero → compact money summary → one primary CTA → Group → lightweight Photos/Map links. The `/events` list is now an index: name, countdown, optional money line, one CTA, secondary Remove trip. Budget/accommodation blocks and Total/Upcoming/Recurring stats are no longer on the list.
+
+**Countdown:** Uses the Trip `eventDate` (not the contribution deadline). Future → `42 days to go`; same calendar day → `Today`; past → `Trip completed`. Shared helper `tripCountdownLabel` (no second live ticker).
+
+**Money summary:** Reuses existing ledger math on attached Trip Money (`inputs − outputs` for `recordedTotal`; current user’s `input` sum for `yourContribution`). Shows `£X of £Y contributed` plus optional “Your contribution” and contribution deadline. Does **not** show personal remaining / equal share (Task 3). Closed pot: **Trip Money closed**, still links to read-only details.
+
+**Primary-action lifecycle:**
+- No linked pot → Set up Trip Money
+- Active + target not reached → Open Trip Money
+- Active + recorded ≥ target → Review Trip Money
+- Archived/closed → View closed Trip Money
+
+**Group:** Organiser (`Event.user`) + `sharedWith` + linked pot owner/members, de-duplicated. Initial letter chip + first name + Organiser pill. No new avatar/profile infrastructure.
+
+**Supporting links:** Existing `/gallery` and `/map` only. No Chat. No Next-up planner (no trip-scoped plan items exist).
+
+**Organiser/admin:** Remove trip stays on the list as a secondary control. Delete / transfer / history / reverse contribution stay inside Trip Money.
+
+**Deliberately deferred:** equal split, contribution overrides, saving guidance, lock-after-first-contribution, approval mode, supplier payment, chat, recommendations, voting, new gallery/map, real money.
+
+**Backend change:** `attachTripMoneyToEvents` now includes `targetAmount`, `targetDate`, `recordedTotal`, `yourContribution`, `owner`, `members`. Events populate `user` and `sharedWith` for names. No schema change.
+
+**Tests:** frontend build PASS. Frontend 7 suites / 23 tests PASS (was 5/9 before this task; added Trip Home + helper tests, no regressions). `tripEventLink` 6/6 PASS (was 5; added recorded-total assertion). SharedAccount suites not re-run — create/archive controllers were not changed.
+
+**Risks:** Group on recovered trips may only show the organiser if `sharedWith` and pot `members` are empty. List still has a money CTA (same lifecycle as home) so Task 1 one-click Open remains. Photos/Map are global, not trip-filtered.
+
 
