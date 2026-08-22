@@ -971,8 +971,7 @@ body {
   margin: 0 0 1.5rem;
 }
 
-.trip-home-cta,
-.trip-list-cta {
+.trip-home-cta {
   display: inline-block;
 }
 
@@ -1026,7 +1025,24 @@ body {
 }
 
 .trip-list-card {
+  position: relative;
   margin: 0 0 1rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.trip-list-card:hover {
+  border-color: #90cdf4;
+  box-shadow: 0 4px 16px rgba(43, 108, 176, 0.14);
+}
+
+.trip-list-card:focus {
+  outline: none;
+}
+
+.trip-list-card:focus-visible {
+  border-color: #2b6cb0;
+  box-shadow: 0 0 0 3px rgba(43, 108, 176, 0.28);
 }
 
 .trip-list-card-header {
@@ -1040,11 +1056,7 @@ body {
 .trip-list-title {
   margin: 0;
   font-size: 1.35rem;
-}
-
-.trip-list-title a {
   color: #1a202c;
-  text-decoration: none;
 }
 
 .trip-list-countdown {
@@ -1059,6 +1071,8 @@ body {
 }
 
 .trip-list-remove {
+  position: relative;
+  z-index: 1;
   padding: 4px 8px;
   font-size: 12px;
 }

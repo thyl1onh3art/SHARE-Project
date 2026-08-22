@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   formatGbp,
   tripCountdownLabel,
-  tripMoneyPrimaryAction,
   TripMoneySummary
 } from '../utils/tripHome';
 
@@ -42,6 +41,7 @@ interface Event {
 }
 
 const EventCountdown: React.FC = () => {
+  const navigate = useNavigate();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -605,22 +605,48 @@ const EventCountdown: React.FC = () => {
         ) : (
           <div className="grid grid-1">
             {events.map((event) => {
-              const action = tripMoneyPrimaryAction(event._id || '', event.title, event.tripMoney);
               const recorded = Number(event.tripMoney?.recordedTotal) || 0;
               const target = Number(event.tripMoney?.targetAmount) || 0;
+              const tripHomePath = `/events/${event._id}`;
+
+              const openTripHome = () => {
+                if (event._id) {
+                  navigate(tripHomePath);
+                }
+              };
 
               return (
-                <div key={event._id || event.title} className="card trip-list-card">
+                <div
+                  key={event._id || event.title}
+                  className="card trip-list-card"
+                  role="link"
+                  tabIndex={0}
+                  aria-label={`Open ${event.title}`}
+                  onClick={(e) => {
+                    if ((e.target as HTMLElement).closest('.trip-list-remove')) {
+                      return;
+                    }
+                    openTripHome();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) {
+                      return;
+                    }
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      openTripHome();
+                    }
+                  }}
+                >
                   <div className="trip-list-card-header">
                     <div>
-                      <h3 className="trip-list-title">
-                        <Link to={`/events/${event._id}`}>{event.title}</Link>
-                      </h3>
+                      <h3 className="trip-list-title">{event.title}</h3>
                       <p className="trip-list-countdown">
                         {tripCountdownLabel(event.eventDate, event.eventTime)}
                       </p>
                     </div>
                     <button
+                      type="button"
                       onClick={() => handleDelete(event._id || '')}
                       className="btn btn-secondary trip-list-remove"
                     >
@@ -636,10 +662,6 @@ const EventCountdown: React.FC = () => {
                       {formatGbp(recorded)} of {formatGbp(target)} contributed
                     </p>
                   )}
-
-                  <Link to={action.to} className="btn btn-primary trip-list-cta">
-                    {action.label}
-                  </Link>
                 </div>
               );
             })}

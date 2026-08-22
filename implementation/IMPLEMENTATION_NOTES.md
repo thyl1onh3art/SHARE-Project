@@ -1629,7 +1629,9 @@ Branch is ready for a later GitHub push + PR into `main` when explicitly request
 
 **Trip Home before:** There was no `/events/:id` page. `/events` (`EventCountdown.tsx`) was both create-trip and a dense card per trip. Members were not shown. Money was only a Set up / Open / View closed button with explanatory copy. Countdown was `Xd Xh Xm Xs` (or “Trip has passed”).
 
-**Trip Home after:** New route `/events/:id` (`TripHome.tsx`). Hierarchy: trip name + days-to-go hero → compact money summary → one primary CTA → Group → lightweight Photos/Map links. The `/events` list is now an index: name, countdown, optional money line, one CTA, secondary Remove trip. Budget/accommodation blocks and Total/Upcoming/Recurring stats are no longer on the list.
+**Trip Home after:** New route `/events/:id` (`TripHome.tsx`). Hierarchy: trip name + days-to-go hero → compact money summary → one primary CTA → Group → lightweight Photos/Map links. The `/events` list is now an index: name, countdown, optional money line, clickable card → Trip Home, secondary Remove trip. Budget/accommodation blocks, Total/Upcoming/Recurring stats, and list-level Trip Money buttons are gone.
+
+**Trip card navigation polish:** The whole card is the entry point (`role="link"`, Enter/Space, hover/focus). Clicks on Remove trip do not navigate. Open / Review / View closed Trip Money buttons are only on Trip Home, not the list.
 
 **Countdown:** Uses the Trip `eventDate` (not the contribution deadline). Future → `42 days to go`; same calendar day → `Today`; past → `Trip completed`. Shared helper `tripCountdownLabel` (no second live ticker).
 
