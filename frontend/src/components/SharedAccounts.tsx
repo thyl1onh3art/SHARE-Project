@@ -62,6 +62,7 @@ const SharedAccounts: React.FC = () => {
   const [createForm, setCreateForm] = useState(emptyCreateForm);
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [createError, setCreateError] = useState('');
+  const [createEventId, setCreateEventId] = useState<string | null>(null);
   const createPrefillApplied = useRef(false);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -183,12 +184,13 @@ const SharedAccounts: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const openCreateModal = (prefillName?: string) => {
+  const openCreateModal = (prefillName?: string, eventId?: string) => {
     const next = emptyCreateForm();
     if (prefillName?.trim()) {
       next.name = prefillName.trim();
     }
     setCreateForm(next);
+    setCreateEventId(eventId?.trim() || null);
     setCreateError('');
     setShowCreateModal(true);
   };
@@ -197,6 +199,7 @@ const SharedAccounts: React.FC = () => {
     if (createSubmitting) return;
     setShowCreateModal(false);
     setCreateError('');
+    setCreateEventId(null);
     setCreateForm(emptyCreateForm());
   };
 
@@ -238,11 +241,13 @@ const SharedAccounts: React.FC = () => {
         name,
         description,
         targetAmount: amount,
-        targetDate: targetDate.toISOString()
+        targetDate: targetDate.toISOString(),
+        ...(createEventId ? { eventId: createEventId } : {})
       });
 
       const created = response.data?.sharedAccount;
       setShowCreateModal(false);
+      setCreateEventId(null);
       setCreateForm(emptyCreateForm());
 
       if (created?._id) {
@@ -262,18 +267,40 @@ const SharedAccounts: React.FC = () => {
     }
   };
 
-  // Optional: /shared-accounts?name=Canada prefills and opens create once
+  // Optional: /shared-accounts?name=Canada and/or ?event=<tripId>
   useEffect(() => {
     if (createPrefillApplied.current) return;
     const namePrefill = searchParams.get('name');
-    if (!namePrefill?.trim()) return;
+    const eventPrefill = searchParams.get('event');
+    if (!namePrefill?.trim() && !eventPrefill?.trim()) return;
 
     createPrefillApplied.current = true;
-    openCreateModal(namePrefill);
-    const next = new URLSearchParams(searchParams);
-    next.delete('name');
-    setSearchParams(next, { replace: true });
-  }, [searchParams, setSearchParams]);
+
+    const applyPrefill = async () => {
+      if (eventPrefill?.trim()) {
+        try {
+          const tripResponse = await axios.get(`/events/${eventPrefill.trim()}`);
+          const linked = tripResponse.data?.tripMoney;
+          if (linked?._id) {
+            navigate(`/shared-accounts/${linked._id}`, { replace: true });
+            return;
+          }
+          openCreateModal(namePrefill || tripResponse.data?.title, eventPrefill.trim());
+        } catch {
+          openCreateModal(namePrefill || undefined, eventPrefill.trim());
+        }
+      } else {
+        openCreateModal(namePrefill || undefined);
+      }
+
+      const next = new URLSearchParams(searchParams);
+      next.delete('name');
+      next.delete('event');
+      setSearchParams(next, { replace: true });
+    };
+
+    applyPrefill();
+  }, [searchParams, setSearchParams, navigate]);
 
   // Fetch personal balance (total balance from personal account)
   const fetchPersonalBalance = async () => {
@@ -1378,6 +1405,11 @@ const SharedAccounts: React.FC = () => {
             <p style={{ color: '#4a5568', marginTop: 0, fontSize: '0.9rem' }}>
               Create a pot to record shared trip costs and contributions. SHARE does not hold a bank balance.
             </p>
+            {createEventId && (
+              <p style={{ color: '#2c5282', marginTop: 0, fontSize: '0.9rem' }}>
+                This Trip Money will be linked to this trip. You will return to the same pot from the trip next time.
+              </p>
+            )}
 
             {createError && (
               <div className="alert alert-error" style={{ marginBottom: '1rem' }}>

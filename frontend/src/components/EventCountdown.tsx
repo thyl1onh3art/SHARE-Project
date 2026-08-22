@@ -2,6 +2,12 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 
+interface TripMoneySummary {
+  _id: string;
+  name: string;
+  isDeleted?: boolean;
+}
+
 interface Event {
   _id?: string;
   title: string;
@@ -30,6 +36,7 @@ interface Event {
   };
   isShared?: boolean;
   sharedWith?: string[];
+  tripMoney?: TripMoneySummary | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -760,6 +767,40 @@ const EventCountdown: React.FC = () => {
                     }}>
                       {formatTimeLeft(time)}
                     </div>
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: '1rem',
+                      padding: '0.85rem 1rem',
+                      background: '#f7fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px'
+                    }}
+                  >
+                    <p style={{ margin: '0 0 0.35rem', fontWeight: 600, color: '#2d3748' }}>
+                      Trip Money
+                    </p>
+                    <p style={{ margin: '0 0 0.75rem', fontSize: '0.85rem', color: '#4a5568' }}>
+                      Record shared trip costs for this trip. SHARE does not hold a bank balance.
+                    </p>
+                    {event.tripMoney?._id ? (
+                      <Link
+                        to={`/shared-accounts/${event.tripMoney._id}`}
+                        className="btn btn-primary"
+                        style={{ display: 'inline-block' }}
+                      >
+                        {event.tripMoney.isDeleted ? 'View closed Trip Money' : 'Open Trip Money'}
+                      </Link>
+                    ) : (
+                      <Link
+                        to={`/shared-accounts?event=${encodeURIComponent(event._id || '')}&name=${encodeURIComponent(event.title)}`}
+                        className="btn btn-primary"
+                        style={{ display: 'inline-block' }}
+                      >
+                        Set up Trip Money
+                      </Link>
+                    )}
                   </div>
                 </div>
               );

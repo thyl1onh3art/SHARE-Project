@@ -1,6 +1,7 @@
 const SharedAccount = require('../models/SharedAccount');
 const FinanceRecord = require('../models/FinanceRecord');
 const Invite = require('../models/Invite');
+const Event = require('../models/Event');
 const nodemailer = require('nodemailer');
 const twilio = require('twilio');
 const mongoose = require('mongoose');
@@ -29,7 +30,7 @@ const calculatePerPersonAmount = (targetAmount, memberCount) => {
 // Create a shared account
 exports.createSharedAccount = async (req, res) => {
   try {
-    const { name, description, targetAmount, targetDate, memberIds, invites } = req.body;
+    const { name, description, targetAmount, targetDate, memberIds, invites, eventId } = req.body;
     const senderId = req.user.userId;
     
     // Validate required fields
@@ -53,6 +54,24 @@ exports.createSharedAccount = async (req, res) => {
     const totalParticipants = members.length + 1; // owner + members
     const perPersonAmount = calculatePerPersonAmount(targetAmount, members.length);
 
+    let linkedEventId;
+    if (eventId) {
+      if (!mongoose.Types.ObjectId.isValid(eventId)) {
+        return res.status(400).json({ message: 'Trip ID is invalid' });
+      }
+      const trip = await Event.findOne({ _id: eventId, user: senderId });
+      if (!trip) {
+        return res.status(404).json({ message: 'Trip not found' });
+      }
+      const existingForTrip = await SharedAccount.findOne({ event: eventId });
+      if (existingForTrip) {
+        return res.status(400).json({
+          message: 'This trip already has Trip Money. Open the existing pot instead of creating another.'
+        });
+      }
+      linkedEventId = eventId;
+    }
+
     const sharedAccount = new SharedAccount({
       owner: senderId,
       name: name.trim(),
@@ -62,9 +81,19 @@ exports.createSharedAccount = async (req, res) => {
       perPersonAmount: Math.round(perPersonAmount * 100) / 100, // Round to 2 decimal places
       members,
       financeRecords: [],
+      ...(linkedEventId ? { event: linkedEventId } : {}),
     });
-    
-    await sharedAccount.save();
+
+    try {
+      await sharedAccount.save();
+    } catch (saveErr) {
+      if (saveErr && saveErr.code === 11000 && linkedEventId) {
+        return res.status(400).json({
+          message: 'This trip already has Trip Money. Open the existing pot instead of creating another.'
+        });
+      }
+      throw saveErr;
+    }
     
     // Create invitations if provided
     const createdInvites = [];

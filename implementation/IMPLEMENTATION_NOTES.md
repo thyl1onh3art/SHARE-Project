@@ -1598,4 +1598,27 @@ Branch is ready for a later GitHub push + PR into `main` when explicitly request
 
 **Deliberately unchanged:** PaymentRequest execute still writes a ledger `output` (can reduce recorded total). Separate design later. No auto-settlement, no auto-archive, no real-money action.
 
+---
+
+## Task 1 — Trip as central container (Trip ↔ Trip Money)
+
+**Purpose:** One Trip is the container. Its Trip Money is reached from inside that Trip.
+
+**Relationship chosen:** optional `SharedAccount.event` → `Event` (sparse unique). Event documents are unchanged. Existing/recovered pots without `event` stay fully usable and unlinked. No destructive migration; no auto-linking by name.
+
+**Behaviour:**
+- `GET /events` and `GET /events/:id` attach `tripMoney: { _id, name, isDeleted } | null`
+- `POST /shared-accounts` accepts optional `eventId` (must be caller’s trip; rejects a second pot for the same trip)
+- Trip cards: **Set up Trip Money** or **Open Trip Money** / **View closed Trip Money**
+- `/shared-accounts?event=&name=` prefills create and posts `eventId`; if already linked, opens that pot
+- Top-level Trip Money nav remains for unlinked/legacy pots
+
+**Files:** `backend/models/SharedAccount.js`, `backend/controllers/sharedAccountController.js`, `backend/controllers/eventController.js`, `frontend/src/components/EventCountdown.tsx`, `frontend/src/components/SharedAccounts.tsx`, new trip-link tests.
+
+**Tests:** frontend build PASS; frontend 9/9 PASS; `tripEventLink` 5/5 PASS; archive + access + inviteHelpers 50/50 PASS. No Event suite existed previously.
+
+**Risks:** unique index is created on next app start; recovered data is not rewritten. Deleting a Trip does not delete its pot (pot may keep a dangling `event` id). One pot per trip — archived linked pot still occupies the slot until permanently deleted.
+
+**Not in this task:** equal split, approvals redesign, chat, map, gallery, nav removal of standalone Trip Money.
+
 

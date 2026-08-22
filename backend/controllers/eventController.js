@@ -1,4 +1,31 @@
 const Event = require('../models/Event');
+const SharedAccount = require('../models/SharedAccount');
+
+const summarizeTripMoney = (account) => ({
+  _id: account._id,
+  name: account.name,
+  isDeleted: !!account.isDeleted
+});
+
+const attachTripMoneyToEvents = async (events) => {
+  const list = Array.isArray(events) ? events : [events];
+  const ids = list.map((event) => event._id).filter(Boolean);
+  if (ids.length === 0) {
+    return Array.isArray(events) ? [] : events;
+  }
+
+  const pots = await SharedAccount.find({ event: { $in: ids } }).select('_id name isDeleted event');
+  const byEvent = new Map(pots.map((pot) => [String(pot.event), pot]));
+
+  const decorated = list.map((event) => {
+    const plain = typeof event.toObject === 'function' ? event.toObject() : { ...event };
+    const linked = byEvent.get(String(event._id));
+    plain.tripMoney = linked ? summarizeTripMoney(linked) : null;
+    return plain;
+  });
+
+  return Array.isArray(events) ? decorated : decorated[0];
+};
 
 // Create a new event
 exports.createEvent = async (req, res) => {
@@ -77,7 +104,7 @@ function calculateSavingsPlan(totalAmount, eventDate, frequency = 'monthly') {
 exports.getUserEvents = async (req, res) => {
   try {
     const events = await Event.find({ user: req.user.userId }).sort({ eventDate: 1, eventTime: 1 });
-    res.json(events);
+    res.json(await attachTripMoneyToEvents(events));
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -94,8 +121,8 @@ exports.getEvent = async (req, res) => {
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
-    
-    res.json(event);
+
+    res.json(await attachTripMoneyToEvents(event));
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
