@@ -7,6 +7,10 @@ import {
   personalRemaining,
   canPaySinglePayment,
   singlePaymentAmount,
+  contributionProgressTotal,
+  paymentApprovalProgress,
+  paymentRequestStatusLabel,
+  parsePaymentDetails,
   resolveLedgerTraveller,
   travellerDisplayName
 } from './tripHome';
@@ -107,6 +111,57 @@ describe('pay single payment gating', () => {
     expect(singlePaymentAmount(2000)).toBe(2000);
     expect(singlePaymentAmount(1999.999)).toBe(2000);
     expect(singlePaymentAmount(0)).toBeNull();
+  });
+});
+
+describe('contribution progress vs completed payment', () => {
+  it('does not let a matching executed payment output reduce funding progress', () => {
+    expect(contributionProgressTotal(
+      [
+        { type: 'input', amount: 2000 },
+        { type: 'output', amount: 2000, description: 'Payee: Hotel · Ref: ABC' }
+      ],
+      [{ status: 'executed', amount: 2000, description: 'Payee: Hotel · Ref: ABC' }]
+    )).toBe(2000);
+  });
+
+  it('still subtracts a contribution reversal', () => {
+    expect(contributionProgressTotal(
+      [
+        { type: 'input', amount: 2000 },
+        { type: 'output', amount: 100, description: 'Reverse recorded contribution' }
+      ],
+      []
+    )).toBe(1900);
+  });
+});
+
+describe('payment request display helpers', () => {
+  it('parses payee and reference from the stored description', () => {
+    expect(parsePaymentDetails('Payee: Example Hotel · Ref: ABC123')).toEqual({
+      payee: 'Example Hotel',
+      reference: 'ABC123',
+      raw: 'Payee: Example Hotel · Ref: ABC123'
+    });
+  });
+
+  it('uses customer-facing payment status labels', () => {
+    expect(paymentRequestStatusLabel('pending')).toBe('Waiting for approval');
+    expect(paymentRequestStatusLabel('executed')).toBe('Payment completed');
+    expect(paymentRequestStatusLabel('approved')).toBe('Payment completed');
+    expect(paymentRequestStatusLabel('rejected')).toBe('Payment rejected');
+    expect(paymentRequestStatusLabel('cancelled')).toBe('Payment request cancelled');
+  });
+
+  it('counts the proposer in the displayed approval progress', () => {
+    expect(paymentApprovalProgress({ approvals: [], requiredApprovals: 2 })).toEqual({
+      current: 1,
+      total: 3
+    });
+    expect(paymentApprovalProgress({ approvals: [{}], requiredApprovals: 2 })).toEqual({
+      current: 2,
+      total: 3
+    });
   });
 });
 

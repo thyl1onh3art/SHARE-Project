@@ -1,6 +1,7 @@
 const PaymentRequest = require('../models/PaymentRequest');
 const SharedAccount = require('../models/SharedAccount');
 const FinanceRecord = require('../models/FinanceRecord');
+const { contributionProgressTotal, isCompletedPaymentStatus } = require('../utils/contributionProgress');
 
 const resolveId = (value) => {
   if (!value) return null;
@@ -33,7 +34,12 @@ const userHasVoted = (paymentRequest, userId) => {
 const loadActiveSharedAccount = async (sharedAccountRef) => {
   const sharedAccountId = resolveId(sharedAccountRef);
   if (!sharedAccountId) {
-    return { error: { status: 400, message: 'This settlement request is historical only. The Trip Money pot no longer exists.' } };
+    return {
+      error: {
+        status: 400,
+        message: 'This payment request is historical only. The Trip Money pot no longer exists.'
+      }
+    };
   }
 
   const sharedAccount = await SharedAccount.findById(sharedAccountId);
@@ -44,7 +50,7 @@ const loadActiveSharedAccount = async (sharedAccountRef) => {
     return {
       error: {
         status: 400,
-        message: 'This Trip Money pot is archived. Settlement records cannot be changed.'
+        message: 'This Trip Money pot is archived. Payment requests cannot be changed.'
       }
     };
   }
@@ -85,7 +91,7 @@ exports.createPaymentRequest = async (req, res) => {
     }
     if (sharedAccount.isDeleted) {
       return res.status(400).json({
-        message: 'This Trip Money pot is archived. Settlement records cannot be created.'
+        message: 'This Trip Money pot is archived. Payment requests cannot be created.'
       });
     }
 
@@ -99,10 +105,11 @@ exports.createPaymentRequest = async (req, res) => {
     }
 
     const records = await FinanceRecord.find({ sharedAccount: sharedAccountId });
-    const recordedTotal = records.reduce((sum, record) => {
-      const amount = Number(record.amount) || 0;
-      return sum + (record.type === 'input' ? amount : -amount);
-    }, 0);
+    const completedPayments = await PaymentRequest.find({
+      sharedAccount: sharedAccountId,
+      status: { $in: ['executed', 'approved'] }
+    }).select('status amount description');
+    const recordedTotal = contributionProgressTotal(records, completedPayments);
     const targetAmount = Number(sharedAccount.targetAmount) || 0;
     const amountPence = Math.round(parsedAmount * 100);
     const targetPence = Math.round(targetAmount * 100);
@@ -132,10 +139,15 @@ exports.createPaymentRequest = async (req, res) => {
 
     const existingRequest = await PaymentRequest.findOne({
       sharedAccount: sharedAccountId,
-      status: 'pending'
+      status: { $in: ['pending', 'executed', 'approved'] }
     });
 
     if (existingRequest) {
+      if (isCompletedPaymentStatus(existingRequest.status)) {
+        return res.status(400).json({
+          message: 'A final payment has already been completed for this Trip Money pot.'
+        });
+      }
       return res.status(400).json({
         message:
           'There is already a pending payment request for this Trip Money pot. Wait for it to be resolved or cancel it.'
@@ -179,6 +191,28 @@ exports.createPaymentRequest = async (req, res) => {
 exports.getPaymentRequests = async (req, res) => {
   try {
     const userId = req.user.userId;
+    const sharedAccountId = req.query.sharedAccount;
+
+    if (sharedAccountId) {
+      const sharedAccount = await SharedAccount.findById(sharedAccountId);
+      if (!sharedAccount) {
+        return res.status(404).json({ message: 'Shared account not found' });
+      }
+      const canRead = isAccountParticipant(sharedAccount, userId)
+        || (await FinanceRecord.exists({ sharedAccount: sharedAccountId, user: userId }));
+      if (!canRead) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+
+      const paymentRequests = await PaymentRequest.find({ sharedAccount: sharedAccountId })
+        .populate('sharedAccount', 'name')
+        .populate('requestedBy', 'firstName lastName email')
+        .populate('approvals.user', 'firstName lastName email')
+        .populate('rejections.user', 'firstName lastName email')
+        .sort({ createdAt: -1 });
+
+      return res.json(paymentRequests);
+    }
 
     const userAccounts = await SharedAccount.find({
       isDeleted: { $ne: true },
@@ -189,8 +223,10 @@ exports.getPaymentRequests = async (req, res) => {
 
     const paymentRequests = await PaymentRequest.find({
       sharedAccount: { $in: accountIds },
-      status: 'pending',
-      expiresAt: { $gt: new Date() }
+      $or: [
+        { status: 'pending', expiresAt: { $gt: new Date() } },
+        { status: { $in: ['executed', 'approved'] } }
+      ]
     })
       .populate('sharedAccount', 'name')
       .populate('requestedBy', 'firstName lastName email')
@@ -248,30 +284,30 @@ exports.approvePaymentRequest = async (req, res) => {
       .populate('requestedBy');
 
     if (!paymentRequest) {
-      return res.status(404).json({ message: 'Settlement request not found' });
+      return res.status(404).json({ message: 'Payment request not found' });
     }
 
     if (paymentRequest.status === 'cancelled') {
-      return res.status(400).json({ message: 'Cannot approve a cancelled settlement request' });
+      return res.status(400).json({ message: 'Cannot approve a cancelled payment request' });
     }
     if (paymentRequest.status === 'rejected') {
-      return res.status(400).json({ message: 'Cannot approve a rejected settlement request' });
+      return res.status(400).json({ message: 'Cannot approve a rejected payment request' });
     }
     if (paymentRequest.status === 'executed' || paymentRequest.status === 'approved') {
       return res.status(400).json({
-        message: 'This settlement request has already been completed. No further ledger activity will be recorded.'
+        message: 'This payment has already been completed.'
       });
     }
     if (paymentRequest.status !== 'pending') {
       return res.status(400).json({
-        message: `Settlement request is already ${paymentRequest.status}`
+        message: `Payment request is already ${paymentRequest.status}`
       });
     }
 
     if (paymentRequest.expiresAt < new Date()) {
       paymentRequest.status = 'cancelled';
       await paymentRequest.save();
-      return res.status(400).json({ message: 'Settlement request has expired and was cancelled' });
+      return res.status(400).json({ message: 'Payment request has expired and was cancelled' });
     }
 
     const { sharedAccount, error } = await loadActiveSharedAccount(paymentRequest.sharedAccount);
@@ -285,16 +321,16 @@ exports.approvePaymentRequest = async (req, res) => {
 
     if (resolveId(paymentRequest.requestedBy) === userId.toString()) {
       return res.status(400).json({
-        message: 'You cannot approve your own settlement request. Cancel it instead if it is no longer needed.'
+        message: 'You cannot approve your own payment request. Cancel it instead if it is no longer needed.'
       });
     }
 
     const { hasApproved, hasRejected } = userHasVoted(paymentRequest, userId);
     if (hasApproved) {
-      return res.status(400).json({ message: 'You have already approved this settlement request' });
+      return res.status(400).json({ message: 'You have already approved this payment request' });
     }
     if (hasRejected) {
-      return res.status(400).json({ message: 'You have already rejected this settlement request' });
+      return res.status(400).json({ message: 'You have already rejected this payment request' });
     }
 
     paymentRequest.approvals.push({
@@ -308,34 +344,12 @@ exports.approvePaymentRequest = async (req, res) => {
     let executed = false;
 
     if (approvalCount >= paymentRequest.requiredApprovals) {
-      // Atomically claim execution so concurrent approvals cannot double-write ledger output
       const claimed = await PaymentRequest.findOneAndUpdate(
         { _id: paymentRequest._id, status: 'pending' },
         { $set: { status: 'executed' } },
         { new: true }
       );
-
-      if (claimed) {
-        const requestedById = resolveId(paymentRequest.requestedBy);
-        const sharedAccountId = sharedAccount._id;
-
-        const financeRecord = new FinanceRecord({
-          user: requestedById,
-          type: 'output',
-          amount: paymentRequest.amount,
-          date: new Date(),
-          description: paymentRequest.description,
-          sharedAccount: sharedAccountId
-        });
-        await financeRecord.save();
-
-        if (!sharedAccount.financeRecords) {
-          sharedAccount.financeRecords = [];
-        }
-        sharedAccount.financeRecords.push(financeRecord._id);
-        await sharedAccount.save();
-        executed = true;
-      }
+      executed = !!claimed;
     }
 
     const refreshed = await PaymentRequest.findById(paymentRequest._id)
@@ -346,8 +360,8 @@ exports.approvePaymentRequest = async (req, res) => {
 
     res.json({
       message: executed
-        ? 'Settlement record approved and recorded on the Trip Money ledger. SHARE does not send bank payments.'
-        : 'Settlement record approved. Waiting for more traveller approvals.',
+        ? 'Payment completed. SHARE does not send bank payments.'
+        : 'Payment approved. Waiting for more traveller approvals.',
       paymentRequest: refreshed
     });
   } catch (err) {
@@ -363,18 +377,18 @@ exports.rejectPaymentRequest = async (req, res) => {
     const paymentRequest = await PaymentRequest.findById(requestId).populate('sharedAccount');
 
     if (!paymentRequest) {
-      return res.status(404).json({ message: 'Settlement request not found' });
+      return res.status(404).json({ message: 'Payment request not found' });
     }
 
     if (paymentRequest.status === 'cancelled') {
-      return res.status(400).json({ message: 'Cannot reject a cancelled settlement request' });
+      return res.status(400).json({ message: 'Cannot reject a cancelled payment request' });
     }
     if (paymentRequest.status === 'executed' || paymentRequest.status === 'approved') {
-      return res.status(400).json({ message: 'Cannot reject a completed settlement request' });
+      return res.status(400).json({ message: 'Cannot reject a completed payment' });
     }
     if (paymentRequest.status !== 'pending') {
       return res.status(400).json({
-        message: `Settlement request is already ${paymentRequest.status}`
+        message: `Payment request is already ${paymentRequest.status}`
       });
     }
 
@@ -389,16 +403,16 @@ exports.rejectPaymentRequest = async (req, res) => {
 
     if (resolveId(paymentRequest.requestedBy) === userId.toString()) {
       return res.status(400).json({
-        message: 'Use Cancel settlement request for your own pending request'
+        message: 'Use Cancel payment request for your own pending request'
       });
     }
 
     const { hasApproved, hasRejected } = userHasVoted(paymentRequest, userId);
     if (hasApproved) {
-      return res.status(400).json({ message: 'You have already approved this settlement request' });
+      return res.status(400).json({ message: 'You have already approved this payment request' });
     }
     if (hasRejected) {
-      return res.status(400).json({ message: 'You have already rejected this settlement request' });
+      return res.status(400).json({ message: 'You have already rejected this payment request' });
     }
 
     paymentRequest.rejections.push({
@@ -409,7 +423,7 @@ exports.rejectPaymentRequest = async (req, res) => {
     await paymentRequest.save();
 
     res.json({
-      message: 'Settlement record rejected. No ledger settlement was recorded.',
+      message: 'Payment rejected. No payment was completed.',
       paymentRequest
     });
   } catch (err) {
@@ -425,16 +439,16 @@ exports.cancelPaymentRequest = async (req, res) => {
 
     const paymentRequest = await PaymentRequest.findById(requestId).populate('sharedAccount');
     if (!paymentRequest) {
-      return res.status(404).json({ message: 'Settlement request not found' });
+      return res.status(404).json({ message: 'Payment request not found' });
     }
 
     if (resolveId(paymentRequest.requestedBy) !== userId.toString()) {
-      return res.status(403).json({ message: 'Only the requester can cancel this settlement request' });
+      return res.status(403).json({ message: 'Only the requester can cancel this payment request' });
     }
 
     if (paymentRequest.status !== 'pending') {
       return res.status(400).json({
-        message: `Cannot cancel a settlement request that is already ${paymentRequest.status}`
+        message: `Cannot cancel a payment request that is already ${paymentRequest.status}`
       });
     }
 
@@ -444,7 +458,7 @@ exports.cancelPaymentRequest = async (req, res) => {
       const sharedAccount = await SharedAccount.findById(sharedAccountId);
       if (sharedAccount?.isDeleted) {
         return res.status(400).json({
-          message: 'This Trip Money pot is archived. Settlement records cannot be changed.'
+          message: 'This Trip Money pot is archived. Payment requests cannot be changed.'
         });
       }
     }
@@ -453,7 +467,7 @@ exports.cancelPaymentRequest = async (req, res) => {
     await paymentRequest.save();
 
     res.json({
-      message: 'Settlement request cancelled. No ledger settlement was recorded.',
+      message: 'Payment request cancelled. No payment was completed.',
       paymentRequest
     });
   } catch (err) {

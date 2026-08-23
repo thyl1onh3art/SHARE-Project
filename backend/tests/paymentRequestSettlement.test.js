@@ -7,6 +7,7 @@ const User = require('../models/User');
 const SharedAccount = require('../models/SharedAccount');
 const FinanceRecord = require('../models/FinanceRecord');
 const PaymentRequest = require('../models/PaymentRequest');
+const { contributionProgressTotal } = require('../utils/contributionProgress');
 
 describe('Trip Money settlement records', () => {
   let ownerUser;
@@ -79,18 +80,21 @@ describe('Trip Money settlement records', () => {
   }
 
   describe('CREATE', () => {
-    it('allows a current participant to create a settlement request', async () => {
+    it('records the proposer as requester without counting them as an approval vote', async () => {
       await fundPot(50);
 
       const response = await request(app)
         .post('/api/payment-requests')
         .set('Authorization', `Bearer ${ownerToken}`)
-        .send({ sharedAccountId: account._id.toString(), amount: 50, description: 'Close-out settlement' })
+        .send({ sharedAccountId: account._id.toString(), amount: 50, payee: 'Example Hotel', reference: 'ABC123' })
         .expect(201);
 
-      expect(response.body.paymentRequest.status).toBe('pending');
-      expect(response.body.paymentRequest.requestType).toBe('payment');
-      expect(response.body.paymentRequest.amount).toBe(50);
+      expect(response.body.paymentRequest.approvals).toHaveLength(0);
+      expect(response.body.paymentRequest.requiredApprovals).toBe(1);
+      expect(String(response.body.paymentRequest.requestedBy._id || response.body.paymentRequest.requestedBy))
+        .toBe(String(ownerUser._id));
+      expect(response.body.paymentRequest.description).toMatch(/Example Hotel/);
+      expect(response.body.paymentRequest.description).toMatch(/ABC123/);
     });
 
     it('rejects a request while recorded total is below target', async () => {
@@ -298,7 +302,7 @@ describe('Trip Money settlement records', () => {
       pendingId = created._id;
     });
 
-    it('allows authorised member approval and records one ledger output', async () => {
+    it('allows authorised member approval without creating a ledger output', async () => {
       await request(app)
         .post(`/api/payment-requests/${pendingId}/approve`)
         .set('Authorization', `Bearer ${memberToken}`)
@@ -309,10 +313,9 @@ describe('Trip Money settlement records', () => {
 
       const outputs = await FinanceRecord.find({
         sharedAccount: account._id,
-        type: 'output',
-        amount: 40
+        type: 'output'
       });
-      expect(outputs).toHaveLength(1);
+      expect(outputs).toHaveLength(0);
     });
 
     it('rejects unauthorised approval', async () => {
@@ -322,7 +325,7 @@ describe('Trip Money settlement records', () => {
         .expect(403);
     });
 
-    it('duplicate approval does not create duplicate ledger activity', async () => {
+    it('duplicate approval does not create ledger activity or re-execute', async () => {
       await request(app)
         .post(`/api/payment-requests/${pendingId}/approve`)
         .set('Authorization', `Bearer ${memberToken}`)
@@ -335,10 +338,11 @@ describe('Trip Money settlement records', () => {
 
       const outputs = await FinanceRecord.find({
         sharedAccount: account._id,
-        type: 'output',
-        amount: 40
+        type: 'output'
       });
-      expect(outputs).toHaveLength(1);
+      expect(outputs).toHaveLength(0);
+      const updated = await PaymentRequest.findById(pendingId);
+      expect(updated.status).toBe('executed');
     });
 
     it('cannot approve cancelled or rejected requests', async () => {
@@ -376,6 +380,161 @@ describe('Trip Money settlement records', () => {
         .post(`/api/payment-requests/${pendingId}/approve`)
         .set('Authorization', `Bearer ${memberToken}`)
         .expect(400);
+    });
+
+    it('allows an authorised member to reject a pending payment', async () => {
+      const response = await request(app)
+        .post(`/api/payment-requests/${pendingId}/reject`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+
+      expect(response.body.paymentRequest.status).toBe('rejected');
+      expect(response.body.message).toMatch(/payment rejected/i);
+      const outputs = await FinanceRecord.find({ sharedAccount: account._id, type: 'output' });
+      expect(outputs).toHaveLength(0);
+    });
+
+    it('rejects unauthorised rejection', async () => {
+      await request(app)
+        .post(`/api/payment-requests/${pendingId}/reject`)
+        .set('Authorization', `Bearer ${outsiderToken}`)
+        .expect(403);
+    });
+
+    it('rejects approval by a historical-only former member', async () => {
+      account.members = [];
+      await account.save();
+
+      await request(app)
+        .post(`/api/payment-requests/${pendingId}/approve`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(403);
+    });
+  });
+
+  describe('COMPLETED PAYMENT', () => {
+    it('does not reduce contribution progress when the last required approval completes', async () => {
+      const ownerInput = await fundPot(30);
+      const memberInput = await FinanceRecord.create({
+        user: memberUser._id,
+        type: 'input',
+        amount: 20,
+        sharedAccount: account._id
+      });
+      account.financeRecords.push(memberInput._id);
+      await account.save();
+
+      const created = await request(app)
+        .post('/api/payment-requests')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          sharedAccountId: account._id.toString(),
+          amount: 50,
+          payee: 'Example Hotel',
+          reference: 'ABC123'
+        })
+        .expect(201);
+
+      const requestId = created.body.paymentRequest._id;
+      const approveResponse = await request(app)
+        .post(`/api/payment-requests/${requestId}/approve`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+
+      expect(approveResponse.body.paymentRequest.status).toBe('executed');
+      expect(approveResponse.body.message).toMatch(/payment completed/i);
+
+      const records = await FinanceRecord.find({ sharedAccount: account._id });
+      const outputs = records.filter((record) => record.type === 'output');
+      const completed = await PaymentRequest.find({
+        sharedAccount: account._id,
+        status: { $in: ['executed', 'approved'] }
+      });
+
+      expect(outputs).toHaveLength(0);
+      expect(contributionProgressTotal(records, completed)).toBe(50);
+      expect(records.find((record) => String(record._id) === String(ownerInput._id)).amount).toBe(30);
+      expect(records.find((record) => String(record._id) === String(memberInput._id)).amount).toBe(20);
+      expect(completed[0].description).toMatch(/Example Hotel/);
+      expect(completed[0].description).toMatch(/ABC123/);
+    });
+
+    it('returns the completed payment in pot history', async () => {
+      await fundPot(50);
+      const created = await request(app)
+        .post('/api/payment-requests')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          sharedAccountId: account._id.toString(),
+          amount: 50,
+          payee: 'Example Hotel',
+          reference: 'ABC123'
+        })
+        .expect(201);
+
+      await request(app)
+        .post(`/api/payment-requests/${created.body.paymentRequest._id}/approve`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+
+      const history = await request(app)
+        .get(`/api/payment-requests?sharedAccount=${account._id}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+
+      expect(history.body).toHaveLength(1);
+      expect(history.body[0].status).toBe('executed');
+      expect(history.body[0].amount).toBe(50);
+      expect(history.body[0].description).toMatch(/Example Hotel/);
+      expect(history.body[0].description).toMatch(/ABC123/);
+    });
+
+    it('prevents a second final payment after completion', async () => {
+      await fundPot(50);
+      const created = await request(app)
+        .post('/api/payment-requests')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ sharedAccountId: account._id.toString(), amount: 50 })
+        .expect(201);
+
+      await request(app)
+        .post(`/api/payment-requests/${created.body.paymentRequest._id}/approve`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+
+      const second = await request(app)
+        .post('/api/payment-requests')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ sharedAccountId: account._id.toString(), amount: 50 })
+        .expect(400);
+
+      expect(second.body.message).toMatch(/already been completed/i);
+    });
+
+    it('ignores a legacy matching output when calculating contribution progress', async () => {
+      await fundPot(50);
+      await FinanceRecord.create({
+        user: ownerUser._id,
+        type: 'output',
+        amount: 50,
+        description: 'Payee: Example Hotel · Ref: ABC123',
+        sharedAccount: account._id
+      });
+      await PaymentRequest.create({
+        sharedAccount: account._id,
+        requestedBy: ownerUser._id,
+        amount: 50,
+        description: 'Payee: Example Hotel · Ref: ABC123',
+        status: 'executed',
+        requiredApprovals: 1
+      });
+
+      const records = await FinanceRecord.find({ sharedAccount: account._id });
+      const completed = await PaymentRequest.find({
+        sharedAccount: account._id,
+        status: { $in: ['executed', 'approved'] }
+      });
+      expect(contributionProgressTotal(records, completed)).toBe(50);
     });
   });
 

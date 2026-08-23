@@ -137,7 +137,7 @@ export function personalRemaining(
   return Math.max(0, Math.round((equalShare - Math.max(0, Number(yourContribution) || 0)) * 100) / 100);
 }
 
-const toPence = (value: number) => Math.round((Number(value) || 0) * 100);
+const toPence = (value?: number | null) => Math.round((Number(value) || 0) * 100);
 
 export function singlePaymentAmount(targetAmount?: number | null): number | null {
   const target = Number(targetAmount) || 0;
@@ -154,6 +154,62 @@ export function canPaySinglePayment(
   const target = singlePaymentAmount(targetAmount);
   if (target === null) return false;
   return toPence(recordedTotal) >= toPence(target);
+}
+
+export function isCompletedPaymentStatus(status?: string | null): boolean {
+  return status === 'executed' || status === 'approved';
+}
+
+export function paymentRequestStatusLabel(status?: string | null): string {
+  if (isCompletedPaymentStatus(status)) return 'Payment completed';
+  if (status === 'rejected') return 'Payment rejected';
+  if (status === 'cancelled') return 'Payment request cancelled';
+  return 'Waiting for approval';
+}
+
+export function paymentApprovalProgress(request: {
+  approvals?: unknown[] | null;
+  requiredApprovals?: number | null;
+}): { current: number; total: number } {
+  const requiredOthers = Math.max(0, Number(request.requiredApprovals) || 0);
+  const recorded = Array.isArray(request.approvals) ? request.approvals.length : 0;
+  return {
+    current: recorded + 1,
+    total: requiredOthers + 1
+  };
+}
+
+export function parsePaymentDetails(description?: string | null): {
+  payee: string;
+  reference: string;
+  raw: string;
+} {
+  const raw = String(description || '').trim();
+  const payeeMatch = raw.match(/Payee:\s*([^·]+)/i);
+  const referenceMatch = raw.match(/Ref:\s*([^·]+)/i);
+  return {
+    payee: (payeeMatch?.[1] || '').trim(),
+    reference: (referenceMatch?.[1] || '').trim(),
+    raw
+  };
+}
+
+export function contributionProgressTotal(
+  records: Array<{ type?: string; amount?: number; description?: string }> | null | undefined,
+  completedPayments: Array<{ status?: string; amount?: number; description?: string }> | null | undefined = []
+): number {
+  const completed = (completedPayments || []).filter((payment) => isCompletedPaymentStatus(payment.status));
+  return (records || []).reduce((sum, record) => {
+    if (!record) return sum;
+    const amount = Number(record.amount) || 0;
+    if (record.type === 'input') return sum + amount;
+    if (record.type !== 'output') return sum;
+    const isFinalPaymentOutput = completed.some((payment) => (
+      toPence(payment.amount) === toPence(amount) &&
+      String(payment.description || '') === String(record.description || '')
+    ));
+    return isFinalPaymentOutput ? sum : sum - amount;
+  }, 0);
 }
 
 export function resolveLedgerTraveller(

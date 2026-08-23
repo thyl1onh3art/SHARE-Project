@@ -1734,4 +1734,35 @@ Branch is ready for a later GitHub push + PR into `main` when explicitly request
 
 **Tests:** frontend 11 suites / 47 tests PASS (was 9/34). Frontend production build PASS. Combined backend `paymentRequestSettlement` + `directContribution` + `sharedAccountArchive` + `sharedAccountAccess`: 4 suites / 56 tests PASS (`paymentRequestSettlement` 21/21; `directContribution` 4/4; `sharedAccountArchive` 19/19; `sharedAccountAccess` 12/12). Legacy `sharedAccount.test.js` not run (known flaky; unchanged).
 
+---
+
+## Task 6 — Payment approval + completion lifecycle
+
+**Purpose:** Make the final-payment approval flow understandable, and stop completed payments from wiping contribution history. Do not build real payments. Do not auto-archive (Task 7).
+
+**Contribution history vs payment completion:** These are separate. Contribution progress is how much the group recorded toward the event (example: £2,000 of £2,000, 100% funded). Final payment status is a `PaymentRequest` (example: £2,000 to Example Hotel, completed). Completing the payment must not erase or reduce the funding total.
+
+**Previous broken behaviour:** The last required approval set `PaymentRequest.status` to `executed` and created a pot `FinanceRecord` `output`. Funding progress was `inputs − outputs`, so a fully funded pot could fall to £0 of £2,000. Individual input totals were already input-only, so “Your remaining” stayed correct while the progress bar was wrong.
+
+**Chosen fix (smallest, backward compatible):**
+- New completions do **not** create a FinanceRecord output. The executed `PaymentRequest` is the completed-payment record.
+- Contribution progress uses `contributionProgressTotal`: inputs minus outputs, except outputs that match a completed PaymentRequest (`executed` / `approved`) by amount + description. Genuine contribution reversals still reduce funding.
+- Internal status remains `executed`. Customer copy uses **Payment completed**.
+- A second final payment is blocked while a pending or completed request exists for the pot.
+- `GET /payment-requests?sharedAccount=` returns full history so completed payments stay visible. Default list GET includes pending plus executed/approved so list cards can hide **Pay now**. Unread-count stays pending-only.
+
+**Backward compatibility:** No schema rename, no destructive migration, recovered Mongo documents not rewritten. Legacy executed requests that already have matching outputs remain readable; those outputs are skipped in contribution progress. New completions do not create that output.
+
+**Approval wording:** Approve payment / Reject payment / Cancel payment request. Status: Waiting for approval. Approvals display counts the proposer in the customer total (example 1 of 2, then 2 of 2) without changing the rule: the proposer cannot approve their own request; `requiredApprovals` is still other current travellers.
+
+**Completed-payment wording:** Payment completed, with supplier/payee, amount, reference, and one prototype note: “Prototype payment record — no real money was transferred.” After completion, **Pay now** is hidden and **Close Trip Money** is the primary next action. The pot is not auto-archived.
+
+**Tests:** frontend 12 suites / 60 tests PASS (was 11/47). Frontend production build PASS. Combined backend `paymentRequestSettlement` + `directContribution` + `sharedAccountArchive` + `sharedAccountAccess`: 4 suites / 63 tests PASS (`paymentRequestSettlement` 28/28; `directContribution` 4/4; `sharedAccountArchive` 19/19; `sharedAccountAccess` 12/12). Legacy `sharedAccount.test.js` not run (known flaky; unchanged).
+
+**Remaining risks:**
+- Solo pots (`requiredApprovals === 0`) still do not auto-complete on create (pre-existing).
+- Activity history may still show a legacy settlement output as a cost/reverse row; it is historical and is not deleted.
+- Matching legacy outputs to payments uses amount + description; an unrelated output with the same amount and description would also be ignored in progress (unlikely).
+- Task 7 close/archive automation is not started.
+
 

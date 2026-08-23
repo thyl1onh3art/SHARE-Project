@@ -172,6 +172,36 @@ describe('SharedAccounts list Pay now', () => {
     expect(mockedAxios.post).not.toHaveBeenCalled();
   });
 
+  it('hides Pay now after a final payment has been completed', async () => {
+    mockListFetch([fullPot]);
+    (mockedAxios.get as jest.Mock).mockImplementation((url: string) => {
+      if (url.startsWith('/shared-accounts?archived=true')) {
+        return Promise.resolve({ data: [] });
+      }
+      if (url === '/shared-accounts' || url.startsWith('/shared-accounts?')) {
+        return Promise.resolve({ data: [fullPot] });
+      }
+      if (url.startsWith('/payment-requests')) {
+        return Promise.resolve({
+          data: [{
+            _id: 'pr-done',
+            status: 'executed',
+            amount: 2000,
+            description: 'Payee: Example Hotel · Ref: ABC123',
+            sharedAccount: { _id: 'pot-full', name: 'task 1 test' }
+          }]
+        });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    renderList();
+
+    expect(await screen.findByText('task 1 test')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
+    expect(screen.getByText('Payment completed')).toBeInTheDocument();
+  });
+
   it('keeps normal card navigation without opening the payment form', async () => {
     mockListFetch([fullPot, belowPot]);
     renderList();

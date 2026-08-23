@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { canPaySinglePayment, singlePaymentAmount } from '../utils/tripHome';
+import { canPaySinglePayment, singlePaymentAmount, contributionProgressTotal, isCompletedPaymentStatus } from '../utils/tripHome';
 
 const emptyCreateForm = () => {
   const defaultDate = new Date();
@@ -69,32 +69,15 @@ const SharedAccounts: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Calculate balance for a shared account
+  const paymentsForAccount = (accountId: string) =>
+    paymentRequests.filter((pr: any) => {
+      const requestAccountId =
+        typeof pr.sharedAccount === 'object' ? pr.sharedAccount?._id : pr.sharedAccount;
+      return String(requestAccountId) === String(accountId);
+    });
+
   const calculateAccountBalance = (account: SharedAccount): number => {
-    if (!account.financeRecords || account.financeRecords.length === 0) {
-      return 0;
-    }
-    
-    const records = account.financeRecords.map((record: any) => {
-      if (typeof record === 'string' || record instanceof String) {
-        return null;
-      }
-      return record;
-    }).filter((record: any) => record !== null);
-    
-    if (records.length === 0) {
-      return 0;
-    }
-    
-    const income = records
-      .filter((record: any) => record && record.type === 'input')
-      .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
-    
-    const expenses = records
-      .filter((record: any) => record && record.type === 'output')
-      .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
-    
-    return income - expenses;
+    return contributionProgressTotal(account.financeRecords, paymentsForAccount(account._id));
   };
 
   // Calculate remaining capacity (targetAmount - current balance)
@@ -749,10 +732,10 @@ const SharedAccounts: React.FC = () => {
       )}
 
       {/* Pending Payment Requests */}
-      {paymentRequests.length > 0 && (
+      {paymentRequests.filter((request: any) => request.status === 'pending').length > 0 && (
         <div className="card" style={{ marginBottom: '1.5rem', background: '#fef3c7', border: '2px solid #f59e0b' }}>
           <h2 style={{ marginBottom: '1rem', color: '#92400e' }}>Pending payment approvals</h2>
-          {paymentRequests.map((request: any) => {
+          {paymentRequests.filter((request: any) => request.status === 'pending').map((request: any) => {
             // Get current user ID from auth context
             const currentUserId = user?.id || (user as any)?._id || '';
             const requesterId =
@@ -804,14 +787,14 @@ const SharedAccounts: React.FC = () => {
                       onClick={() => handleApprovePayment(request._id)}
                       style={{ flex: 1 }}
                     >
-                      Approve payment request
+                      Approve payment
                     </button>
                     <button
                       className="btn btn-danger"
                       onClick={() => handleRejectPayment(request._id)}
                       style={{ flex: 1 }}
                     >
-                      Reject payment request
+                      Reject payment
                     </button>
                   </div>
                 )}
@@ -835,7 +818,7 @@ const SharedAccounts: React.FC = () => {
                     marginTop: '0.5rem',
                     color: '#22543d'
                   }}>
-                    You have approved this payment request
+                    You have approved this payment
                   </div>
                 )}
                 {hasRejected && (
@@ -847,7 +830,7 @@ const SharedAccounts: React.FC = () => {
                     marginTop: '0.5rem',
                     color: '#742a2a'
                   }}>
-                    You have rejected this payment request
+                    You have rejected this payment
                   </div>
                 )}
                 {request.status === 'executed' && (
@@ -859,7 +842,7 @@ const SharedAccounts: React.FC = () => {
                     marginTop: '0.5rem',
                     color: '#2a4365'
                   }}>
-                    Payment has been recorded in the group ledger
+                    Payment completed
                   </div>
                 )}
                 {request.status === 'rejected' && (
@@ -871,7 +854,7 @@ const SharedAccounts: React.FC = () => {
                     marginTop: '0.5rem',
                     color: '#742a2a'
                   }}>
-                    Payment request was rejected
+                    Payment rejected
                   </div>
                 )}
               </div>
@@ -929,8 +912,17 @@ const SharedAccounts: React.FC = () => {
                 const accountId = typeof pr.sharedAccount === 'object' 
                   ? pr.sharedAccount._id 
                   : pr.sharedAccount;
-                return accountId === account._id && pr.status === 'pending';
+                return String(accountId) === String(account._id) && pr.status === 'pending';
               });
+              const hasCompletedPayment = paymentRequests.some((pr: any) => {
+                const accountId = typeof pr.sharedAccount === 'object'
+                  ? pr.sharedAccount._id
+                  : pr.sharedAccount;
+                return String(accountId) === String(account._id) && isCompletedPaymentStatus(pr.status);
+              });
+              const showPayNow = canPaySinglePayment(balance, account.targetAmount, false)
+                && !hasPendingPayment
+                && !hasCompletedPayment;
               
               return (
                 <div
@@ -1010,7 +1002,10 @@ const SharedAccounts: React.FC = () => {
                             <span>Remaining £{(remaining as number).toFixed(2)}</span>
                             <span>{participantCount} {participantCount === 1 ? 'traveller' : 'travellers'}</span>
                             {hasPendingPayment && (
-                              <span className="trip-money-pending-badge">Settlement pending</span>
+                              <span className="trip-money-pending-badge">Payment pending</span>
+                            )}
+                            {hasCompletedPayment && (
+                              <span className="trip-money-pending-badge">Payment completed</span>
                             )}
                           </div>
                         </div>
@@ -1030,12 +1025,12 @@ const SharedAccounts: React.FC = () => {
                             </span>
                           </div>
                           {hasPendingPayment && (
-                            <div className="trip-money-pending-badge">Settlement pending</div>
+                            <div className="trip-money-pending-badge">Payment pending</div>
                           )}
                         </div>
                       )}
                     </div>
-                    {canPaySinglePayment(balance, account.targetAmount, false) && (
+                    {showPayNow && (
                       <button
                         type="button"
                         className="btn btn-success pay-now-cta"

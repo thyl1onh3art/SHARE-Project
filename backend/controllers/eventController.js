@@ -1,5 +1,7 @@
 const Event = require('../models/Event');
 const SharedAccount = require('../models/SharedAccount');
+const PaymentRequest = require('../models/PaymentRequest');
+const { contributionProgressTotal } = require('../utils/contributionProgress');
 
 const personSummary = (person) => {
   if (!person) return null;
@@ -11,12 +13,8 @@ const personSummary = (person) => {
   };
 };
 
-const recordedTotalFromRecords = (records) =>
-  (records || []).reduce((sum, record) => {
-    if (!record || typeof record === 'string') return sum;
-    const amount = Number(record.amount) || 0;
-    return sum + (record.type === 'input' ? amount : -amount);
-  }, 0);
+const recordedTotalFromRecords = (records, completedPayments) =>
+  contributionProgressTotal(records, completedPayments);
 
 const yourContributionFromRecords = (records, userId) =>
   (records || []).reduce((sum, record) => {
@@ -26,13 +24,13 @@ const yourContributionFromRecords = (records, userId) =>
     return sum + (Number(record.amount) || 0);
   }, 0);
 
-const summarizeTripMoney = (account, userId) => ({
+const summarizeTripMoney = (account, userId, completedPayments = []) => ({
   _id: account._id,
   name: account.name,
   isDeleted: !!account.isDeleted,
   targetAmount: account.targetAmount || null,
   targetDate: account.targetDate || null,
-  recordedTotal: recordedTotalFromRecords(account.financeRecords),
+  recordedTotal: recordedTotalFromRecords(account.financeRecords, completedPayments),
   yourContribution: yourContributionFromRecords(account.financeRecords, userId),
   owner: personSummary(account.owner),
   members: (account.members || []).map(personSummary).filter(Boolean)
@@ -51,11 +49,24 @@ const attachTripMoneyToEvents = async (events, userId) => {
     .populate('members', 'firstName lastName')
     .populate('financeRecords', 'type amount user');
   const byEvent = new Map(pots.map((pot) => [String(pot.event), pot]));
+  const completedPayments = await PaymentRequest.find({
+    sharedAccount: { $in: pots.map((pot) => pot._id) },
+    status: { $in: ['executed', 'approved'] }
+  }).select('sharedAccount status amount description');
+  const completedByPot = new Map();
+  completedPayments.forEach((payment) => {
+    const key = String(payment.sharedAccount);
+    const list = completedByPot.get(key) || [];
+    list.push(payment);
+    completedByPot.set(key, list);
+  });
 
   const decorated = list.map((event) => {
     const plain = typeof event.toObject === 'function' ? event.toObject() : { ...event };
     const linked = byEvent.get(String(event._id));
-    plain.tripMoney = linked ? summarizeTripMoney(linked, userId) : null;
+    plain.tripMoney = linked
+      ? summarizeTripMoney(linked, userId, completedByPot.get(String(linked._id)) || [])
+      : null;
     return plain;
   });
 

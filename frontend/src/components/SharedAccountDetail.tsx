@@ -9,7 +9,12 @@ import {
   travellerDisplayName,
   tripMoneyParticipantCount,
   canPaySinglePayment,
-  singlePaymentAmount
+  singlePaymentAmount,
+  contributionProgressTotal,
+  parsePaymentDetails,
+  isCompletedPaymentStatus,
+  paymentRequestStatusLabel,
+  paymentApprovalProgress
 } from '../utils/tripHome';
 
 interface FinanceRecord {
@@ -127,13 +132,13 @@ const SharedAccountDetail: React.FC = () => {
       ));
 
       try {
-        const settlementResponse = await axios.get('/payment-requests');
+        const settlementResponse = await axios.get(`/payment-requests?sharedAccount=${accountId}`);
         const forThisAccount = (settlementResponse.data || []).filter((req: any) => {
           const reqAccountId =
             typeof req.sharedAccount === 'object'
               ? req.sharedAccount?._id
               : req.sharedAccount;
-          return String(reqAccountId) === String(accountId);
+          return !reqAccountId || String(reqAccountId) === String(accountId);
         });
         setPendingSettlementRequests(forThisAccount);
       } catch {
@@ -151,10 +156,14 @@ const SharedAccountDetail: React.FC = () => {
     if (searchParams.get('pay') !== 'now') return;
     autoOpenedPayForm.current = true;
 
-    const recorded = transactions.reduce((sum, record) => {
-      return sum + (record.type === 'input' ? record.amount : -record.amount);
-    }, 0);
-    if (canPaySinglePayment(recorded, account.targetAmount, !!account.isDeleted)) {
+    const completed = pendingSettlementRequests.some((req) => isCompletedPaymentStatus(req.status));
+    const pending = pendingSettlementRequests.some((req) => req.status === 'pending');
+    const recorded = contributionProgressTotal(transactions, pendingSettlementRequests);
+    if (
+      !completed &&
+      !pending &&
+      canPaySinglePayment(recorded, account.targetAmount, !!account.isDeleted)
+    ) {
       setPayForm({ payee: '', reference: '', note: '' });
       setError('');
       setShowPayModal(true);
@@ -163,29 +172,16 @@ const SharedAccountDetail: React.FC = () => {
     const next = new URLSearchParams(searchParams);
     next.delete('pay');
     setSearchParams(next, { replace: true });
-  }, [loading, account, transactions, searchParams, setSearchParams]);
+  }, [loading, account, transactions, pendingSettlementRequests, searchParams, setSearchParams]);
 
   const getCurrentUserId = () => {
     return (user as any)?._id || (user as any)?.id || '';
-  };
-
-  const calculateBalance = () => {
-    if (!transactions.length) return 0;
-    return transactions.reduce((sum, record) => {
-      return sum + (record.type === 'input' ? record.amount : -record.amount);
-    }, 0);
   };
 
   const calculateUserContribution = (userId: string) => {
     return transactions
       .filter(record => String(record.user._id) === String(userId) && record.type === 'input')
       .reduce((sum, record) => sum + record.amount, 0);
-  };
-
-  const calculateUserNetRecorded = (userId: string) => {
-    return transactions
-      .filter(record => String(record.user._id) === String(userId))
-      .reduce((sum, record) => sum + (record.type === 'input' ? record.amount : -record.amount), 0);
   };
 
   const calculateAvailableWithdrawal = (userId: string) => {
@@ -298,7 +294,7 @@ const SharedAccountDetail: React.FC = () => {
     }
 
     if (account.targetAmount && account.targetAmount > 0) {
-      const currentBalance = calculateBalance();
+      const currentBalance = contributionProgressTotal(transactions, pendingSettlementRequests);
       const newBalance = currentBalance + amount;
       if (newBalance > account.targetAmount) {
         const remaining = account.targetAmount - currentBalance;
@@ -335,9 +331,19 @@ const SharedAccountDetail: React.FC = () => {
 
   const handlePayClick = () => {
     if (!account) return;
-    const recorded = calculateBalance();
-    if (!canPaySinglePayment(recorded, account.targetAmount, !!account.isDeleted)) {
-      setError('Available once the contribution target is reached.');
+    const recorded = contributionProgressTotal(transactions, pendingSettlementRequests);
+    const completed = pendingSettlementRequests.some((req) => isCompletedPaymentStatus(req.status));
+    const pending = pendingSettlementRequests.some((req) => req.status === 'pending');
+    if (
+      completed ||
+      pending ||
+      !canPaySinglePayment(recorded, account.targetAmount, !!account.isDeleted)
+    ) {
+      setError(completed
+        ? 'A final payment has already been completed for this Trip Money pot.'
+        : pending
+          ? 'There is already a pending payment request for this Trip Money pot.'
+          : 'Available once the contribution target is reached.');
       return;
     }
     setPayForm({ payee: '', reference: '', note: '' });
@@ -349,13 +355,21 @@ const SharedAccountDetail: React.FC = () => {
     e.preventDefault();
     if (!account || !accountId) return;
 
-    const recorded = calculateBalance();
+    const recorded = contributionProgressTotal(transactions, pendingSettlementRequests);
     const amount = singlePaymentAmount(account.targetAmount);
+    const completed = pendingSettlementRequests.some((req) => isCompletedPaymentStatus(req.status));
+    const pending = pendingSettlementRequests.some((req) => req.status === 'pending');
     if (
       amount === null ||
+      completed ||
+      pending ||
       !canPaySinglePayment(recorded, account.targetAmount, !!account.isDeleted)
     ) {
-      setError('Available once the contribution target is reached.');
+      setError(completed
+        ? 'A final payment has already been completed for this Trip Money pot.'
+        : pending
+          ? 'There is already a pending payment request for this Trip Money pot.'
+          : 'Available once the contribution target is reached.');
       return;
     }
 
@@ -392,7 +406,7 @@ const SharedAccountDetail: React.FC = () => {
       await axios.post(`/payment-requests/${requestId}/approve`);
       await fetchAccountDetails();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to approve payment request');
+      setError(err.response?.data?.message || 'Failed to approve payment');
     }
   };
 
@@ -402,7 +416,7 @@ const SharedAccountDetail: React.FC = () => {
       await axios.post(`/payment-requests/${requestId}/reject`);
       await fetchAccountDetails();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to reject payment request');
+      setError(err.response?.data?.message || 'Failed to reject payment');
     }
   };
 
@@ -527,9 +541,13 @@ const SharedAccountDetail: React.FC = () => {
   const ownerId = typeof account.owner === 'object' ? account.owner._id : account.owner;
   const isOwner = String(ownerId) === String(userId);
   const isArchived = !!account.isDeleted;
-  const recordedTotal = calculateBalance();
+  const hasCompletedFinalPayment = pendingSettlementRequests.some((req) => isCompletedPaymentStatus(req.status));
+  const hasPendingFinalPayment = pendingSettlementRequests.some((req) => req.status === 'pending');
+  const recordedTotal = contributionProgressTotal(transactions, pendingSettlementRequests);
   const hasTarget = !!(account.targetAmount && account.targetAmount > 0);
-  const paySinglePaymentReady = canPaySinglePayment(recordedTotal, account.targetAmount, isArchived);
+  const paySinglePaymentReady = canPaySinglePayment(recordedTotal, account.targetAmount, isArchived)
+    && !hasCompletedFinalPayment
+    && !hasPendingFinalPayment;
   const singlePaymentValue = singlePaymentAmount(account.targetAmount);
   const remainingToContribute = hasTarget
     ? Math.max(0, (account.targetAmount as number) - recordedTotal)
@@ -570,6 +588,10 @@ const SharedAccountDetail: React.FC = () => {
     closeOutLabel = 'Ready to review';
     closeOutDetail = 'The contribution target is reached on the ledger. Review each traveller’s recorded position. Reaching the target does not mean real-world settlements are finished.';
   }
+  if (hasCompletedFinalPayment && hasTarget) {
+    closeOutLabel = 'Payment completed';
+    closeOutDetail = 'The final payment is recorded. Contribution history stays at the target. Close this Trip Money pot when the group has finished reviewing.';
+  }
 
   const isCloseOutFocus =
     !isArchived && (closeOutStatus === 'ready_to_review' || closeOutStatus === 'review_difference');
@@ -589,6 +611,8 @@ const SharedAccountDetail: React.FC = () => {
     organiserNextStep = 'Invite travellers so everyone can record their share of the trip costs.';
   } else if (hasTarget && remainingToContribute !== null && remainingToContribute > 0) {
     organiserNextStep = `£${remainingToContribute.toFixed(2)} still to contribute toward the group target.`;
+  } else if (hasCompletedFinalPayment) {
+    organiserNextStep = 'Payment completed. Close this Trip Money pot when the group has finished reviewing.';
   } else if (isCloseOutFocus) {
     organiserNextStep = closeOutStatus === 'review_difference'
       ? 'Recorded total is above the contribution target. Review Trip Close-out, then close this pot when the group is finished. SHARE does not move money.'
@@ -767,12 +791,18 @@ const SharedAccountDetail: React.FC = () => {
         {isCloseOutFocus && (
           <div className="trip-closeout-banner" role="status">
             <strong>
-              {closeOutStatus === 'review_difference' ? 'Recorded total is above target' : 'Contribution target reached'}
+              {hasCompletedFinalPayment
+                ? 'Payment completed'
+                : closeOutStatus === 'review_difference'
+                  ? 'Recorded total is above target'
+                  : 'Contribution target reached'}
             </strong>
             <p style={{ margin: '0.35rem 0 0' }}>
-              {closeOutStatus === 'review_difference'
-                ? 'The recorded total is above the contribution target on the ledger. Review the group before closing this Trip Money pot.'
-                : 'The recorded contribution target has been reached. Review the group before closing this Trip Money pot.'}
+              {hasCompletedFinalPayment
+                ? 'Contribution history is unchanged. Close this Trip Money pot when the group has finished reviewing.'
+                : closeOutStatus === 'review_difference'
+                  ? 'The recorded total is above the contribution target on the ledger. Review the group before closing this Trip Money pot.'
+                  : 'The recorded contribution target has been reached. Review the group before closing this Trip Money pot.'}
             </p>
           </div>
         )}
@@ -795,13 +825,33 @@ const SharedAccountDetail: React.FC = () => {
         )}
 
         <div className="trip-money-actions">
-          {!isArchived && isCloseOutFocus && (
+          {!isArchived && isCloseOutFocus && hasCompletedFinalPayment && (
+            <>
+              {isOwner && (
+                <button type="button" className="btn btn-primary" onClick={() => setShowArchiveModal(true)}>
+                  Close Trip Money
+                </button>
+              )}
+              <button type="button" className="btn btn-secondary" onClick={scrollToCloseOut}>
+                Review Trip Close-out
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowMoreActions((open) => !open)}
+                aria-expanded={showMoreActions}
+              >
+                {showMoreActions ? 'Hide more actions' : 'More actions'}
+              </button>
+            </>
+          )}
+          {!isArchived && isCloseOutFocus && !hasCompletedFinalPayment && (
             <>
               {payNowCta}
               <button type="button" className="btn btn-primary" onClick={scrollToCloseOut}>
                 Review Trip Close-out
               </button>
-              {paySinglePaymentControl('pay-single-payment-status-hero')}
+              {!hasPendingFinalPayment && paySinglePaymentControl('pay-single-payment-status-hero')}
               {isOwner && (
                 <button type="button" className="btn btn-secondary" onClick={() => setShowArchiveModal(true)}>
                   Close Trip Money
@@ -910,13 +960,13 @@ const SharedAccountDetail: React.FC = () => {
           <div className="trip-money-member-list">
             {allParticipants.map((participant) => {
               const participantId = participant._id;
-              const netRecorded = calculateUserNetRecorded(participantId);
+              const recordedForPerson = calculateUserContribution(participantId);
               const remainingForPerson = personalRemaining(
                 suggestedEqualShare,
-                Math.max(0, netRecorded)
+                recordedForPerson
               );
               const isComplete =
-                suggestedEqualShare !== null && netRecorded >= suggestedEqualShare - 0.001;
+                suggestedEqualShare !== null && recordedForPerson >= suggestedEqualShare - 0.001;
               const isSelf = String(participantId) === String(userId);
               const isOrganiser = String(participantId) === String(ownerId);
 
@@ -952,7 +1002,7 @@ const SharedAccountDetail: React.FC = () => {
                   <div className="trip-money-member-figures">
                     <div>
                       <span className="trip-money-stat-label">Recorded</span>
-                      <span className="trip-money-member-amount">£{Math.max(0, netRecorded).toFixed(2)}</span>
+                      <span className="trip-money-member-amount">£{recordedForPerson.toFixed(2)}</span>
                     </div>
                     {suggestedEqualShare !== null && (
                       <div>
@@ -1145,8 +1195,7 @@ const SharedAccountDetail: React.FC = () => {
           <div className="trip-money-member-list">
             {allParticipants.map((participant) => {
               const participantId = participant._id;
-              const netRecorded = calculateUserNetRecorded(participantId);
-              const recordedDisplay = Math.max(0, netRecorded);
+              const recordedDisplay = calculateUserContribution(participantId);
               let positionLabel = 'Tracking';
               let positionClass = 'trip-money-status-neutral';
               let positionDetail = '';
@@ -1189,7 +1238,7 @@ const SharedAccountDetail: React.FC = () => {
         )}
 
         <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1.05rem', color: '#2d3748' }}>
-          Payment requests
+          Final payment
         </h3>
         <p style={{ color: '#4a5568', fontSize: '0.9rem', marginTop: 0 }}>
           Optional. A payment request records the group’s proposed final payment in SHARE. It does not move money between bank accounts.
@@ -1197,7 +1246,7 @@ const SharedAccountDetail: React.FC = () => {
         </p>
         {pendingSettlementRequests.length === 0 ? (
           <p style={{ color: '#4a5568', fontSize: '0.95rem' }}>
-            No pending payment requests for this pot.
+            No final payment recorded yet.
           </p>
         ) : (
           <div className="trip-money-member-list">
@@ -1216,29 +1265,53 @@ const SharedAccountDetail: React.FC = () => {
               });
               const canAct =
                 !isArchived && !isRequester && !hasApproved && !hasRejected && req.status === 'pending';
+              const details = parsePaymentDetails(req.description);
+              const proposer = req.requestedBy
+                ? travellerDisplayName({
+                    _id: String(requesterId || ''),
+                    firstName: req.requestedBy.firstName,
+                    lastName: req.requestedBy.lastName,
+                    email: req.requestedBy.email
+                  })
+                : 'a traveller';
+              const approvalProgress = paymentApprovalProgress(req);
+              const statusLabel = paymentRequestStatusLabel(req.status);
+              const completed = isCompletedPaymentStatus(req.status);
+              const statusClass = completed
+                ? 'trip-money-status-complete'
+                : req.status === 'rejected'
+                  ? 'trip-money-status-pending'
+                  : 'trip-money-status-pending';
 
               return (
                 <div key={req._id} className="trip-money-member-row">
                   <div className="trip-money-member-main">
                     <div>
-                      <strong>£{(req.amount || 0).toFixed(2)} payment request</strong>
+                      <strong>
+                        {details.payee || 'Final payment'}
+                      </strong>
                       <div className="trip-money-member-meta">
-                        Requested by{' '}
-                        {req.requestedBy
-                          ? `${req.requestedBy.firstName || ''} ${req.requestedBy.lastName || ''}`.trim() ||
-                            req.requestedBy.email
-                          : 'a traveller'}
-                        {req.description ? ` · ${req.description}` : ''}
+                        £{(req.amount || 0).toFixed(2)}
+                        {details.reference ? ` · Reference: ${details.reference}` : ''}
+                      </div>
+                      <div className="trip-money-member-meta">
+                        Proposed by {proposer}
                       </div>
                     </div>
-                    <span className="trip-money-status-pill trip-money-status-pending">
-                      Pending review
+                    <span className={`trip-money-status-pill ${statusClass}`}>
+                      {statusLabel}
                     </span>
                   </div>
-                  <p style={{ margin: '0.35rem 0 0', fontSize: '0.85rem', color: '#4a5568' }}>
-                    Approvals: {req.approvals?.length || 0} / {req.requiredApprovals || 0}. Approving records the
-                    payment request — SHARE does not send bank payments.
-                  </p>
+                  {req.status === 'pending' && (
+                    <p style={{ margin: '0.35rem 0 0', fontSize: '0.85rem', color: '#4a5568' }}>
+                      Approvals: {approvalProgress.current} of {approvalProgress.total}
+                    </p>
+                  )}
+                  {completed && (
+                    <p style={{ margin: '0.35rem 0 0', fontSize: '0.85rem', color: '#4a5568' }}>
+                      Prototype payment record — no real money was transferred.
+                    </p>
+                  )}
                   {canAct && (
                     <div className="trip-money-actions" style={{ marginTop: '0.75rem' }}>
                       <button
@@ -1246,14 +1319,14 @@ const SharedAccountDetail: React.FC = () => {
                         className="btn btn-success"
                         onClick={() => handleApproveSettlement(req._id)}
                       >
-                        Approve payment request
+                        Approve payment
                       </button>
                       <button
                         type="button"
                         className="btn btn-danger"
                         onClick={() => handleRejectSettlement(req._id)}
                       >
-                        Reject payment request
+                        Reject payment
                       </button>
                     </div>
                   )}
@@ -1268,14 +1341,14 @@ const SharedAccountDetail: React.FC = () => {
                       </button>
                     </div>
                   )}
-                  {hasApproved && (
+                  {hasApproved && req.status === 'pending' && (
                     <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: '#22543d' }}>
-                      You have approved this payment request
+                      You have approved this payment
                     </p>
                   )}
                   {hasRejected && (
                     <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: '#742a2a' }}>
-                      You have rejected this payment request
+                      You have rejected this payment
                     </p>
                   )}
                 </div>
@@ -1294,9 +1367,13 @@ const SharedAccountDetail: React.FC = () => {
               SHARE does not move or pay out money.
             </p>
             <div className="trip-money-actions">
-              {payNowCta}
+              {!hasCompletedFinalPayment && payNowCta}
               {isOwner ? (
-                <button type="button" className="btn btn-primary" onClick={() => setShowArchiveModal(true)}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setShowArchiveModal(true)}
+                >
                   Close Trip Money
                 </button>
               ) : (
@@ -1304,7 +1381,7 @@ const SharedAccountDetail: React.FC = () => {
                   The organiser can close this Trip Money pot when the group has finished reviewing.
                 </p>
               )}
-              {paySinglePaymentControl('pay-single-payment-status-closeout')}
+              {!hasCompletedFinalPayment && !hasPendingFinalPayment && paySinglePaymentControl('pay-single-payment-status-closeout')}
               <button
                 type="button"
                 className="btn btn-secondary"
