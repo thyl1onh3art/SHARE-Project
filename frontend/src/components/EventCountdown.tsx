@@ -108,7 +108,7 @@ const EventCountdown: React.FC = () => {
       if (err.response?.status === 401) {
         setError('Please log in to view your trips');
       } else {
-        setError(`Failed to load trips: ${err.response?.data?.message || err.message}`);
+        setError(`Failed to load trips: ${err.response?.data?.message || 'Please try again.'}`);
       }
     } finally {
       setLoading(false);
@@ -163,6 +163,7 @@ const EventCountdown: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     setSubmitting(true);
 
     try {
@@ -198,7 +199,7 @@ const EventCountdown: React.FC = () => {
       setShowForm(false);
       fetchEvents();
     } catch (err: any) {
-      setError(`Failed to create trip: ${err.response?.data?.message || err.message}`);
+      setError(`Failed to create trip: ${err.response?.data?.message || 'Please try again.'}`);
     } finally {
       setSubmitting(false);
     }

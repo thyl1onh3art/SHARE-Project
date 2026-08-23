@@ -142,6 +142,35 @@ describe('Trip Money settlement records', () => {
       expect(response.body.paymentRequest.description).toMatch(/INV-22/);
     });
 
+    it('rejects a second pending final payment for the same pot', async () => {
+      await fundPot(50);
+
+      await request(app)
+        .post('/api/payment-requests')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          sharedAccountId: account._id.toString(),
+          amount: 50,
+          payee: 'Example Hotel',
+          reference: 'ABC123'
+        })
+        .expect(201);
+
+      const second = await request(app)
+        .post('/api/payment-requests')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .send({
+          sharedAccountId: account._id.toString(),
+          amount: 50,
+          payee: 'Other Hotel',
+          reference: 'XYZ'
+        })
+        .expect(400);
+
+      expect(second.body.message).toMatch(/pending payment request/i);
+      expect(await PaymentRequest.countDocuments({ sharedAccount: account._id })).toBe(1);
+    });
+
     it('does not require a personal finance balance', async () => {
       await fundPot(50);
       const personal = await FinanceRecord.find({ user: ownerUser._id, sharedAccount: { $exists: false } });

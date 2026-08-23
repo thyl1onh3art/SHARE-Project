@@ -212,6 +212,8 @@ describe('SharedAccountDetail final payment', () => {
       );
     });
     expect(mockedAxios.get).not.toHaveBeenCalledWith('/finance');
+    expect(window.alert).not.toHaveBeenCalled();
+    expect(await screen.findByText(/payment request sent/i)).toBeInTheDocument();
   });
 
   it('keeps the amount fixed at the target when recorded total is above target', async () => {

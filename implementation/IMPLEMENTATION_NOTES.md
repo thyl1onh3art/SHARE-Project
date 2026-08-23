@@ -1839,4 +1839,85 @@ Branch is ready for a later GitHub push + PR into `main` when explicitly request
 - Personal Finance / Financial Records still use older “recorded / settlement” wording; they are outside the primary Trip Money journey and were not rewritten.
 - Task 9 not started.
 
+---
+
+## Task 9 — End-to-end regression and demo polish
+
+**Purpose:** Final pre-demo quality pass for the two-user Trip Money lifecycle. No new product features. No chat, map, gallery, recommendations, voting, real banking, cards, FX, or supplier payments. Task 10 not started.
+
+### Demo script (two users)
+
+**USER A — organiser**
+
+1. **Create a Trip** on `/events` → **Create trip** → name, date, time → **Save trip**.  
+   Expected: trip card appears. Clicking it opens Trip Money setup (`/shared-accounts?event=…`).
+2. **Set up Trip Money** → name, what it is for, target, target date → **Create Trip Money**.  
+   Expected: opens `/shared-accounts/:id` with Target / Contributed / Still needed. One pot per trip.
+3. **Set target** is already done at create. Edit details only if you need to change it.
+4. **Invite User B** → **Invite traveller** → email matching User B’s SHARE login → **Send trip invitation(s)**.  
+   Expected: invitation shows as pending. User B must log in with that email.
+
+**USER B — invited traveller**
+
+5. Open **Invitations** → **Accept invitation**.  
+   Expected: User B is taken into the linked Trip Money. They now count in Travellers / Each person.
+
+**BOTH**
+
+6. Confirm **Each person** = target ÷ (organiser + travellers). Equal split is a guide; amounts can differ.
+7. Each uses **Pay account** to record a contribution. Prototype note: no money is transferred.
+8. When **Contributed** equals **Target**, the bar is **100%** and **Pay now** is the primary action.
+
+**USER A**
+
+9. **Pay now**.
+10. Enter **Supplier** and **Reference** → **Create payment request**.  
+    Expected: amount is the target; **Waiting for approval**. Duplicate Pay now is blocked.
+
+**USER B**
+
+11. **Approve payment**.  
+    Expected: Approvals 2 of 2. Status becomes **Payment completed**. Progress stays **£target of £target / 100%**. No contribution history is wiped.
+
+**USER A**
+
+12. See **Payment completed** and **Close Trip Money** as the next action.
+13. **Close Trip Money** → confirm.  
+    Expected: soft archive. Redirect to `/shared-accounts?archived=1`. Active list no longer shows the pot.
+14. Open **Archived Trip Money**.
+15. Confirm **Trip Money closed**, read-only history, target/contributions/final payment still visible. No Pay account / Pay now.
+
+### Changes in this pass
+- Accept invitation now opens the linked Trip Money (avoids a dead-end on Invitations).
+- Payment request success uses an in-page notice instead of `alert()`.
+- Double-submit guards on Pay account, final payment, approve/reject/cancel, close, accept, create trip.
+- Demo errors mapped away from Axios/Mongo/`Shared account` wording where they reached the UI.
+- Narrow screens: contribution stats stack to two columns; primary/invite buttons get a larger tap target.
+- Tests added for create trip, accept→open pot, close→`archived=1`, duplicate pending payment, and customer error mapping.
+
+### Functionality unchanged
+Contribution math, Pay now gating, PaymentRequest lifecycle, archive backend, one-pot-per-trip, schema, recovered Mongo data.
+
+**Tests:** frontend 14 suites / 70 tests PASS (was 12/65). Frontend production build PASS. Backend lifecycle suites PASS: `paymentRequestSettlement`, `directContribution`, `sharedAccountArchive`, `sharedAccountAccess`, `tripEventLink`, `inviteHelpers`, `archivedFinanceHistory`, `friends` (8 suites; includes new duplicate-pending payment test). Combined run with `user.test.js`: 9 suites, 112 tests, **6 failed / 106 passed**. The 6 failures are in `user.test.js` only (register response shape `success` undefined; one 429 rate-limit). Those tests were not changed in Task 9. Legacy `sharedAccount.test.js` not run (known flaky; unchanged).
+
+**Readiness:** B — DEMO READY WITH MINOR KNOWN ISSUES
+
+**Remaining risks:**
+- Solo pots still cannot complete final payment (proposer cannot self-approve; `requiredApprovals` is 0). Demo must use two travellers.
+- Over-target contributions are blocked in the UI, not in `POST /finance`. Do not demo API bypass.
+- Recent activity still shows only the last 24 hours; older rows remain in Who has contributed.
+- Leftover unused list-page Final payment modal in `SharedAccounts.tsx` is not on the current Pay now path.
+- Invitations still require a matching registered email; there is no public invite token link.
+- Trip list contribution totals refresh on load, not live.
+- Personal Finance / Financial Records still use older recorded/settlement wording (outside the demo path).
+- Task 10 not started.
+
+### Sole-owner accidental Trip Money delete (demo bugfix)
+
+Root cause: the header × “Leave Trip Money” path always required ownership transfer for organisers, and disabled Remove when `account.members.length === 0`. Pending invites are not members, so a sole owner had nobody to transfer to.
+
+Fix: if the current user is organiser and there are no other accepted travellers (`members` empty), × confirms **Delete Trip Money?** and uses the existing soft-archive `DELETE /shared-accounts/:id`. Transfer remains required only when another accepted traveller exists. £0 accepted travellers still count. Close Trip Money → archive after payment completion is unchanged. Permanent delete remains archive-first.
+
+No commit / no push / stash@{0} untouched.
+
 

@@ -181,4 +181,26 @@ describe('EventCountdown trip cards', () => {
     expect(screen.queryByText(/Set up Trip Money event=/)).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Canada' })).toBeInTheDocument();
   });
+
+  it('creates a trip from the list form', async () => {
+    (mockedAxios.get as jest.Mock).mockResolvedValue({ data: [] });
+    (mockedAxios.post as jest.Mock).mockResolvedValue({
+      data: { _id: 'trip-new', title: 'Ibiza' }
+    });
+
+    const { container } = renderTrips();
+
+    fireEvent.click(await screen.findByRole('button', { name: /^create trip$/i }));
+    fireEvent.change(screen.getByPlaceholderText(/amsterdam weekend/i), { target: { value: 'Ibiza' } });
+    fireEvent.change(container.querySelector('input[type="date"]') as HTMLInputElement, { target: { value: '2027-06-01' } });
+    fireEvent.change(container.querySelector('input[type="time"]') as HTMLInputElement, { target: { value: '10:00' } });
+    fireEvent.click(screen.getByRole('button', { name: /^save trip$/i }));
+
+    await waitFor(() => {
+      expect(mockedAxios.post).toHaveBeenCalledWith(
+        '/events',
+        expect.objectContaining({ title: 'Ibiza', eventDate: '2027-06-01', eventTime: '10:00' })
+      );
+    });
+  });
 });

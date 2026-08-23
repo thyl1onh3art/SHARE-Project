@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import SharedAccountDetail from './SharedAccountDetail';
 
@@ -96,11 +96,16 @@ function mockAccountFetch(
   });
 }
 
+function TripMoneyList() {
+  const [params] = useSearchParams();
+  return <div>Trip Money list archived={params.get('archived') || '0'}</div>;
+}
+
 function renderDetail(initial = '/shared-accounts/pot-1') {
   return render(
     <MemoryRouter initialEntries={[initial]}>
       <Routes>
-        <Route path="/shared-accounts" element={<div>Trip Money list</div>} />
+        <Route path="/shared-accounts" element={<TripMoneyList />} />
         <Route path="/shared-accounts/:accountId" element={<SharedAccountDetail />} />
       </Routes>
     </MemoryRouter>
@@ -209,7 +214,7 @@ describe('SharedAccountDetail payment completion', () => {
     await waitFor(() => {
       expect(mockedAxios.delete).toHaveBeenCalledWith('/shared-accounts/pot-1');
     });
-    expect(await screen.findByText('Trip Money list')).toBeInTheDocument();
+    expect(await screen.findByText('Trip Money list archived=1')).toBeInTheDocument();
   });
 
   it('keeps contribution and payment history readable after close', async () => {

@@ -879,6 +879,7 @@ body {
   .trip-money-actions .btn {
     width: 100%;
     margin-bottom: 0;
+    min-height: 44px;
   }
 
   .trip-money-more-actions .trip-money-actions .btn {
@@ -887,6 +888,38 @@ body {
 
   .trip-money-member-main {
     flex-direction: column;
+  }
+
+  .trip-money-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .trip-money-stat-value {
+    font-size: 1.15rem;
+    overflow-wrap: anywhere;
+  }
+
+  .invite-action-btn,
+  .invite-card-actions .btn {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+}
+
+@media (max-width: 430px) {
+  .trip-money-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+  }
+
+  .trip-money-title {
+    font-size: 1.35rem;
+    overflow-wrap: anywhere;
+  }
+
+  .trip-list-card,
+  .trip-money-list-card {
+    max-width: 100%;
   }
 }
 

@@ -16,6 +16,7 @@ import {
   paymentRequestStatusLabel,
   paymentApprovalProgress
 } from '../utils/tripHome';
+import { userFacingError } from '../utils/userFacingError';
 
 interface FinanceRecord {
   _id: string;
@@ -100,6 +101,8 @@ const SharedAccountDetail: React.FC = () => {
   const [organiserTransferId, setOrganiserTransferId] = useState('');
   const [organiserTransferSubmitting, setOrganiserTransferSubmitting] = useState(false);
   const [showMoreActions, setShowMoreActions] = useState(false);
+  const [paymentBusy, setPaymentBusy] = useState(false);
+  const [paymentNotice, setPaymentNotice] = useState('');
 
   useEffect(() => {
     if (accountId) {
@@ -145,7 +148,7 @@ const SharedAccountDetail: React.FC = () => {
         setPendingSettlementRequests([]);
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load account details');
+      setError(userFacingError(err, 'Failed to load Trip Money'));
     } finally {
       setLoading(false);
     }
@@ -233,7 +236,7 @@ const SharedAccountDetail: React.FC = () => {
       setWithdrawDescription('');
       await fetchAccountDetails();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to reverse recorded contribution');
+      setError(userFacingError(err, 'Failed to reverse contribution'));
     } finally {
       setWithdrawSubmitting(false);
     }
@@ -271,7 +274,7 @@ const SharedAccountDetail: React.FC = () => {
       setShowEditModal(false);
       await fetchAccountDetails();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update account details');
+      setError(userFacingError(err, 'Failed to update details'));
     } finally {
       setEditSubmitting(false);
     }
@@ -285,7 +288,7 @@ const SharedAccountDetail: React.FC = () => {
 
   const handleTransferSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!account || !accountId) return;
+    if (!account || !accountId || transferSubmitting) return;
 
     const amount = parseFloat(transferForm.amount);
     if (isNaN(amount) || amount <= 0) {
@@ -323,7 +326,7 @@ const SharedAccountDetail: React.FC = () => {
       setTransferForm({ amount: '', description: '' });
       await fetchAccountDetails();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to record contribution');
+      setError(userFacingError(err, 'Failed to record contribution'));
     } finally {
       setTransferSubmitting(false);
     }
@@ -353,7 +356,7 @@ const SharedAccountDetail: React.FC = () => {
 
   const handlePaySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!account || !accountId) return;
+    if (!account || !accountId || paySubmitting) return;
 
     const recorded = contributionProgressTotal(transactions, pendingSettlementRequests);
     const amount = singlePaymentAmount(account.targetAmount);
@@ -374,7 +377,7 @@ const SharedAccountDetail: React.FC = () => {
     }
 
     if (!payForm.payee.trim()) {
-      setError('Enter a supplier / payee.');
+      setError('Enter a supplier.');
       return;
     }
 
@@ -392,41 +395,53 @@ const SharedAccountDetail: React.FC = () => {
       setShowPayModal(false);
       setPayForm({ payee: '', reference: '', note: '' });
       await fetchAccountDetails();
-      alert('Payment request created. Travellers must approve before it is recorded. SHARE does not send bank payments.');
+      setPaymentNotice('Payment request sent. Waiting for approval. No money was transferred.');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create payment request');
+      setError(userFacingError(err, 'Failed to create payment request'));
     } finally {
       setPaySubmitting(false);
     }
   };
 
   const handleApproveSettlement = async (requestId: string) => {
+    if (paymentBusy) return;
+    setPaymentBusy(true);
     setError('');
     try {
       await axios.post(`/payment-requests/${requestId}/approve`);
       await fetchAccountDetails();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to approve payment');
+      setError(userFacingError(err, 'Failed to approve payment'));
+    } finally {
+      setPaymentBusy(false);
     }
   };
 
   const handleRejectSettlement = async (requestId: string) => {
+    if (paymentBusy) return;
+    setPaymentBusy(true);
     setError('');
     try {
       await axios.post(`/payment-requests/${requestId}/reject`);
       await fetchAccountDetails();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to reject payment');
+      setError(userFacingError(err, 'Failed to reject payment'));
+    } finally {
+      setPaymentBusy(false);
     }
   };
 
   const handleCancelSettlement = async (requestId: string) => {
+    if (paymentBusy) return;
+    setPaymentBusy(true);
     setError('');
     try {
       await axios.post(`/payment-requests/${requestId}/cancel`);
       await fetchAccountDetails();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to cancel payment request');
+      setError(userFacingError(err, 'Failed to cancel payment request'));
+    } finally {
+      setPaymentBusy(false);
     }
   };
 
@@ -434,10 +449,27 @@ const SharedAccountDetail: React.FC = () => {
     if (!account || !accountId) return;
     const currentUserId = getCurrentUserId();
     const ownerId = typeof account.owner === 'object' ? account.owner._id : account.owner;
-    const isOwner = ownerId === currentUserId;
+    const isOwner = String(ownerId) === String(currentUserId);
+    const hasOtherTravellers = Array.isArray(account.members) && account.members.length > 0;
+
+    if (isOwner && !hasOtherTravellers) {
+      if (removeSubmitting) return;
+      setRemoveSubmitting(true);
+      setError('');
+      try {
+        await axios.delete(`/shared-accounts/${accountId}`);
+        setShowRemoveModal(false);
+        navigate('/shared-accounts?archived=1');
+      } catch (err: any) {
+        setError(userFacingError(err, 'Failed to delete Trip Money'));
+      } finally {
+        setRemoveSubmitting(false);
+      }
+      return;
+    }
 
     if (isOwner && !newOwnerId) {
-      setError('Please select a new owner before removing this account.');
+      setError('Please select a traveller to become organiser before you leave.');
       return;
     }
 
@@ -458,14 +490,14 @@ const SharedAccountDetail: React.FC = () => {
       }
       navigate('/shared-accounts');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to remove account');
+      setError(userFacingError(err, 'Failed to leave Trip Money'));
     } finally {
       setRemoveSubmitting(false);
     }
   };
 
   const handleArchiveTripMoney = async () => {
-    if (!accountId) return;
+    if (!accountId || archiveSubmitting) return;
     setArchiveSubmitting(true);
     setError('');
     try {
@@ -473,14 +505,14 @@ const SharedAccountDetail: React.FC = () => {
       setShowArchiveModal(false);
       navigate('/shared-accounts?archived=1');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to archive Trip Money');
+      setError(userFacingError(err, 'Failed to archive Trip Money'));
     } finally {
       setArchiveSubmitting(false);
     }
   };
 
   const handlePermanentDelete = async () => {
-    if (!accountId) return;
+    if (!accountId || permanentDeleteSubmitting) return;
     setPermanentDeleteSubmitting(true);
     setError('');
     try {
@@ -488,14 +520,14 @@ const SharedAccountDetail: React.FC = () => {
       setShowPermanentDeleteModal(false);
       navigate('/shared-accounts');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to permanently delete Trip Money');
+      setError(userFacingError(err, 'Failed to permanently delete Trip Money'));
     } finally {
       setPermanentDeleteSubmitting(false);
     }
   };
 
   const handleTransferOrganiserRole = async () => {
-    if (!accountId || !organiserTransferId) {
+    if (!accountId || !organiserTransferId || organiserTransferSubmitting) {
       setError('Select a traveller to make organiser.');
       return;
     }
@@ -510,7 +542,7 @@ const SharedAccountDetail: React.FC = () => {
       setOrganiserTransferId('');
       await fetchAccountDetails();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to transfer organiser role');
+      setError(userFacingError(err, 'Failed to transfer organiser role'));
     } finally {
       setOrganiserTransferSubmitting(false);
     }
@@ -540,6 +572,8 @@ const SharedAccountDetail: React.FC = () => {
   const allParticipants = [account.owner, ...account.members].filter(Boolean);
   const ownerId = typeof account.owner === 'object' ? account.owner._id : account.owner;
   const isOwner = String(ownerId) === String(userId);
+  const hasOtherTravellers = Array.isArray(account.members) && account.members.length > 0;
+  const isSoleOwner = isOwner && !hasOtherTravellers;
   const isArchived = !!account.isDeleted;
   const hasCompletedFinalPayment = pendingSettlementRequests.some((req) => isCompletedPaymentStatus(req.status));
   const hasPendingFinalPayment = pendingSettlementRequests.some((req) => req.status === 'pending');
@@ -637,13 +671,15 @@ const SharedAccountDetail: React.FC = () => {
                   type="button"
                   className="btn btn-success"
                   onClick={() => handleApproveSettlement(req._id)}
+                  disabled={paymentBusy}
                 >
-                  Approve payment
+                  {paymentBusy ? <span className="spinner"></span> : 'Approve payment'}
                 </button>
                 <button
                   type="button"
                   className="btn btn-danger"
                   onClick={() => handleRejectSettlement(req._id)}
+                  disabled={paymentBusy}
                 >
                   Reject payment
                 </button>
@@ -655,6 +691,7 @@ const SharedAccountDetail: React.FC = () => {
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => handleCancelSettlement(req._id)}
+                  disabled={paymentBusy}
                 >
                   Cancel payment request
                 </button>
@@ -695,8 +732,8 @@ const SharedAccountDetail: React.FC = () => {
         {!isArchived && (
           <button
             onClick={() => setShowRemoveModal(true)}
-            aria-label="Leave Trip Money"
-            title="Leave Trip Money"
+            aria-label={isSoleOwner ? 'Delete Trip Money' : 'Leave Trip Money'}
+            title={isSoleOwner ? 'Delete Trip Money' : 'Leave Trip Money'}
             className="trip-money-remove-btn"
           >
             ×
@@ -707,6 +744,20 @@ const SharedAccountDetail: React.FC = () => {
       {error && (
         <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
           {error}
+        </div>
+      )}
+      {paymentNotice && (
+        <div
+          className="alert"
+          role="status"
+          style={{
+            marginBottom: '1rem',
+            background: '#f0fff4',
+            border: '1px solid #9ae6b4',
+            color: '#22543d'
+          }}
+        >
+          {paymentNotice}
         </div>
       )}
 
@@ -1517,7 +1568,7 @@ const SharedAccountDetail: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>Leave Trip Money</h2>
+              <h2 style={{ margin: 0 }}>{isSoleOwner ? 'Delete Trip Money?' : 'Leave Trip Money'}</h2>
               <button
                 onClick={() => setShowRemoveModal(false)}
                 style={{
@@ -1532,9 +1583,18 @@ const SharedAccountDetail: React.FC = () => {
               </button>
             </div>
 
-            {isOwner ? (
+            {isSoleOwner ? (
+              <>
+                <p style={{ color: '#4a5568', marginTop: 0 }}>
+                  You’re the only traveller in this Trip Money.
+                </p>
+                <p style={{ color: '#4a5568' }}>
+                  This will close it and move it to Archived Trip Money. History stays available as read-only. No money is moved.
+                </p>
+              </>
+            ) : isOwner ? (
               <p style={{ color: '#4a5568', marginTop: 0 }}>
-                You are the creator. Select a new owner to transfer creator rights before you leave.
+                You are the creator. Select a traveller to transfer organiser rights before you leave.
               </p>
             ) : (
               <p style={{ color: '#4a5568', marginTop: 0 }}>
@@ -1542,22 +1602,17 @@ const SharedAccountDetail: React.FC = () => {
               </p>
             )}
 
-            {isOwner && account.members.length === 0 && (
-              <p style={{ color: '#e53e3e' }}>
-                You need at least one member to transfer ownership.
-              </p>
-            )}
-
-            {isOwner && account.members.length > 0 && (
+            {isOwner && hasOtherTravellers && (
               <div className="form-group">
-                <label className="form-label">New Owner</label>
+                <label className="form-label" htmlFor="new-organiser-select">New organiser</label>
                 <select
+                  id="new-organiser-select"
                   className="form-input"
                   value={newOwnerId}
                   onChange={(e) => setNewOwnerId(e.target.value)}
                   required
                 >
-                  <option value="">Select member</option>
+                  <option value="">Select traveller</option>
                   {account.members.map((member) => (
                     <option key={member._id} value={member._id}>
                       {member.firstName} {member.lastName} ({member.email})
@@ -1586,10 +1641,10 @@ const SharedAccountDetail: React.FC = () => {
                 type="button"
                 onClick={handleRemoveAccount}
                 className="btn btn-danger"
-                disabled={removeSubmitting || (isOwner && account.members.length === 0)}
+                disabled={removeSubmitting}
                 style={{ flex: 1 }}
               >
-                {removeSubmitting ? <span className="spinner"></span> : 'Remove'}
+                {removeSubmitting ? <span className="spinner"></span> : isSoleOwner ? 'Delete Trip Money' : 'Remove'}
               </button>
             </div>
           </div>

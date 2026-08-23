@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import InviteRecipientsForm, {
   createEmptyInviteRecipient,
   InviteRecipient
 } from './InviteRecipientsForm';
 import { sendInvitesForAccount } from '../utils/inviteHelpers';
+import { userFacingError } from '../utils/userFacingError';
 
 interface SharedAccountRef {
   _id: string;
@@ -42,6 +43,7 @@ interface SharedAccount {
 
 const Invitations: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [accounts, setAccounts] = useState<SharedAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,6 +58,7 @@ const Invitations: React.FC = () => {
     recipients: [createEmptyInviteRecipient()]
   });
   const [submitting, setSubmitting] = useState(false);
+  const [actingInviteId, setActingInviteId] = useState('');
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
@@ -112,7 +115,7 @@ const Invitations: React.FC = () => {
 
   const getAccountName = (accountIdOrObject: string | SharedAccountRef | null) => {
     if (accountIdOrObject === null || accountIdOrObject === undefined) {
-      return 'Shared trip costs';
+      return 'Trip Money';
     }
     if (typeof accountIdOrObject === 'object' && accountIdOrObject !== null && 'name' in accountIdOrObject) {
       return accountIdOrObject.name;
@@ -229,27 +232,45 @@ const Invitations: React.FC = () => {
       setShowForm(false);
       await fetchData();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to send invitation(s)');
+      setError(userFacingError(err, 'Failed to send invitation(s)'));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleAccept = async (inviteId: string) => {
+  const handleAccept = async (invitation: Invitation) => {
+    if (actingInviteId) return;
+    setActingInviteId(invitation._id);
+    setError('');
     try {
-      await axios.post('/invites/accept', { inviteId });
-      fetchData();
+      await axios.post('/invites/accept', { inviteId: invitation._id });
+      const potId =
+        typeof invitation.sharedAccount === 'object'
+          ? invitation.sharedAccount?._id
+          : invitation.sharedAccount;
+      if (potId) {
+        navigate(`/shared-accounts/${potId}`);
+        return;
+      }
+      await fetchData();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to accept invitation');
+      setError(userFacingError(err, 'Failed to accept invitation'));
+    } finally {
+      setActingInviteId('');
     }
   };
 
   const handleCancel = async (inviteId: string) => {
+    if (actingInviteId) return;
+    setActingInviteId(inviteId);
+    setError('');
     try {
       await axios.post('/invites/cancel', { inviteId });
-      fetchData();
+      await fetchData();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to cancel invitation');
+      setError(userFacingError(err, 'Failed to cancel invitation'));
+    } finally {
+      setActingInviteId('');
     }
   };
 
@@ -350,11 +371,11 @@ const Invitations: React.FC = () => {
         <div className="invite-card-actions">
           {role === 'received' && invitation.status === 'pending' && !expired && (
             <button
-              onClick={() => handleAccept(invitation._id)}
-              className="btn btn-success"
-              style={{ padding: '6px 12px', fontSize: '13px' }}
+              onClick={() => handleAccept(invitation)}
+              className="btn btn-success invite-action-btn"
+              disabled={!!actingInviteId}
             >
-              Accept invitation
+              {actingInviteId === invitation._id ? 'Opening…' : 'Accept invitation'}
             </button>
           )}
           {role === 'sent' && invitation.status === 'pending' && !expired && (
@@ -377,10 +398,10 @@ const Invitations: React.FC = () => {
               </button>
               <button
                 onClick={() => handleCancel(invitation._id)}
-                className="btn btn-danger"
-                style={{ padding: '6px 12px', fontSize: '13px' }}
+                className="btn btn-danger invite-action-btn"
+                disabled={!!actingInviteId}
               >
-                Cancel invite
+                {actingInviteId === invitation._id ? 'Cancelling…' : 'Cancel invite'}
               </button>
             </>
           )}

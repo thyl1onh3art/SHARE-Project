@@ -83,6 +83,24 @@ describe('Trip Money archive and organiser admin', () => {
       expect(updated.deletedAt).toBeTruthy();
     });
 
+    it('allows organiser to archive a sole-owner pot', async () => {
+      const solo = await SharedAccount.create({
+        owner: ownerUser._id,
+        name: 'Accidental Solo Pot',
+        members: [],
+        targetAmount: 100
+      });
+
+      await request(app)
+        .delete(`/api/shared-accounts/${solo._id}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+
+      const updated = await SharedAccount.findById(solo._id);
+      expect(updated.isDeleted).toBe(true);
+      expect(updated.deletedAt).toBeTruthy();
+    });
+
     it('rejects archive by normal member', async () => {
       await request(app)
         .delete(`/api/shared-accounts/${account._id}`)
@@ -218,6 +236,21 @@ describe('Trip Money archive and organiser admin', () => {
         .post(`/api/shared-accounts/${account._id}/transfer-ownership`)
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({ newOwnerId: outsiderUser._id.toString() })
+        .expect(400);
+    });
+
+    it('rejects transfer when the pot has no other travellers', async () => {
+      const solo = await SharedAccount.create({
+        owner: ownerUser._id,
+        name: 'Solo Transfer Block',
+        members: [],
+        targetAmount: 100
+      });
+
+      await request(app)
+        .post(`/api/shared-accounts/${solo._id}/transfer-ownership`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ newOwnerId: memberUser._id.toString() })
         .expect(400);
     });
 
