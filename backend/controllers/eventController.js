@@ -67,6 +67,8 @@ const attachTripMoneyToEvents = async (events, userId) => {
     plain.tripMoney = linked
       ? summarizeTripMoney(linked, userId, completedByPot.get(String(linked._id)) || [])
       : null;
+    const eventOwnerId = plain.user && (plain.user._id || plain.user);
+    plain.ownedByCurrentUser = String(eventOwnerId) === String(userId);
     return plain;
   });
 
@@ -241,14 +243,34 @@ function calculateSavingsPlan(totalAmount, eventDate, frequency = 'monthly') {
   };
 }
 
-// Get all events for the user
+// Get events the user owns, plus events linked to Shared Accounts they own or have joined.
 exports.getUserEvents = async (req, res) => {
   try {
-    const events = await Event.find({ user: req.user.userId })
+    const userId = req.user.userId;
+
+    const membershipPots = await SharedAccount.find({
+      $or: [{ owner: userId }, { members: userId }],
+      event: { $ne: null }
+    }).select('event');
+
+    const linkedEventIds = [...new Set(
+      membershipPots
+        .map((pot) => pot.event)
+        .filter(Boolean)
+        .map((id) => String(id))
+    )];
+
+    const events = await Event.find({
+      $or: [
+        { user: userId },
+        { _id: { $in: linkedEventIds } }
+      ]
+    })
       .populate('user', 'firstName lastName')
       .populate('sharedWith', 'firstName lastName')
       .sort({ eventDate: 1, eventTime: 1 });
-    res.json(await attachTripMoneyToEvents(events, req.user.userId));
+
+    res.json(await attachTripMoneyToEvents(events, userId));
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

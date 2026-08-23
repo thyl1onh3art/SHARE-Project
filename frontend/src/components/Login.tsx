@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { userFacingError } from '../utils/userFacingError';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -19,8 +20,8 @@ const Login: React.FC = () => {
     try {
       await login(email, password);
       navigate('/');
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(userFacingError(err, 'Login failed'));
     } finally {
       setLoading(false);
     }
@@ -49,8 +50,9 @@ const Login: React.FC = () => {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Email</label>
+            <label className="form-label" htmlFor="login-email">Email</label>
             <input
+              id="login-email"
               type="email"
               className="form-input"
               value={email}
@@ -61,9 +63,10 @@ const Login: React.FC = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Password</label>
+            <label className="form-label" htmlFor="login-password">Password</label>
             <div className="password-input-container">
               <input
+                id="login-password"
                 type={showPassword ? "text" : "password"}
                 className="form-input password-input"
                 value={password}

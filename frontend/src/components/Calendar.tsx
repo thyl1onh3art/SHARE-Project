@@ -60,7 +60,7 @@ const Calendar: React.FC = () => {
       setSharedEvents(response.data || []);
     } catch (err: any) {
       // If endpoint doesn't exist, that's okay
-      console.log('Shared events endpoint not available');
+      setSharedEvents([]);
     }
   };
 
@@ -74,7 +74,7 @@ const Calendar: React.FC = () => {
       }
     } catch (err: any) {
       // If endpoint doesn't exist, use defaults
-      console.log('Calendar settings endpoint not available');
+      // Endpoint is optional; keep default privacy settings.
     }
   };
 

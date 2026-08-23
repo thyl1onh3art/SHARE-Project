@@ -7,6 +7,7 @@ const User = require('../models/User');
 const Event = require('../models/Event');
 const SharedAccount = require('../models/SharedAccount');
 const FinanceRecord = require('../models/FinanceRecord');
+const Invite = require('../models/Invite');
 
 describe('Trip ↔ Trip Money link', () => {
   let ownerUser;
@@ -286,5 +287,166 @@ describe('Trip ↔ Trip Money link', () => {
     } finally {
       saveSpy.mockRestore();
     }
+  });
+
+  describe('accepted member listing', () => {
+    let memberUser;
+    let memberToken;
+    let outsiderUser;
+    let outsiderToken;
+
+    const createMember = async (email) => {
+      const hashedPassword = await bcrypt.hash('TestPass123', 10);
+      return User.create({
+        firstName: 'Member',
+        lastName: 'User',
+        email,
+        password: hashedPassword,
+        age: 27
+      });
+    };
+
+    beforeEach(async () => {
+      await Invite.deleteMany({});
+      memberUser = await createMember('trip-link-member@test.com');
+      outsiderUser = await createMember('trip-link-outsider@test.com');
+      memberToken = jwt.sign(
+        { userId: memberUser._id, email: memberUser.email },
+        process.env.JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+      outsiderToken = jwt.sign(
+        { userId: outsiderUser._id, email: outsiderUser.email },
+        process.env.JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+    });
+
+    it('lists a linked Shared Account for the owner and an accepted member, once each', async () => {
+      const pot = await SharedAccount.create({
+        owner: ownerUser._id,
+        name: 'Canada costs',
+        targetAmount: 2400,
+        targetDate: futureDate(),
+        event: trip._id,
+        members: [memberUser._id]
+      });
+
+      const ownerList = await request(app)
+        .get('/api/events')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+
+      expect(ownerList.body.filter((item) => item.title === 'Canada')).toHaveLength(1);
+      expect(ownerList.body[0].ownedByCurrentUser).toBe(true);
+      expect(ownerList.body[0].tripMoney._id).toBe(String(pot._id));
+      expect(ownerList.body[0].tripMoney.members).toHaveLength(1);
+
+      const memberList = await request(app)
+        .get('/api/events')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+
+      expect(memberList.body).toHaveLength(1);
+      expect(memberList.body[0]._id).toBe(String(trip._id));
+      expect(memberList.body[0].title).toBe('Canada');
+      expect(memberList.body[0].ownedByCurrentUser).toBe(false);
+      expect(memberList.body[0].tripMoney._id).toBe(String(pot._id));
+      expect(memberList.body[0].tripMoney.targetAmount).toBe(2400);
+    });
+
+    it('does not list a Shared Account for a pending invite, cancelled invite, or outsider', async () => {
+      const pot = await SharedAccount.create({
+        owner: ownerUser._id,
+        name: 'Canada costs',
+        targetAmount: 2400,
+        targetDate: futureDate(),
+        event: trip._id,
+        members: []
+      });
+      const pendingInvite = await Invite.create({
+        sender: ownerUser._id,
+        recipientEmail: memberUser.email,
+        sharedAccount: pot._id,
+        status: 'pending'
+      });
+      const cancelledInvite = await Invite.create({
+        sender: ownerUser._id,
+        recipientEmail: outsiderUser.email,
+        sharedAccount: pot._id,
+        status: 'pending'
+      });
+      await request(app)
+        .post('/api/invites/cancel')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ inviteId: cancelledInvite._id.toString() })
+        .expect(200);
+      expect(await Invite.findById(pendingInvite._id)).toBeTruthy();
+      expect(await Invite.findById(cancelledInvite._id)).toBeNull();
+
+      const pendingList = await request(app)
+        .get('/api/events')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+      expect(pendingList.body).toHaveLength(0);
+
+      const cancelledList = await request(app)
+        .get('/api/events')
+        .set('Authorization', `Bearer ${outsiderToken}`)
+        .expect(200);
+      expect(cancelledList.body).toHaveLength(0);
+    });
+
+    it('lists the linked Event for a member after they accept an invitation', async () => {
+      const pot = await SharedAccount.create({
+        owner: ownerUser._id,
+        name: 'Canada costs',
+        targetAmount: 2400,
+        targetDate: futureDate(),
+        event: trip._id,
+        members: []
+      });
+      const invite = await Invite.create({
+        sender: ownerUser._id,
+        recipientEmail: memberUser.email,
+        sharedAccount: pot._id,
+        status: 'pending'
+      });
+
+      await request(app)
+        .post('/api/invites/accept')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .send({ inviteId: invite._id.toString() })
+        .expect(200);
+
+      const memberList = await request(app)
+        .get('/api/events')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+
+      expect(memberList.body).toHaveLength(1);
+      expect(memberList.body[0].tripMoney._id).toBe(String(pot._id));
+    });
+
+    it('marks an archived Shared Account as closed for an accepted member', async () => {
+      await SharedAccount.create({
+        owner: ownerUser._id,
+        name: 'Canada costs',
+        targetAmount: 2400,
+        targetDate: futureDate(),
+        event: trip._id,
+        members: [memberUser._id],
+        isDeleted: true,
+        deletedAt: new Date()
+      });
+
+      const memberList = await request(app)
+        .get('/api/events')
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+
+      expect(memberList.body).toHaveLength(1);
+      expect(memberList.body[0].tripMoney.isDeleted).toBe(true);
+    });
   });
 });

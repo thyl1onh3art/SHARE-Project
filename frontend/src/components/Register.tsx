@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-// import EmailVerification from './EmailVerification'; // Temporarily disabled
+import { userFacingError } from '../utils/userFacingError';
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -14,7 +14,6 @@ const Register: React.FC = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  // const [showEmailVerification, setShowEmailVerification] = useState(false); // Temporarily disabled
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { register } = useAuth();
@@ -70,7 +69,6 @@ const Register: React.FC = () => {
       return;
     }
 
-    // Register directly (email verification temporarily disabled)
     setLoading(true);
     try {
       // Convert age group to a representative age for backend compatibility
@@ -101,61 +99,12 @@ const Register: React.FC = () => {
       
       // Redirect to login on success
       navigate('/login');
-    } catch (err: any) {
-      // Display validation errors if available
-      const errorMessage = err.response?.data?.errors 
-        ? err.response.data.errors.map((e: any) => e.message || e).join(', ')
-        : err.response?.data?.message || err.message || 'Registration failed';
-      setError(errorMessage);
+    } catch (err: unknown) {
+      setError(userFacingError(err, 'Registration failed'));
     } finally {
       setLoading(false);
     }
   };
-
-  // Email verification handlers temporarily disabled
-  // const handleVerificationComplete = async () => {
-  //   setLoading(true);
-  //   setError('');
-  //   try {
-  //     const pendingData = (window as any).pendingRegistration;
-  //     if (!pendingData) {
-  //       throw new Error('Registration data not found');
-  //     }
-  //     await register(
-  //       pendingData.name,
-  //       pendingData.email,
-  //       pendingData.password,
-  //       pendingData.age,
-  //       pendingData.interests
-  //     );
-  //     delete (window as any).pendingRegistration;
-  //     navigate('/login');
-  //   } catch (err: any) {
-  //     const errorMessage = err.response?.data?.errors 
-  //       ? err.response.data.errors.map((e: any) => e.message || e).join(', ')
-  //       : err.response?.data?.message || err.message || 'Registration failed';
-  //     setError(errorMessage);
-  //     setShowEmailVerification(false);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-  // const handleBackToRegistration = () => {
-  //   setShowEmailVerification(false);
-  //   setError('');
-  //   delete (window as any).pendingRegistration;
-  // };
-
-  // if (showEmailVerification) {
-  //   return (
-  //     <EmailVerification
-  //       email={formData.email}
-  //       onVerificationComplete={handleVerificationComplete}
-  //       onBack={handleBackToRegistration}
-  //     />
-  //   );
-  // }
 
   return (
     <div style={{
@@ -189,8 +138,9 @@ const Register: React.FC = () => {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Full Name</label>
+            <label className="form-label" htmlFor="register-name">Full Name</label>
             <input
+              id="register-name"
               type="text"
               name="name"
               className="form-input"
@@ -202,8 +152,9 @@ const Register: React.FC = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Email</label>
+            <label className="form-label" htmlFor="register-email">Email</label>
             <input
+              id="register-email"
               type="email"
               name="email"
               className="form-input"
@@ -299,9 +250,10 @@ const Register: React.FC = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Password</label>
+            <label className="form-label" htmlFor="register-password">Password</label>
             <div className="password-input-container">
               <input
+                id="register-password"
                 type={showPassword ? "text" : "password"}
                 name="password"
                 className="form-input password-input"
@@ -360,9 +312,10 @@ const Register: React.FC = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Confirm Password</label>
+            <label className="form-label" htmlFor="register-confirm-password">Confirm Password</label>
             <div className="password-input-container">
               <input
+                id="register-confirm-password"
                 type={showConfirmPassword ? "text" : "password"}
                 name="confirmPassword"
                 className="form-input password-input"

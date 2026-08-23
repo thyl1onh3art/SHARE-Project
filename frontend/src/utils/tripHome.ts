@@ -243,7 +243,7 @@ export function resolveLedgerTraveller(
 
 export function travellerDisplayName(person: PersonSummary): string {
   const name = `${person.firstName || ''} ${person.lastName || ''}`.trim();
-  return name || person.email || 'Traveller';
+  return name || person.email || 'Member';
 }
 
 export function tripGroupMembers(event: TripHomeEvent): TripGroupMember[] {
@@ -264,7 +264,7 @@ export function tripGroupMembers(event: TripHomeEvent): TripGroupMember[] {
     const last = typeof person === 'string' ? '' : (person.lastName || '').trim();
     people.set(id, {
       id,
-      name: first || last || 'Traveller',
+      name: first || last || 'Member',
       isOrganiser
     });
   };

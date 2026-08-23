@@ -43,15 +43,17 @@ const errorHandler = (err, req, res, next) => {
     error = { message, statusCode: 401 };
   }
 
-  // Default error
   const statusCode = error.statusCode || 500;
-  const message = error.message || 'Server Error';
+  const isProduction = process.env.NODE_ENV === 'production';
+  const message = statusCode >= 500 && isProduction
+    ? 'Server Error'
+    : (error.message || 'Server Error');
 
   res.status(statusCode).json({
     success: false,
     error: {
       message,
-      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+      ...(!isProduction && { stack: err.stack })
     }
   });
 };

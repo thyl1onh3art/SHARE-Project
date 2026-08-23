@@ -1,3 +1,7 @@
+# Legacy API notes
+
+**This folder is not the live backend.** The deployed API is `backend/`. This document describes an older root-level Express tree and may be outdated.
+
 # SHARE Project Backend API
 
 A robust, production-ready backend API for group financial management and shared expense tracking.

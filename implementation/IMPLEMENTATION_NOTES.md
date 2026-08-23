@@ -1,4 +1,19 @@
-﻿# SHARE Marketing Alignment â€” Implementation Notes
+﻿# SHARE implementation notes
+
+This file is a chronological development log. It is not the current product brief.
+
+**Current customer product (Task 10+):** Shared Accounts, not trip-only. Navigation is Shared Accounts · Notifications · More. Home is `/`. The live API is `backend/`.
+
+**Read first:**
+- [README.md](../README.md) — what SHARE is
+- [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) — technical structure
+- [docs/KNOWN_LIMITATIONS.md](../docs/KNOWN_LIMITATIONS.md) — honest limits
+
+The Phase 0 snapshot below is historical. Later sections record subsequent work.
+
+---
+
+# Historical log (from Phase 0)
 
 **Phase:** 0 complete (baseline / no product reframe yet)
 **Date:** 2026-08-20
@@ -2035,5 +2050,34 @@ Root cause: the header × “Leave Trip Money” path always required ownership 
 Fix: if the current user is organiser and there are no other accepted travellers (`members` empty), × confirms **Delete Trip Money?** and uses the existing soft-archive `DELETE /shared-accounts/:id`. Transfer remains required only when another accepted traveller exists. £0 accepted travellers still count. Close Trip Money → archive after payment completion is unchanged. Permanent delete remains archive-first.
 
 No commit / no push / stash@{0} untouched.
+
+### Task 11 — Professional codebase + repository cleanup
+
+Repository hygiene only. No new product features.
+
+- Audited the tracked tree before deletion. Removed only confirmed-unused frontend files, unused backend middleware, empty root stub, diagnostic/baseline artifacts, and a tracked local env file.
+- Historical Railway incident notes and payment-provider setup guides moved to `docs/archive/`.
+- Current docs: root README, `docs/ARCHITECTURE.md`, `docs/KNOWN_LIMITATIONS.md`, updated `docs/DEPLOYMENT.md`.
+- Removed a hardcoded MongoDB credential fallback from `backend/services/mongodb.js` (and the legacy root copy). Connection now requires an environment variable.
+- Customer-facing leftover Trip / Traveller / settlement wording cleaned on secondary screens. Internal Event + SharedAccount names unchanged.
+
+The legacy root API tree (`controllers/`, `models/`, `routes/`, root `app.js`) was **kept** as REVIEW — the live service is `backend/`, but the root tree is still referenced by older scripts and tests.
+
+No commit / no push / stash@{0} untouched. Recovered DB untouched.
+
+### Task 11 — Professional codebase + repository cleanup
+
+Repository hygiene only. No new product features.
+
+- Audited the tracked tree before deletion. Removed only confirmed-unused frontend files, unused backend middleware, empty root stub, diagnostic/baseline artifacts, and a tracked local env file.
+- Historical Railway incident notes and payment-provider setup guides moved to `docs/archive/`.
+- Current docs: root README, `docs/ARCHITECTURE.md`, `docs/KNOWN_LIMITATIONS.md`, updated `docs/DEPLOYMENT.md`.
+- Removed a hardcoded MongoDB credential fallback from `backend/services/mongodb.js` (and the legacy root copy). Connection now requires an environment variable. Values not recorded here.
+- Customer-facing leftover Trip / Traveller / settlement wording cleaned on secondary screens. Internal Event + SharedAccount names unchanged.
+- Unused npm packages removed from `backend` and `@paypal/react-paypal-js` from `frontend` after import checks.
+
+The legacy root API tree (`controllers/`, `models/`, `routes/`, root `app.js`) was **kept** as REVIEW — Railway/docs say the live service is `backend/`, but the root tree is still referenced by older scripts and tests.
+
+No commit / no push / stash@{0} untouched. Recovered DB untouched.
 
 

@@ -41,6 +41,7 @@ interface Event {
   isShared?: boolean;
   sharedWith?: string[];
   tripMoney?: TripMoneySummary | null;
+  ownedByCurrentUser?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -315,13 +316,15 @@ const EventCountdown: React.FC = () => {
               <p className="trip-list-location">{event.location}</p>
             )}
           </div>
-          <button
-            type="button"
-            onClick={() => handleDelete(event._id || '')}
-            className="btn btn-secondary trip-list-remove"
-          >
-            Remove
-          </button>
+          {event.ownedByCurrentUser !== false && (
+            <button
+              type="button"
+              onClick={() => handleDelete(event._id || '')}
+              className="btn btn-secondary trip-list-remove"
+            >
+              Remove
+            </button>
+          )}
         </div>
 
         {event.tripMoney?.isDeleted && (

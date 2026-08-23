@@ -360,10 +360,10 @@ const FinancialRecords: React.FC = () => {
       {sharedAccounts.length === 0 && (
         <div className="card" style={{ textAlign: 'center', padding: '2rem', marginBottom: '2rem' }}>
           <p style={{ color: '#4a5568', marginBottom: '1rem' }}>
-            You don't have any shared trip costs yet.
+            You don't have any Shared Accounts yet.
           </p>
           <Link to="/events" className="btn btn-primary">
-            Create a trip
+            Create a Shared Account
           </Link>
         </div>
       )}
@@ -380,10 +380,10 @@ const FinancialRecords: React.FC = () => {
             {currentActivity.slice(0, 20).map((record) => (
               <div key={record._id} className="list-item">
                 <div>
-                  <strong>{record.description || (record.type === 'input' ? 'Recorded contribution' : 'Recorded settlement')}</strong>
+                  <strong>{record.description || (record.type === 'input' ? 'Recorded contribution' : 'Recorded outflow')}</strong>
                   <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
                     {new Date(record.date).toLocaleDateString()} ·{' '}
-                    {record.type === 'input' ? 'Contribution / in' : 'Settlement / out'}
+                    {record.type === 'input' ? 'Contribution / in' : 'Outflow'}
                   </p>
                 </div>
                 <span
@@ -415,7 +415,7 @@ const FinancialRecords: React.FC = () => {
                   <strong>{record.description || 'Recorded activity'}</strong>
                   <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.25rem 0' }}>
                     {new Date(record.date).toLocaleDateString()} ·{' '}
-                    {record.type === 'input' ? 'Contribution / in' : 'Settlement / out'}
+                    {record.type === 'input' ? 'Contribution / in' : 'Outflow'}
                     {record.archivedAccountName ? ` · ${record.archivedAccountName}` : ''}
                   </p>
                   <p style={{ color: '#718096', fontSize: '0.8rem', margin: 0 }}>

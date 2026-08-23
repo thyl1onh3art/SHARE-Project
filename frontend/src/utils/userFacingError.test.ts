@@ -17,4 +17,14 @@ describe('userFacingError', () => {
     expect(userFacingError({ response: { data: { message: 'Cast to ObjectId failed for value' } } }, 'Please try again.'))
       .toBe('Please try again.');
   });
+
+  it('uses a wrapped Error message when no API body is present', () => {
+    expect(userFacingError(new Error('Invalid credentials'), 'Login failed'))
+      .toBe('Invalid credentials');
+  });
+
+  it('hides endpoint URLs', () => {
+    expect(userFacingError({ response: { data: { message: 'POST /api/users/login failed' } } }, 'Please try again.'))
+      .toBe('Please try again.');
+  });
 });

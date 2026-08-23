@@ -3,7 +3,7 @@ export function userFacingError(err: unknown, fallback: string): string {
     response?: { data?: { message?: unknown; error?: unknown } };
     message?: unknown;
   };
-  const raw = anyErr?.response?.data?.message ?? anyErr?.response?.data?.error;
+  const raw = anyErr?.response?.data?.message ?? anyErr?.response?.data?.error ?? anyErr?.message;
   const message = typeof raw === 'string' ? raw.trim() : '';
 
   if (!message) {
@@ -16,7 +16,10 @@ export function userFacingError(err: unknown, fallback: string): string {
     /\bmongo\b/i.test(message) ||
     /Cast to ObjectId/i.test(message) ||
     /ECONNREFUSED/i.test(message) ||
-    /Request failed with status code/i.test(message)
+    /Request failed with status code/i.test(message) ||
+    /\/api\//i.test(message) ||
+    /at\s+\S+\s+\(/i.test(message) ||
+    /mongodb(\+srv)?:\/\//i.test(message)
   ) {
     return fallback;
   }

@@ -1,6 +1,6 @@
 # SHARE deployment notes
 
-Concise Railway deployment guidance for the current monorepo.  
+Concise Railway deployment guidance for the current monorepo.
 Does **not** include secrets, credentials, or session-specific incident notes.
 
 ## Services
@@ -31,22 +31,23 @@ Optional:
 
 ### Frontend
 
-- `REACT_APP_API_URL` — backend API base including `/api`  
+- `REACT_APP_API_URL` — backend API base including `/api`
   Example shape: `https://<your-backend>.up.railway.app/api`
 
 ## Verify a deploy
 
 1. Backend health: `GET /health` should return HTTP 200.
-2. Confirm the Railway deployment matches the intended Git commit (deployment details / logs).
+2. Confirm the Railway deployment matches the intended Git commit.
 3. Open the frontend, log in, and smoke-check:
-   - `/` redirects to Trips (`/events`)
-   - Trip Money / Invitations load
+   - `/` opens Home
+   - `/events` opens Shared Accounts
+   - Notifications load
    - API calls hit the Railway backend (network tab)
 
 ## Product constraint (prototype)
 
-SHARE currently coordinates trip costs in a **ledger**. It does **not** hold pooled customer money or execute real bank/card payouts. Do not configure or advertise live payment-provider settlement as if it were live product behaviour unless the codebase and compliance posture actually support it.
+SHARE records financial activity for testing. It does **not** hold pooled customer money or execute real bank/card payouts. Do not configure or advertise live payment-provider settlement as if it were live product behaviour unless the codebase and compliance posture actually support it.
 
 ## What this doc deliberately omits
 
-Obsolete troubleshooting dumps (builder cache incidents, one-off navbar cache issues, interactive rebase notes, temporary diagnostics). Prefer `implementation/IMPLEMENTATION_NOTES.md` for product/integration history.
+Obsolete troubleshooting dumps (builder cache incidents, one-off navbar cache issues, interactive rebase notes, temporary diagnostics). Those files now live under `docs/archive/`. Prefer `implementation/IMPLEMENTATION_NOTES.md` for product/integration history.

@@ -1,47 +1,72 @@
-> **CURRENT STATUS:** The live customer UI is trip-first (**Trips**, **Trip Money**, **Invitations**, **More**). SHARE records shared-cost activity in a coordination ledger and does **not** currently hold pooled customer money or run live group bank settlement. Prefer `implementation/IMPLEMENTATION_NOTES.md` for marketing-alignment and recovered-feature integration status. Prefer `docs/DEPLOYMENT.md` for Railway deploy notes.
-
 # SHARE
 
-Trip-focused coordination prototype for small overseas leisure groups: plan trips together, track shared trip costs, invite travellers, and finish square on the ledger.
+SHARE is a shared-account prototype. Groups can create an account, invite members, contribute toward a target, approve a final payment, and keep a clear history.
 
-## Current prototype (what works today)
+It is not only a travel product. A Shared Account can be used for a hotel deposit, tickets, a birthday, or any other group cost.
 
-- **Trips** - trip planning / countdown (`/events` route; customer label is Trips)
-- **Trip Money** - shared-cost pots, contribution targets, recorded contributions, settlement **records**
-- **Invitations** - invite travellers by email/Friends; accept after login (no public invite token yet)
-- **Friends** - reusable contact list under **More** (does not grant Trip Money access by itself)
-- **Activity history / Personal tracking** - secondary views under More
+**The current prototype records financial activity for testing. It does not hold or transfer real money.**
 
-SHARE records coordination/activity. It does **not** currently provide wallets, held balances, cards, FX, or real payouts.
+## Current prototype
 
-## Deferred / not claimed as live
+What works today:
 
-- Regulated pooled money / payment-provider settlement
-- Group cards, FX, FSCS/safeguarding claims
-- Public tokenised invite links
-- Unarchive/restore of Trip Money pots
+- **Home** — personal overview and tracked personal balance
+- **Shared Accounts** — create an account with a target, invite members, record contributions
+- **Notifications** — Shared Account invitations and updates
+- **Pay Now / approval** — when the target is reached, request and approve a final payment record
+- **Close / archive** — close a Shared Account and keep read-only history
+- **Secondary tools** under **More** — calendar, photos, map, friends, personal activity
+
+SHARE records coordination and activity. It does not provide wallets, held balances, cards, FX, or real payouts.
+
+## Shared Account lifecycle
+
+Create Shared Account
+→ Invite Members
+→ Contribute
+→ Reach Target
+→ Pay Now
+→ Approval
+→ Payment Completed
+→ Close Shared Account
 
 ## Tech stack
 
-Monorepo with:
+Monorepo:
 
-- `backend/` - Node.js, Express, MongoDB/Mongoose, JWT
-- `frontend/` - React (Create React App)
+- `frontend/` — React 19, TypeScript, Create React App
+- `backend/` — Node.js, Express, MongoDB / Mongoose, JWT
+- MongoDB — source of truth for users, events, Shared Accounts, finance records, invitations, and payment requests
+
+The live API is `backend/`. Deploy as two Railway services (`backend` and `frontend`). See [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md).
 
 ## Environment variables
 
-### Backend
+Do not commit secrets. Set these locally or in the host’s variable store.
 
-- `JWT_SECRET` - JWT signing secret (never commit)
-- `MONGO_URI` - MongoDB connection string (never commit)
-- `NODE_ENV` - `development` / `production` / `test`
-- `PORT` - server port (default 5000)
+### Backend (`backend/`)
 
-### Frontend
+| Variable | Purpose |
+|---|---|
+| `MONGO_URI` | MongoDB connection string |
+| `JWT_SECRET` | JWT signing secret |
+| `NODE_ENV` | `development`, `production`, or `test` |
+| `PORT` | Server port (default `5000`) |
+| `CORS_ORIGIN` | Optional frontend origin |
 
-- `REACT_APP_API_URL` - backend API base including `/api`
+Optional: email (`EMAIL_USER` / `EMAIL_PASS`) and Twilio variables for invite notifications.
 
-## Getting started
+Copy `backend/.env.example` to `backend/.env` and fill in local values.
+
+### Frontend (`frontend/`)
+
+| Variable | Purpose |
+|---|---|
+| `REACT_APP_API_URL` | Backend API base, including `/api` |
+
+Example shape: `http://localhost:5000/api`
+
+## Run locally
 
 ### Backend
 
@@ -59,13 +84,59 @@ npm install
 npm start
 ```
 
-## Deployment
+The frontend development server typically runs on port 3000 and proxies API calls to the backend.
 
-Configured for Railway as a two-service monorepo. See **[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)** for root directories, env vars, and smoke checks.
+Windows helpers `start-servers.bat` and `stop-servers.bat` can start both processes together.
 
-Legacy Railway markdown in the repo root is historical; prefer `docs/DEPLOYMENT.md`.
+## Tests
+
+### Frontend
+
+```bash
+cd frontend
+npm test -- --watchAll=false
+```
+
+### Backend
+
+The backend `.npmrc` omits devDependencies by default (production installs). For tests:
+
+```bash
+cd backend
+npm install --include=dev
+npm test
+```
+
+Backend tests expect a local MongoDB instance (or `MONGO_URI_TEST`). They use a dedicated test database, not production data.
+
+## Prototype limitations
+
+- SHARE does **not** hold, custody, or transfer real money.
+- There is no regulated payment-provider integration in the live Shared Account path.
+- UI balances are tracked totals, not bank balances.
+- Some secondary screens (for example accommodations) still use demonstration data.
+
+See [docs/KNOWN_LIMITATIONS.md](./docs/KNOWN_LIMITATIONS.md) for the current list.
+
+## Repository structure
+
+```
+/
+  README.md
+  frontend/          Customer UI
+  backend/           Live API (deploy this)
+  docs/              Architecture, deployment, limitations
+  implementation/    Product brief and implementation notes
+  .gitignore
+```
+
+Additional root folders (`controllers/`, `models/`, `routes/`, `app.js`) are a **legacy API tree**. Prefer `backend/` for all new work. Do not assume the root tree is the deployed service.
 
 ## Further reading
 
-- `implementation/IMPLEMENTATION_NOTES.md` - marketing alignment + Integrations 1-8
-- `START_HERE_CURSOR.md` - Cursor implementation brief (if present)
+- [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — how the system is structured
+- [docs/KNOWN_LIMITATIONS.md](./docs/KNOWN_LIMITATIONS.md) — honest current limits
+- [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) — Railway setup
+- [implementation/IMPLEMENTATION_NOTES.md](./implementation/IMPLEMENTATION_NOTES.md) — development history
+- [START_HERE_CURSOR.md](./START_HERE_CURSOR.md) — Cursor implementation brief
+- [LEGAL_WARNING_GROUP_PAYMENTS.md](./LEGAL_WARNING_GROUP_PAYMENTS.md) — non-custodial legal guardrail

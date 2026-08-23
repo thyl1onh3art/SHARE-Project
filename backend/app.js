@@ -170,11 +170,7 @@ app.use(errorHandler);
 // Data store initialization
 const initializeDataStore = async () => {
   try {
-    console.log('🔗 Initializing MongoDB connection...');
-    console.log('DEBUG: Environment variables:');
-    console.log('MONGO_PUBLIC_URL:', process.env.MONGO_PUBLIC_URL);
-    console.log('MONGO_URL:', process.env.MONGO_URL);
-    console.log('MONGODB_URI:', process.env.MONGODB_URI);
+    console.log('Initializing MongoDB connection...');
     await mongodbService.connect();
     const healthCheck = await mongodbService.healthCheck();
     console.log('MongoDB health check:', healthCheck);

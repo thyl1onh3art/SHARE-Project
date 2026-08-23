@@ -207,13 +207,14 @@ const EventMap: React.FC = () => {
       {/* Search Bar */}
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="form-group">
-          <label className="form-label">Search trips</label>
+          <label className="form-label" htmlFor="map-search">Search locations</label>
           <input
+            id="map-search"
             type="text"
             className="form-input"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by trip name, destination, or address..."
+            placeholder="Search by name, location, or address..."
           />
         </div>
       </div>
@@ -302,10 +303,10 @@ const EventMap: React.FC = () => {
       {filteredEvents.length === 0 && !loading && (
         <div className="card">
           <p style={{ color: '#4a5568', textAlign: 'center' }}>
-            {searchTerm ? 'No trips found matching your search.' : (
+            {searchTerm ? 'No locations found matching your search.' : (
               <>
-                No trip locations to show yet.{' '}
-                <Link to="/events">Add a trip</Link> with a destination to see it here.
+                No locations to show yet.{' '}
+                <Link to="/events">Add a Shared Account</Link> with a location to see it here.
               </>
             )}
           </p>

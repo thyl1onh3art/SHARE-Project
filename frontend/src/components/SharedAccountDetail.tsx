@@ -1047,7 +1047,7 @@ const SharedAccountDetail: React.FC = () => {
                         {isSelf ? ' (you)' : ''}
                       </strong>
                       <div className="trip-money-member-meta">
-                        {isOrganiser ? 'Organiser' : 'Traveller'}
+                        {isOrganiser ? 'Organiser' : 'Member'}
                       </div>
                     </div>
                     <span

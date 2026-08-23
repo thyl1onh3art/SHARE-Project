@@ -1,28 +1,20 @@
-# SHARE Project Backend
+# SHARE backend
 
-## Quick Start
+Live Express API for the SHARE prototype. Deploy this folder, not the legacy root `app.js` tree.
 
-1. Install dependencies: `npm install`
-2. Set environment variables (see `.env.example`)
-3. Start server: `npm start`
+See the root [README.md](../README.md) for product overview and [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) for how the API fits together.
 
-## Environment Variables
+```bash
+npm install
+cp .env.example .env   # then set local values; never commit secrets
+npm start
+```
 
-- `MONGO_URI` - MongoDB connection string
-- `JWT_SECRET` - Secret for JWT tokens
-- `NODE_ENV` - Environment (development/production)
-- `PORT` - Server port (default: 5000)
+Tests (requires local MongoDB or `MONGO_URI_TEST`). `.npmrc` omits devDependencies by default:
 
-## API Endpoints
+```bash
+npm install --include=dev
+npm test
+```
 
-- `/api/users` - User management
-- `/api/events` - Event management
-- `/api/finance` - Financial records
-- `/api/shared-accounts` - Shared accounts
-- `/api/gallery` - Image gallery
-- `/api/accommodations` - Accommodation search
-- `/api/recommendations` - Event recommendations
-
-## Deployment
-
-Deployed on Railway. Auto-deploys on push to `main` branch.
+The prototype records financial activity for testing. It does not hold or transfer real money.

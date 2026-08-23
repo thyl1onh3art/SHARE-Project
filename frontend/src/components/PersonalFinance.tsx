@@ -92,7 +92,7 @@ const PersonalFinance: React.FC = () => {
           </div>
         </div>
         <div className="trip-money-transparency" style={{ marginTop: '1rem' }}>
-          These figures are a personal ledger view. SHARE does not hold this amount in a bank account.
+          These figures are a personal activity view. SHARE does not hold this amount in a bank account.
         </div>
       </div>
 

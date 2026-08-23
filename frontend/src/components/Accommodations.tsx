@@ -72,7 +72,6 @@ const Accommodations: React.FC = () => {
       setAccommodations(response.data);
     } catch (err: any) {
       // If endpoint doesn't exist, show mock data for demonstration
-      console.log('Accommodations API not available, showing mock data');
       setAccommodations(getMockAccommodations());
     } finally {
       setSearching(false);

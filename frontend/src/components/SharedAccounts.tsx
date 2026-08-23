@@ -1063,7 +1063,7 @@ const SharedAccounts: React.FC = () => {
         <div className="card" style={{ marginTop: '1.5rem' }}>
           <h2 style={{ marginTop: 0, marginBottom: '0.35rem' }}>Archived Shared Accounts</h2>
           <p style={{ color: '#718096', fontSize: '0.9rem', marginTop: 0 }}>
-            Kept for trip history. New contribution activity cannot be recorded on these pots.
+            Kept for history. New contribution activity cannot be recorded on these accounts.
           </p>
           {archivedAccounts.length === 0 ? (
             <p style={{ color: '#718096' }}>No archived Shared Accounts.</p>
@@ -1072,7 +1072,16 @@ const SharedAccounts: React.FC = () => {
               {archivedAccounts.map((account) => (
                 <div
                   key={account._id}
+                  role="link"
+                  tabIndex={0}
+                  aria-label={`Open archived Shared Account ${account.name}`}
                   onClick={() => navigate(`/shared-accounts/${account._id}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      navigate(`/shared-accounts/${account._id}`);
+                    }
+                  }}
                   className="trip-money-list-card"
                   style={{
                     background: '#f7fafc',

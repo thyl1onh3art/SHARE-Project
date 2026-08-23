@@ -24,7 +24,7 @@ const emptyRecipient = (): InviteRecipient => ({ recipientEmail: '', recipientPh
 const InviteRecipientsForm: React.FC<InviteRecipientsFormProps> = ({
   recipients,
   onChange,
-  title = 'Travellers to invite',
+  title = 'Members to invite',
   description = 'Pick SHARE friends for convenience, or enter another registered user’s email. Friendship alone does not grant Shared Account access.'
 }) => {
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -136,7 +136,7 @@ const InviteRecipientsForm: React.FC<InviteRecipientsFormProps> = ({
         <div key={index} style={{ marginBottom: '0.75rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#4a5568' }}>
-              Traveller {index + 1}
+              Member {index + 1}
             </span>
             {recipients.length > 1 && (
               <button

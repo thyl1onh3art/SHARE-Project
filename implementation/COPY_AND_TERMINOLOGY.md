@@ -1,7 +1,11 @@
 # SHARE Copy and Terminology Guide
 
+**Current customer UI (Task 10E+):** use **Shared Account / Shared Accounts** and **Member / Members**. Do not present SHARE as only a travel product in the live app.
+
+The trip-first table below is the original launch-pack guide. Keep it for history. Do not revert the customer UI to “Trip / Trip Money / Traveller” unless product direction changes again.
+
 ## Core idea
-SHARE should sound like a tool for a real group of friends organising a real trip, not accounting software and not a bank.
+SHARE should sound like a tool for a real group of friends organising a shared cost, not accounting software and not a bank.
 
 ## Strategic positioning
 **Fund the trip together. Spend together. Finish square.**

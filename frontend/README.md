@@ -1,58 +1,24 @@
-# SHARE Project Frontend
+# SHARE frontend
 
-A React-based frontend for the SHARE Project - a comprehensive social event planning and financial management application.
+React UI for the SHARE shared-account prototype.
 
-## Features
-
-- Event Countdown & Planning
-- Shared Gallery
-- Budget Planning & Savings Calculator
-- Accommodation Recommendations
-- Financial Records Management
-- Shared Accounts & Invitations
-- User Authentication & Profiles
-
-## Tech Stack
-
-- React 19
-- TypeScript
-- React Router
-- Axios
-- CSS3
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 16+
-- npm or yarn
-
-### Installation
+See the root [README.md](../README.md) for product overview, environment variables, and how to run the full app.
 
 ```bash
 npm install
-```
-
-### Development
-
-```bash
 npm start
 ```
 
-### Build for Production
+Tests:
+
+```bash
+npm test -- --watchAll=false
+```
+
+Production build:
 
 ```bash
 npm run build
 ```
 
-## Environment Variables
-
-- `REACT_APP_API_URL` - Backend API URL
-
-## Deployment
-
-This project is configured for deployment on Vercel.
-
-## License
-
-Private Project
+The live customer object is a **Shared Account**. Internal route names such as `/events` are unchanged.

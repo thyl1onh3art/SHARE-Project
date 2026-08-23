@@ -70,6 +70,48 @@ describe('EventCountdown trip cards', () => {
     window.confirm = jest.fn(() => true);
   });
 
+  it('shows an accepted-member Shared Account and opens it without Remove', async () => {
+    mockListGets([{
+      ...baseTrip,
+      ownedByCurrentUser: false,
+      tripMoney: {
+        _id: 'pot-canada',
+        name: 'Canada costs',
+        isDeleted: false,
+        targetAmount: 2400,
+        recordedTotal: 1800,
+        yourContribution: 0,
+        owner: { _id: 'owner-1', firstName: 'Sam', lastName: 'Organiser' },
+        members: [{ _id: 'member-1', firstName: 'Alex', lastName: 'Friend' }]
+      }
+    }]);
+
+    renderTrips();
+
+    expect(await screen.findByRole('heading', { name: 'Canada' })).toBeInTheDocument();
+    expect(screen.getByText(/£2,400/)).toBeInTheDocument();
+    expect(screen.getByText(/£1,800 contributed/)).toBeInTheDocument();
+    expect(screen.getByText(/2 members/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^remove$/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('link', { name: 'Open Canada' }));
+    expect(screen.getByText('Opened pot pot-canada')).toBeInTheDocument();
+  });
+
+  it('does not invent a card when GET /events is empty (pending invite)', async () => {
+    mockListGets(
+      [],
+      [],
+      []
+    );
+
+    renderTrips();
+
+    expect(await screen.findByRole('heading', { name: 'Shared Accounts' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Canada' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Older Accounts' })).not.toBeInTheDocument();
+  });
+
   it('opens linked Trip Money directly from the card', async () => {
     mockListGets([{
       ...baseTrip,
