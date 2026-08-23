@@ -471,7 +471,7 @@ const SharedAccountDetail: React.FC = () => {
     try {
       await axios.delete(`/shared-accounts/${accountId}`);
       setShowArchiveModal(false);
-      await fetchAccountDetails();
+      navigate('/shared-accounts?archived=1');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to archive Trip Money');
     } finally {
@@ -683,9 +683,9 @@ const SharedAccountDetail: React.FC = () => {
             border: '1px solid #cbd5e0'
           }}
         >
-          <h2 className="card-title" style={{ marginBottom: '0.35rem' }}>This Trip Money is closed</h2>
+          <h2 className="card-title" style={{ marginBottom: '0.35rem' }}>Trip Money closed</h2>
           <p style={{ margin: 0, color: '#4a5568' }}>
-            Its recorded history is kept for reference. New contributions, invitations and payment requests cannot be added.
+            This Trip Money is read-only. Contribution history, the payment record, and traveller history remain available.
           </p>
         </div>
       )}
@@ -848,15 +848,10 @@ const SharedAccountDetail: React.FC = () => {
           {!isArchived && isCloseOutFocus && !hasCompletedFinalPayment && (
             <>
               {payNowCta}
-              <button type="button" className="btn btn-primary" onClick={scrollToCloseOut}>
+              <button type="button" className="btn btn-secondary" onClick={scrollToCloseOut}>
                 Review Trip Close-out
               </button>
               {!hasPendingFinalPayment && paySinglePaymentControl('pay-single-payment-status-hero')}
-              {isOwner && (
-                <button type="button" className="btn btn-secondary" onClick={() => setShowArchiveModal(true)}>
-                  Close Trip Money
-                </button>
-              )}
               <button
                 type="button"
                 className="btn btn-secondary"
@@ -892,9 +887,9 @@ const SharedAccountDetail: React.FC = () => {
             </>
           )}
           {isArchived && (
-            <button className="btn btn-secondary" onClick={handleEditClick}>
-              View details
-            </button>
+            <p style={{ margin: 0, color: '#4a5568', fontSize: '0.9rem' }}>
+              History below is read-only.
+            </p>
           )}
         </div>
 
@@ -902,9 +897,11 @@ const SharedAccountDetail: React.FC = () => {
           <div className="trip-money-more-actions">
             <p className="trip-money-more-actions-label">Collection and admin</p>
             <div className="trip-money-actions" style={{ marginTop: 0, paddingTop: 0, borderTop: 'none' }}>
-              <button type="button" className="btn btn-secondary" onClick={handleTransferClick}>
-                Pay account
-              </button>
+              {!hasCompletedFinalPayment && (
+                <button type="button" className="btn btn-secondary" onClick={handleTransferClick}>
+                  Pay account
+                </button>
+              )}
               <button
                 type="button"
                 className="btn btn-secondary"
@@ -922,9 +919,14 @@ const SharedAccountDetail: React.FC = () => {
                   View details
                 </button>
               )}
-              {availableWithdrawal > 0 && (
+              {availableWithdrawal > 0 && !hasCompletedFinalPayment && (
                 <button type="button" className="btn btn-secondary" onClick={handleWithdrawClick}>
                   Reverse recorded contribution (£{availableWithdrawal.toFixed(2)} available)
+                </button>
+              )}
+              {isOwner && !hasCompletedFinalPayment && (
+                <button type="button" className="btn btn-secondary" onClick={() => setShowArchiveModal(true)}>
+                  Archive Trip Money
                 </button>
               )}
             </div>
@@ -1357,17 +1359,16 @@ const SharedAccountDetail: React.FC = () => {
           </div>
         )}
 
-        {!isArchived && isCloseOutFocus && (
+        {!isArchived && hasCompletedFinalPayment && (
           <>
             <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1.05rem', color: '#2d3748' }}>
               Close this pot
             </h3>
             <p style={{ color: '#4a5568', fontSize: '0.9rem', marginTop: 0 }}>
-              Closing archives this Trip Money pot and keeps its recorded history available as read-only.
-              SHARE does not move or pay out money.
+              Closing archives this Trip Money pot. Contribution history and the payment record stay available as read-only.
+              No money is moved by this action.
             </p>
             <div className="trip-money-actions">
-              {!hasCompletedFinalPayment && payNowCta}
               {isOwner ? (
                 <button
                   type="button"
@@ -1381,7 +1382,6 @@ const SharedAccountDetail: React.FC = () => {
                   The organiser can close this Trip Money pot when the group has finished reviewing.
                 </p>
               )}
-              {!hasCompletedFinalPayment && !hasPendingFinalPayment && paySinglePaymentControl('pay-single-payment-status-closeout')}
               <button
                 type="button"
                 className="btn btn-secondary"
@@ -1449,7 +1449,7 @@ const SharedAccountDetail: React.FC = () => {
           </p>
           <h2 className="card-title" style={{ marginBottom: '0.35rem' }}>Trip Money settings</h2>
           <p style={{ color: '#718096', fontSize: '0.9rem', marginTop: 0 }}>
-            Administration only — this does not move money or change recorded history totals.
+            Administration only — this does not move money. Close is the normal end of the trip after payment is completed. Delete permanently is separate and is not the usual close step.
           </p>
           <div className="trip-money-actions" style={{ flexWrap: 'wrap' }}>
             {!isArchived && !isCloseOutFocus && account.members.length > 0 && (
@@ -1464,9 +1464,9 @@ const SharedAccountDetail: React.FC = () => {
                 Transfer organiser role
               </button>
             )}
-            {!isArchived && (
+            {!isArchived && !hasCompletedFinalPayment && (
               <button type="button" className="btn btn-secondary" onClick={() => setShowArchiveModal(true)}>
-                {isCloseOutFocus ? 'Close Trip Money' : 'Archive Trip Money'}
+                Archive Trip Money
               </button>
             )}
             {isArchived && (
@@ -1480,6 +1480,11 @@ const SharedAccountDetail: React.FC = () => {
               </button>
             )}
           </div>
+          {!isArchived && !hasCompletedFinalPayment && (
+            <p style={{ margin: '0.65rem 0 0', fontSize: '0.85rem', color: '#718096' }}>
+              Archive Trip Money is an admin close. It is not the normal next step until the final payment is completed.
+            </p>
+          )}
           {!isArchived && isCloseOutFocus && account.members.length > 0 && (
             <details style={{ marginTop: '0.85rem' }}>
               <summary style={{ cursor: 'pointer', color: '#4a5568', fontSize: '0.9rem' }}>
@@ -2129,19 +2134,38 @@ const SharedAccountDetail: React.FC = () => {
           justifyContent: 'center', alignItems: 'center', zIndex: 1000
         }}>
           <div className="card" style={{ width: '90%', maxWidth: '480px' }}>
-            <h2 style={{ marginTop: 0 }}>Close Trip Money?</h2>
-            <p style={{ color: '#4a5568' }}>
-              Closing archives this Trip Money pot and keeps its recorded history available as read-only.
-            </p>
-            <p style={{ color: '#4a5568' }}>
-              SHARE does not move or pay out money when you close a pot.
-            </p>
+            <h2 style={{ marginTop: 0 }}>{hasCompletedFinalPayment ? 'Close Trip Money?' : 'Archive Trip Money?'}</h2>
+            {hasCompletedFinalPayment ? (
+              <>
+                <p style={{ color: '#4a5568' }}>
+                  This will close this Trip Money and move it to your archived Trip Money.
+                </p>
+                <p style={{ color: '#4a5568' }}>
+                  The contribution history, payment record, and traveller history will remain available as read-only records.
+                </p>
+                <p style={{ color: '#4a5568' }}>
+                  No money is moved by this action.
+                </p>
+              </>
+            ) : (
+              <>
+                <p style={{ color: '#4a5568' }}>
+                  This will close this Trip Money before a final payment is completed and move it to your archived Trip Money.
+                </p>
+                <p style={{ color: '#4a5568' }}>
+                  The contribution history and traveller history will remain available as read-only records.
+                </p>
+                <p style={{ color: '#4a5568' }}>
+                  No money is moved by this action.
+                </p>
+              </>
+            )}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
               <button type="button" className="btn btn-secondary" style={{ flex: 1, minWidth: '8rem' }} onClick={() => setShowArchiveModal(false)} disabled={archiveSubmitting}>
                 Keep open
               </button>
               <button type="button" className="btn btn-primary" style={{ flex: 1, minWidth: '8rem' }} onClick={handleArchiveTripMoney} disabled={archiveSubmitting}>
-                {archiveSubmitting ? <span className="spinner"></span> : 'Close Trip Money'}
+                {archiveSubmitting ? <span className="spinner"></span> : hasCompletedFinalPayment ? 'Close Trip Money' : 'Archive Trip Money'}
               </button>
             </div>
           </div>

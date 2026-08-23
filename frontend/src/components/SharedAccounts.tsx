@@ -286,6 +286,12 @@ const SharedAccounts: React.FC = () => {
     applyPrefill();
   }, [searchParams, setSearchParams, navigate]);
 
+  useEffect(() => {
+    if (searchParams.get('archived') !== '1') return;
+    setShowArchived(true);
+    fetchArchivedAccounts();
+  }, [searchParams]);
+
   // Fetch personal balance (total balance from personal account)
   const fetchPersonalBalance = async () => {
     try {
@@ -1078,8 +1084,11 @@ const SharedAccounts: React.FC = () => {
                     <div>
                       <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.05rem' }}>{account.name}</h3>
                       <span style={{ fontSize: '0.75rem', color: '#718096', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                        Archived
+                        Closed
                       </span>
+                      <div style={{ fontSize: '0.85rem', color: '#4a5568', marginTop: '0.35rem' }}>
+                        Read-only history
+                      </div>
                     </div>
                     <span style={{ fontSize: '0.85rem', color: '#4a5568' }}>View history →</span>
                   </div>

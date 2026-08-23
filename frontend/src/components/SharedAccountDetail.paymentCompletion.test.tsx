@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import axios from 'axios';
 import SharedAccountDetail from './SharedAccountDetail';
@@ -96,10 +96,11 @@ function mockAccountFetch(
   });
 }
 
-function renderDetail() {
+function renderDetail(initial = '/shared-accounts/pot-1') {
   return render(
-    <MemoryRouter initialEntries={['/shared-accounts/pot-1']}>
+    <MemoryRouter initialEntries={[initial]}>
       <Routes>
+        <Route path="/shared-accounts" element={<div>Trip Money list</div>} />
         <Route path="/shared-accounts/:accountId" element={<SharedAccountDetail />} />
       </Routes>
     </MemoryRouter>
@@ -161,6 +162,87 @@ describe('SharedAccountDetail payment completion', () => {
     expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
   });
 
+  it('opens a close confirmation and Keep open cancels it', async () => {
+    mockAccountFetch(baseAccount, fundedRecords, [{
+      _id: 'pr-1',
+      status: 'executed',
+      amount: 2000,
+      description: 'Payee: Example Hotel · Ref: ABC123',
+      requiredApprovals: 1,
+      requestedBy: owner,
+      approvals: [{ user: member, status: 'approved' }],
+      sharedAccount: 'pot-1'
+    }]);
+
+    renderDetail();
+
+    fireEvent.click((await screen.findAllByRole('button', { name: /^close trip money$/i }))[0]);
+    expect(await screen.findByRole('heading', { name: 'Close Trip Money?' })).toBeInTheDocument();
+    expect(screen.getByText(/move it to your archived trip money/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/no money is moved by this action/i).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: /^keep open$/i }));
+    expect(screen.queryByRole('heading', { name: 'Close Trip Money?' })).not.toBeInTheDocument();
+    expect(mockedAxios.delete).not.toHaveBeenCalled();
+    expect(screen.getAllByRole('button', { name: /^close trip money$/i }).length).toBeGreaterThan(0);
+  });
+
+  it('archives on Close Trip Money and returns to the list', async () => {
+    mockAccountFetch(baseAccount, fundedRecords, [{
+      _id: 'pr-1',
+      status: 'executed',
+      amount: 2000,
+      description: 'Payee: Example Hotel · Ref: ABC123',
+      requiredApprovals: 1,
+      requestedBy: owner,
+      approvals: [{ user: member, status: 'approved' }],
+      sharedAccount: 'pot-1'
+    }]);
+    (mockedAxios.delete as jest.Mock).mockResolvedValue({ data: { isDeleted: true } });
+
+    renderDetail();
+
+    fireEvent.click((await screen.findAllByRole('button', { name: /^close trip money$/i }))[0]);
+    const dialog = (await screen.findByRole('heading', { name: 'Close Trip Money?' })).closest('.card') as HTMLElement;
+    fireEvent.click(within(dialog).getByRole('button', { name: /^close trip money$/i }));
+
+    await waitFor(() => {
+      expect(mockedAxios.delete).toHaveBeenCalledWith('/shared-accounts/pot-1');
+    });
+    expect(await screen.findByText('Trip Money list')).toBeInTheDocument();
+  });
+
+  it('keeps contribution and payment history readable after close', async () => {
+    mockAccountFetch({
+      ...baseAccount,
+      isDeleted: true,
+      deletedAt: '2026-08-23T00:00:00.000Z'
+    }, fundedRecords, [{
+      _id: 'pr-1',
+      status: 'executed',
+      amount: 2000,
+      description: 'Payee: Example Hotel · Ref: ABC123',
+      requiredApprovals: 1,
+      requestedBy: owner,
+      approvals: [{ user: member, status: 'approved' }],
+      sharedAccount: 'pot-1'
+    }]);
+
+    renderDetail();
+
+    expect(await screen.findByRole('heading', { name: /trip money closed/i })).toBeInTheDocument();
+    expect(screen.getByText(/this trip money is read-only/i)).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Contribution progress' })).toHaveAttribute('aria-valuenow', '100');
+    expect(screen.getAllByText('Recorded total').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('£2000.00').length).toBeGreaterThan(0);
+    expect(screen.getByText('Example Hotel')).toBeInTheDocument();
+    expect(screen.getByText(/reference:\s*ABC123/i)).toBeInTheDocument();
+    expect(screen.getAllByText('Payment completed').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^pay account$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^close trip money$/i })).not.toBeInTheDocument();
+  });
+
   it('shows approval progress and actions for a required member', async () => {
     mockAccountFetch(baseAccount, fundedRecords, [{
       _id: 'pr-pending',
@@ -181,6 +263,7 @@ describe('SharedAccountDetail payment completion', () => {
     expect(screen.getByRole('button', { name: /^approve payment$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^reject payment$/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^close trip money$/i })).not.toBeInTheDocument();
   });
 
   it('lets the proposer cancel a pending payment request', async () => {

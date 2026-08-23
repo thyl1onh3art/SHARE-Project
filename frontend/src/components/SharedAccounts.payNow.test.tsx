@@ -154,6 +154,7 @@ describe('SharedAccounts list Pay now', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /show archived trip money/i }));
     expect(await screen.findByText('closed pot')).toBeInTheDocument();
+    expect(screen.getByText('Closed')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
   });
 
@@ -211,5 +212,17 @@ describe('SharedAccounts list Pay now', () => {
     expect(await screen.findByRole('heading', { name: 'still collecting' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Pay single payment' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
+  });
+
+  it('opens archived Trip Money from the archived=1 list view', async () => {
+    mockListFetch([fullPot], [archivedPot]);
+    renderList('/shared-accounts?archived=1');
+
+    expect(await screen.findByText('closed pot')).toBeInTheDocument();
+    expect(screen.getByText('Closed')).toBeInTheDocument();
+    expect(screen.getByText('task 1 test')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('closed pot'));
+    expect(await screen.findByRole('heading', { name: /trip money closed/i })).toBeInTheDocument();
+    expect(screen.getByText(/this trip money is read-only/i)).toBeInTheDocument();
   });
 });

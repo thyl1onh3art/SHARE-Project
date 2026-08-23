@@ -1763,6 +1763,32 @@ Branch is ready for a later GitHub push + PR into `main` when explicitly request
 - Solo pots (`requiredApprovals === 0`) still do not auto-complete on create (pre-existing).
 - Activity history may still show a legacy settlement output as a cost/reverse row; it is historical and is not deleted.
 - Matching legacy outputs to payments uses amount + description; an unrelated output with the same amount and description would also be ignored in progress (unlikely).
-- Task 7 close/archive automation is not started.
+
+---
+
+## Task 7 — Close Trip Money after payment completed
+
+**Purpose:** Make Close → Archive the normal successful end of the Trip Money lifecycle after a completed final payment. Do not build real payments, chat, or Task 8 work.
+
+**Lifecycle:** Payment completed → Close Trip Money → archived (soft). Closing is not permanent deletion. History stays readable.
+
+**Primary close rule:** **Close Trip Money** is the primary next action only when the pot is active and has a completed/executed final payment. Target reached still leads to **Pay now**. Admin **Archive Trip Money** remains available under More / organiser settings before payment completion (same soft-archive endpoint). No permissions redesign.
+
+**After close:** `DELETE /api/shared-accounts/:id` still sets `isDeleted` + `deletedAt` and stamps `archivedAccountName` on FinanceRecords. It does not unlink `event`, delete FinanceRecords, or delete PaymentRequests. The UI then returns to `/shared-accounts?archived=1` (active list no longer includes the pot; archived section opens).
+
+**Read-only:** Existing mutate guards remain. No Pay account, Pay now, approvals, invites, target edits, or new contributions on archived pots. Permanent delete stays secondary on already-archived pots only.
+
+**Archived list:** Existing “Show archived Trip Money” filter. Cards show **Closed** and open the read-only detail.
+
+**Permanent delete:** Unchanged. Requires archive first. Distinct wording. Preserves settlement/payment history with `archivedAccountName`.
+
+**Schema/data:** unchanged. Recovered Mongo data not modified.
+
+**Tests:** frontend 12 suites / 64 tests PASS (was 12/60). Frontend production build PASS. Backend `sharedAccountArchive` + `sharedAccountAccess` + `paymentRequestSettlement` + `directContribution` + `tripEventLink`: 5 suites / 69 tests PASS (`sharedAccountArchive` 19/19; `sharedAccountAccess` 12/12; `paymentRequestSettlement` 28/28; `directContribution` 4/4; `tripEventLink` 6/6). Legacy `sharedAccount.test.js` not run (known flaky; unchanged).
+
+**Remaining risks:**
+- Organiser can still admin-archive before payment completion via Archive Trip Money (intentional).
+- Solo pots still do not auto-complete a final payment (pre-existing), so the primary Close path may not appear without another traveller’s approval.
+- Task 8 not started.
 
 

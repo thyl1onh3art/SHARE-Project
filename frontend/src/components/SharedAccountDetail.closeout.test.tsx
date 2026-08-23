@@ -116,7 +116,7 @@ describe('SharedAccountDetail close-out flow', () => {
     expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
   });
 
-  it('promotes review and close when the target is reached', async () => {
+  it('promotes Pay now when the target is reached, not Close Trip Money', async () => {
     mockAccountFetch(
       {
         _id: 'pot-1',
@@ -143,23 +143,21 @@ describe('SharedAccountDetail close-out flow', () => {
     renderDetail();
 
     expect(await screen.findByRole('status')).toHaveTextContent(/contribution target reached/i);
+    const payNowButtons = screen.getAllByRole('button', { name: /^pay now$/i });
+    expect(payNowButtons.length).toBeGreaterThan(0);
+    expect(payNowButtons[0]).toHaveClass('btn-success');
+    expect(screen.queryByRole('button', { name: /^close trip money$/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /review trip close-out/i })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /^close trip money$/i }).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: /^pay account$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^invite traveller$/i })).not.toBeInTheDocument();
     const paySingleButtons = screen.getAllByRole('button', { name: /^pay single payment$/i });
     expect(paySingleButtons.length).toBeGreaterThan(0);
     paySingleButtons.forEach((button) => expect(button).not.toBeDisabled());
-    const payNowButtons = screen.getAllByRole('button', { name: /^pay now$/i });
-    expect(payNowButtons.length).toBeGreaterThan(0);
-    payNowButtons.forEach((button) => {
-      expect(button).not.toBeDisabled();
-      expect(button).toHaveClass('btn-success');
-    });
 
     fireEvent.click(screen.getByRole('button', { name: /more actions/i }));
     expect(await screen.findByRole('button', { name: /^pay account$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^invite traveller$/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /^archive trip money$/i }).length).toBeGreaterThan(0);
   });
 
   it('shows closed read-only copy when archived', async () => {
@@ -178,8 +176,8 @@ describe('SharedAccountDetail close-out flow', () => {
 
     renderDetail();
 
-    expect(await screen.findByRole('heading', { name: /this trip money is closed/i })).toBeInTheDocument();
-    expect(screen.getByText(/new contributions, invitations and payment requests cannot be added/i)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /trip money closed/i })).toBeInTheDocument();
+    expect(screen.getByText(/this trip money is read-only/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /pay account/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /record contribution/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /invite traveller/i })).not.toBeInTheDocument();
