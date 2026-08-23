@@ -592,7 +592,7 @@ const SharedAccounts: React.FC = () => {
         setSelectedAccount(null);
       }
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to update shared trip costs';
+      const errorMessage = err.response?.data?.message || 'Failed to update Trip Money';
       setError(errorMessage);
     } finally {
       setEditSubmitting(false);
@@ -673,7 +673,7 @@ const SharedAccounts: React.FC = () => {
           <div>
             <h1 className="card-title">Trip Money</h1>
             <p style={{ margin: '0.35rem 0 0', color: '#4a5568', fontSize: '0.95rem' }}>
-              Track shared trip costs, contribution targets, and what each traveller has recorded.
+              Track what the group has contributed toward the trip.
             </p>
           </div>
         </div>
@@ -872,7 +872,7 @@ const SharedAccounts: React.FC = () => {
       {/* Accounts List */}
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <h2 style={{ margin: 0 }}>Your shared trip costs</h2>
+          <h2 style={{ margin: 0 }}>Your Trip Money</h2>
           <button
             type="button"
             className="btn btn-primary"
@@ -886,10 +886,10 @@ const SharedAccounts: React.FC = () => {
         {accounts.length === 0 ? (
           <div style={{ color: '#4a5568', textAlign: 'center', padding: '2rem' }}>
             <p style={{ marginTop: 0, fontSize: '1.05rem', fontWeight: 600, color: '#2d3748' }}>
-              No shared trip costs yet
+              No Trip Money yet
             </p>
             <p style={{ marginTop: 0 }}>
-              Set up a pot for an accommodation deposit, tickets, or group holiday costs, then invite travellers and record contributions.
+              Set up Trip Money for a hotel deposit, tickets, or group trip costs, then invite travellers.
             </p>
             <p style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>
               SHARE only records contributions here — it does not hold money in a bank account.
@@ -990,7 +990,7 @@ const SharedAccounts: React.FC = () => {
                         <div className="trip-money-list-progress">
                           <div className="trip-money-progress-meta">
                             <span>
-                              £{balance.toFixed(2)} of £{(account.targetAmount as number).toFixed(2)} recorded
+                              £{balance.toFixed(2)} of £{(account.targetAmount as number).toFixed(2)} contributed
                             </span>
                             <span>{Math.round(percent)}%</span>
                           </div>
@@ -1005,10 +1005,12 @@ const SharedAccounts: React.FC = () => {
                             <div className="trip-money-progress-fill" style={{ width: `${percent}%` }} />
                           </div>
                           <div className="trip-money-list-stats">
-                            <span>Remaining £{(remaining as number).toFixed(2)}</span>
+                            {remaining !== null && remaining > 0.001 && (
+                              <span>Still needed £{(remaining as number).toFixed(2)}</span>
+                            )}
                             <span>{participantCount} {participantCount === 1 ? 'traveller' : 'travellers'}</span>
                             {hasPendingPayment && (
-                              <span className="trip-money-pending-badge">Payment pending</span>
+                              <span className="trip-money-pending-badge">Waiting for approval</span>
                             )}
                             {hasCompletedPayment && (
                               <span className="trip-money-pending-badge">Payment completed</span>
@@ -1022,7 +1024,7 @@ const SharedAccounts: React.FC = () => {
                               £{balance.toFixed(2)}
                             </span>
                             <div style={{ fontSize: '0.75rem', color: '#718096', marginTop: '0.25rem' }}>
-                              Recorded total · no target set
+                              Contributed so far · no target set
                             </div>
                           </div>
                           <div>
@@ -1031,7 +1033,7 @@ const SharedAccounts: React.FC = () => {
                             </span>
                           </div>
                           {hasPendingPayment && (
-                            <div className="trip-money-pending-badge">Payment pending</div>
+                            <div className="trip-money-pending-badge">Waiting for approval</div>
                           )}
                         </div>
                       )}
@@ -1405,7 +1407,7 @@ const SharedAccounts: React.FC = () => {
             </div>
 
             <p style={{ color: '#4a5568', marginTop: 0, fontSize: '0.9rem' }}>
-              Create a pot to record shared trip costs and contributions. SHARE does not hold a bank balance.
+              Create Trip Money for a hotel deposit, tickets, or group trip costs.
             </p>
             {createEventId && (
               <p style={{ color: '#2c5282', marginTop: 0, fontSize: '0.9rem' }}>
@@ -1533,7 +1535,7 @@ const SharedAccounts: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>View / edit shared trip costs</h2>
+              <h2 style={{ margin: 0 }}>View / edit Trip Money</h2>
               <button
                 onClick={() => {
                   setShowEditModal(false);
@@ -1809,7 +1811,7 @@ const SharedAccounts: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>Pay single payment</h2>
+              <h2 style={{ margin: 0 }}>Final payment</h2>
               <button
                 onClick={() => {
                   setShowPayModal(false);
@@ -1848,7 +1850,7 @@ const SharedAccounts: React.FC = () => {
                 £{calculateAccountBalance(selectedAccount).toFixed(2)}
               </p>
               <p style={{ fontSize: '0.75rem', margin: '0.5rem 0 0 0', opacity: 0.8 }}>
-                Tracked total currently recorded for this shared trip cost
+                Amount currently contributed
               </p>
             </div>
 
@@ -1874,7 +1876,7 @@ const SharedAccounts: React.FC = () => {
               marginBottom: '1rem'
             }}>
               <p style={{ color: '#991b1b', fontSize: '0.9rem', margin: 0 }}>
-                <strong>Important:</strong> Approving this asks the group to record a settlement of £{calculateAccountBalance(selectedAccount).toFixed(2)} against the trip pot ledger. SHARE does not send bank payments.
+                Prototype: this records the group’s proposed final payment. No money is transferred.
               </p>
             </div>
 

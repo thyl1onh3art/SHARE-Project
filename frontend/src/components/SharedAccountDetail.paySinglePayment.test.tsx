@@ -83,14 +83,14 @@ const baseAccount = {
   createdAt: '2026-01-01T00:00:00.000Z'
 };
 
-describe('SharedAccountDetail Pay single payment', () => {
+describe('SharedAccountDetail final payment', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     window.alert = jest.fn();
     (mockedAxios.post as jest.Mock).mockResolvedValue({ data: {} });
   });
 
-  it('keeps Pay single payment unavailable below target', async () => {
+  it('keeps Pay account as the primary action below target', async () => {
     mockAccountFetch(baseAccount, [{
       _id: 'r1',
       type: 'input',
@@ -102,18 +102,16 @@ describe('SharedAccountDetail Pay single payment', () => {
 
     renderDetail();
 
-    const button = await screen.findByRole('button', { name: /^pay single payment$/i });
-    expect(button).toBeDisabled();
-    expect(button).toHaveClass('btn-danger');
-    expect(button.closest('.pay-single-payment-control')).toHaveAttribute('data-state', 'incomplete');
-    expect(screen.getByText('Target not reached')).toBeInTheDocument();
-    fireEvent.click(button);
-    expect(screen.queryByRole('heading', { name: 'Pay single payment' })).not.toBeInTheDocument();
+    const payAccount = await screen.findByRole('button', { name: /^pay account$/i });
+    expect(payAccount).toHaveClass('btn-primary');
+    expect(screen.getByText('Final payment unlocks at 100%.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^pay single payment$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Final payment' })).not.toBeInTheDocument();
     expect(mockedAxios.post).not.toHaveBeenCalled();
   });
 
-  it('enables Pay single payment with ready-state styling when the target is reached', async () => {
+  it('makes Pay now the primary action when the target is reached', async () => {
     mockAccountFetch(baseAccount, [{
       _id: 'r1',
       type: 'input',
@@ -125,21 +123,14 @@ describe('SharedAccountDetail Pay single payment', () => {
 
     renderDetail();
 
-    const buttons = await screen.findAllByRole('button', { name: /^pay single payment$/i });
-    expect(buttons.length).toBeGreaterThan(0);
-    buttons.forEach((button) => {
-      expect(button).not.toBeDisabled();
-      expect(button).toHaveClass('btn-success');
-      expect(button.closest('.pay-single-payment-control')).toHaveAttribute('data-state', 'ready');
-    });
-    expect(screen.getAllByText('Ready to pay').length).toBeGreaterThan(0);
-
-    const payNowButtons = screen.getAllByRole('button', { name: /^pay now$/i });
+    const payNowButtons = await screen.findAllByRole('button', { name: /^pay now$/i });
     expect(payNowButtons.length).toBeGreaterThan(0);
     payNowButtons.forEach((button) => {
       expect(button).not.toBeDisabled();
       expect(button).toHaveClass('btn-success');
     });
+    expect(screen.queryByRole('button', { name: /^pay single payment$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^pay account$/i })).not.toBeInTheDocument();
   });
 
   it('opens the Pay single payment form from Pay now without executing a payment', async () => {
@@ -156,7 +147,7 @@ describe('SharedAccountDetail Pay single payment', () => {
 
     fireEvent.click((await screen.findAllByRole('button', { name: /^pay now$/i }))[0]);
 
-    expect(await screen.findByRole('heading', { name: 'Pay single payment' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Final payment' })).toBeInTheDocument();
     expect(screen.getByLabelText(/^amount$/i)).toHaveValue('£2000.00');
     expect(screen.getByText(/prototype: this records the group’s proposed final payment/i)).toBeInTheDocument();
     expect(mockedAxios.post).not.toHaveBeenCalled();
@@ -180,9 +171,9 @@ describe('SharedAccountDetail Pay single payment', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole('heading', { name: 'Pay single payment' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Final payment' })).toBeInTheDocument();
     expect(screen.getByLabelText(/^amount$/i)).toHaveValue('£2000.00');
-    expect(screen.getAllByRole('heading', { name: 'Pay single payment' })).toHaveLength(1);
+    expect(screen.getAllByRole('heading', { name: 'Final payment' })).toHaveLength(1);
     expect(mockedAxios.post).not.toHaveBeenCalled();
   });
 
@@ -198,16 +189,16 @@ describe('SharedAccountDetail Pay single payment', () => {
 
     renderDetail();
 
-    fireEvent.click((await screen.findAllByRole('button', { name: /^pay single payment$/i }))[0]);
+    fireEvent.click((await screen.findAllByRole('button', { name: /^pay now$/i }))[0]);
 
-    expect(await screen.findByRole('heading', { name: 'Pay single payment' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Final payment' })).toBeInTheDocument();
     expect(screen.getByLabelText(/^amount$/i)).toHaveValue('£2000.00');
     expect(screen.getByText(/prototype: this records the group’s proposed final payment/i)).toBeInTheDocument();
     expect(screen.queryByText(/personal tracked total/i)).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText(/supplier \/ payee/i), { target: { value: 'Hotel North' } });
+    fireEvent.change(screen.getByLabelText(/^supplier$/i), { target: { value: 'Hotel North' } });
     fireEvent.change(screen.getByLabelText(/^reference$/i), { target: { value: 'INV-22' } });
-    fireEvent.submit(screen.getByLabelText(/supplier \/ payee/i).closest('form') as HTMLFormElement);
+    fireEvent.submit(screen.getByLabelText(/^supplier$/i).closest('form') as HTMLFormElement);
 
     await waitFor(() => {
       expect(mockedAxios.post).toHaveBeenCalledWith(
@@ -235,14 +226,14 @@ describe('SharedAccountDetail Pay single payment', () => {
 
     renderDetail();
 
-    fireEvent.click((await screen.findAllByRole('button', { name: /^pay single payment$/i }))[0]);
+    fireEvent.click((await screen.findAllByRole('button', { name: /^pay now$/i }))[0]);
     expect(await screen.findByLabelText(/^amount$/i)).toHaveValue('£2000.00');
 
-    fireEvent.change(screen.getByLabelText(/supplier \/ payee/i), { target: { value: 'Airline' } });
+    fireEvent.change(screen.getByLabelText(/^supplier$/i), { target: { value: 'Airline' } });
     fireEvent.change(screen.getByLabelText(/^amount$/i), { target: { value: '500' } });
     expect(screen.getByLabelText(/^amount$/i)).toHaveValue('£2000.00');
 
-    fireEvent.submit(screen.getByLabelText(/supplier \/ payee/i).closest('form') as HTMLFormElement);
+    fireEvent.submit(screen.getByLabelText(/^supplier$/i).closest('form') as HTMLFormElement);
 
     await waitFor(() => {
       expect(mockedAxios.post).toHaveBeenCalledWith(

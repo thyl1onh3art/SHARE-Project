@@ -158,18 +158,18 @@ describe('SharedAccounts list Pay now', () => {
     expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
   });
 
-  it('opens the existing Pay single payment form for the funded pot', async () => {
+  it('opens the Final payment form for the funded pot', async () => {
     mockListFetch([fullPot, belowPot]);
     renderList();
 
     fireEvent.click(await screen.findByRole('button', { name: /^pay now$/i }));
 
-    expect(await screen.findByRole('heading', { name: 'Pay single payment' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Final payment' })).toBeInTheDocument();
     expect(screen.getByLabelText(/^amount$/i)).toHaveValue('£2000.00');
-    expect(screen.getByLabelText(/supplier \/ payee/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^supplier$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^reference$/i)).toBeInTheDocument();
     expect(screen.getByText(/prototype: this records the group’s proposed final payment/i)).toBeInTheDocument();
-    expect(screen.getAllByRole('heading', { name: 'Pay single payment' })).toHaveLength(1);
+    expect(screen.getAllByRole('heading', { name: 'Final payment' })).toHaveLength(1);
     expect(mockedAxios.post).not.toHaveBeenCalled();
   });
 
@@ -210,7 +210,7 @@ describe('SharedAccounts list Pay now', () => {
     fireEvent.click(await screen.findByText('still collecting'));
 
     expect(await screen.findByRole('heading', { name: 'still collecting' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Pay single payment' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Final payment' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
   });
 
@@ -223,6 +223,6 @@ describe('SharedAccounts list Pay now', () => {
     expect(screen.getByText('task 1 test')).toBeInTheDocument();
     fireEvent.click(screen.getByText('closed pot'));
     expect(await screen.findByRole('heading', { name: /trip money closed/i })).toBeInTheDocument();
-    expect(screen.getByText(/this trip money is read-only/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/read-only history/i).length).toBeGreaterThan(0);
   });
 });

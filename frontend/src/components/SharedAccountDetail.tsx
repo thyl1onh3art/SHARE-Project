@@ -343,7 +343,7 @@ const SharedAccountDetail: React.FC = () => {
         ? 'A final payment has already been completed for this Trip Money pot.'
         : pending
           ? 'There is already a pending payment request for this Trip Money pot.'
-          : 'Available once the contribution target is reached.');
+          : 'Available once the target is reached.');
       return;
     }
     setPayForm({ payee: '', reference: '', note: '' });
@@ -369,7 +369,7 @@ const SharedAccountDetail: React.FC = () => {
         ? 'A final payment has already been completed for this Trip Money pot.'
         : pending
           ? 'There is already a pending payment request for this Trip Money pot.'
-          : 'Available once the contribution target is reached.');
+          : 'Available once the target is reached.');
       return;
     }
 
@@ -560,84 +560,120 @@ const SharedAccountDetail: React.FC = () => {
     tripMoneyParticipantCount(account.owner, account.members)
   );
   const yourRemainingAmount = personalRemaining(suggestedEqualShare, userContribution);
-  const contributionCount = transactions.filter((t) => t.type === 'input').length;
-  const activityCount = transactions.length;
-  const amountAboveTarget = hasTarget
-    ? Math.max(0, recordedTotal - (account.targetAmount as number))
-    : 0;
   const last24HoursCutoff = Date.now() - 24 * 60 * 60 * 1000;
   const recentTransactions = transactions.filter((transaction) => {
     const transactionTime = new Date(transaction.date).getTime();
     return Number.isFinite(transactionTime) && transactionTime >= last24HoursCutoff;
   });
 
-  type CloseOutStatus = 'no_target' | 'still_collecting' | 'ready_to_review' | 'review_difference';
-  let closeOutStatus: CloseOutStatus = 'no_target';
-  let closeOutLabel = 'No target set';
-  let closeOutDetail = 'Close-out comparison needs a contribution target. Set one to compare recorded totals.';
-  if (hasTarget && remainingToContribute !== null && remainingToContribute > 0.001) {
-    closeOutStatus = 'still_collecting';
-    closeOutLabel = 'Still collecting';
-    closeOutDetail = 'The recorded total is still below the contribution target. Keep recording contributions as the group commits.';
-  } else if (hasTarget && amountAboveTarget > 0.001) {
-    closeOutStatus = 'review_difference';
-    closeOutLabel = 'Review difference';
-    closeOutDetail = 'Recorded total is above the contribution target on the ledger. Review traveller positions before you document any settlement decision.';
-  } else if (hasTarget) {
-    closeOutStatus = 'ready_to_review';
-    closeOutLabel = 'Ready to review';
-    closeOutDetail = 'The contribution target is reached on the ledger. Review each traveller’s recorded position. Reaching the target does not mean real-world settlements are finished.';
-  }
-  if (hasCompletedFinalPayment && hasTarget) {
-    closeOutLabel = 'Payment completed';
-    closeOutDetail = 'The final payment is recorded. Contribution history stays at the target. Close this Trip Money pot when the group has finished reviewing.';
-  }
+  const targetReached =
+    hasTarget && remainingToContribute !== null && remainingToContribute <= 0.001;
+  const isCloseOutFocus = !isArchived && targetReached;
+  const showFinalPaymentSection = pendingSettlementRequests.length > 0;
 
-  const isCloseOutFocus =
-    !isArchived && (closeOutStatus === 'ready_to_review' || closeOutStatus === 'review_difference');
+  const renderFinalPaymentRequests = () => (
+    <div className="trip-money-member-list">
+      {pendingSettlementRequests.map((req) => {
+        const currentUserId = getCurrentUserId();
+        const requesterId =
+          typeof req.requestedBy === 'object' ? req.requestedBy?._id : req.requestedBy;
+        const isRequester = String(requesterId) === String(currentUserId);
+        const hasApproved = (req.approvals || []).some((a: any) => {
+          const approvalUserId = typeof a.user === 'object' ? a.user?._id : a.user;
+          return String(approvalUserId) === String(currentUserId);
+        });
+        const hasRejected = (req.rejections || []).some((r: any) => {
+          const rejectionUserId = typeof r.user === 'object' ? r.user?._id : r.user;
+          return String(rejectionUserId) === String(currentUserId);
+        });
+        const canAct =
+          !isArchived && !isRequester && !hasApproved && !hasRejected && req.status === 'pending';
+        const details = parsePaymentDetails(req.description);
+        const proposer = req.requestedBy
+          ? travellerDisplayName({
+              _id: String(requesterId || ''),
+              firstName: req.requestedBy.firstName,
+              lastName: req.requestedBy.lastName,
+              email: req.requestedBy.email
+            })
+          : 'a traveller';
+        const approvalProgress = paymentApprovalProgress(req);
+        const statusLabel = paymentRequestStatusLabel(req.status);
+        const completed = isCompletedPaymentStatus(req.status);
+        const statusClass = completed
+          ? 'trip-money-status-complete'
+          : 'trip-money-status-pending';
 
-  const scrollToCloseOut = () => {
-    const section = document.getElementById('trip-closeout');
-    section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    section?.focus();
-  };
-
-  let organiserNextStep = 'Record a contribution when money has been committed for this trip.';
-  if (isArchived) {
-    organiserNextStep = 'This Trip Money is closed. Review recorded history only.';
-  } else if (!hasTarget && isOwner) {
-    organiserNextStep = 'Set a contribution target so travellers can see what the group is aiming for.';
-  } else if (allParticipants.length <= 1 && !isCloseOutFocus) {
-    organiserNextStep = 'Invite travellers so everyone can record their share of the trip costs.';
-  } else if (hasTarget && remainingToContribute !== null && remainingToContribute > 0) {
-    organiserNextStep = `£${remainingToContribute.toFixed(2)} still to contribute toward the group target.`;
-  } else if (hasCompletedFinalPayment) {
-    organiserNextStep = 'Payment completed. Close this Trip Money pot when the group has finished reviewing.';
-  } else if (isCloseOutFocus) {
-    organiserNextStep = closeOutStatus === 'review_difference'
-      ? 'Recorded total is above the contribution target. Review Trip Close-out, then close this pot when the group is finished. SHARE does not move money.'
-      : 'Contribution target reached on the ledger. Review Trip Close-out, then close this pot when the group is finished. SHARE does not move money.';
-  }
-
-  const paySinglePaymentControl = (statusId: string) => (
-    <span
-      className={`pay-single-payment-control ${paySinglePaymentReady ? 'is-ready' : 'is-incomplete'}`}
-      data-state={paySinglePaymentReady ? 'ready' : 'incomplete'}
-    >
-      <button
-        type="button"
-        className={`btn ${paySinglePaymentReady ? 'btn-success' : 'btn-danger'}`}
-        onClick={handlePayClick}
-        disabled={!paySinglePaymentReady}
-        title={paySinglePaymentReady ? 'Ready to pay' : 'Target not reached'}
-        aria-describedby={statusId}
-      >
-        Pay single payment
-      </button>
-      <span id={statusId} className="pay-single-payment-status">
-        {paySinglePaymentReady ? 'Ready to pay' : 'Target not reached'}
-      </span>
-    </span>
+        return (
+          <div key={req._id} className="trip-money-member-row">
+            <div className="trip-money-member-main">
+              <div>
+                <strong>{details.payee || 'Final payment'}</strong>
+                <div className="trip-money-member-meta">
+                  £{(req.amount || 0).toFixed(2)}
+                  {details.reference ? ` · Reference: ${details.reference}` : ''}
+                </div>
+                <div className="trip-money-member-meta">
+                  Proposed by {proposer}
+                </div>
+              </div>
+              <span className={`trip-money-status-pill ${statusClass}`}>
+                {statusLabel}
+              </span>
+            </div>
+            {req.status === 'pending' && (
+              <p style={{ margin: '0.35rem 0 0', fontSize: '0.85rem', color: '#4a5568' }}>
+                Approvals: {approvalProgress.current} of {approvalProgress.total}
+              </p>
+            )}
+            {completed && (
+              <p style={{ margin: '0.35rem 0 0', fontSize: '0.85rem', color: '#4a5568' }}>
+                Prototype payment record — no real money was transferred.
+              </p>
+            )}
+            {canAct && (
+              <div className="trip-money-actions" style={{ marginTop: '0.75rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-success"
+                  onClick={() => handleApproveSettlement(req._id)}
+                >
+                  Approve payment
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={() => handleRejectSettlement(req._id)}
+                >
+                  Reject payment
+                </button>
+              </div>
+            )}
+            {!isArchived && isRequester && req.status === 'pending' && (
+              <div className="trip-money-actions" style={{ marginTop: '0.75rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => handleCancelSettlement(req._id)}
+                >
+                  Cancel payment request
+                </button>
+              </div>
+            )}
+            {hasApproved && req.status === 'pending' && (
+              <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: '#22543d' }}>
+                You have approved this payment
+              </p>
+            )}
+            {hasRejected && (
+              <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: '#742a2a' }}>
+                You have rejected this payment
+              </p>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 
   const payNowCta = paySinglePaymentReady ? (
@@ -659,8 +695,8 @@ const SharedAccountDetail: React.FC = () => {
         {!isArchived && (
           <button
             onClick={() => setShowRemoveModal(true)}
-            aria-label="Leave shared trip costs"
-            title="Leave shared trip costs"
+            aria-label="Leave Trip Money"
+            title="Leave Trip Money"
             className="trip-money-remove-btn"
           >
             ×
@@ -685,37 +721,30 @@ const SharedAccountDetail: React.FC = () => {
         >
           <h2 className="card-title" style={{ marginBottom: '0.35rem' }}>Trip Money closed</h2>
           <p style={{ margin: 0, color: '#4a5568' }}>
-            This Trip Money is read-only. Contribution history, the payment record, and traveller history remain available.
+            Read-only history
           </p>
         </div>
       )}
 
       {/* Contribution progress hero */}
       <div className="card trip-money-hero">
-        <p className="trip-money-kicker">Shared trip costs</p>
         <h1 className="trip-money-title">{account.name}</h1>
         {account.description ? (
-          <p className="trip-money-purpose">
-            <strong>What the group is coordinating:</strong> {account.description}
-          </p>
+          <p className="trip-money-purpose">{account.description}</p>
         ) : (
           <p className="trip-money-purpose trip-money-empty-hint">
-            No description yet. Add what these shared costs are for (for example accommodation deposit or tickets).
+            Add a short note about what this Trip Money is for, such as a hotel deposit.
           </p>
         )}
-
-        <div className="trip-money-transparency">
-          SHARE records and coordinates group contributions. It does not hold this tracked amount in a SHARE bank account.
-        </div>
 
         {hasTarget ? (
           <div className="trip-money-progress-block">
             <div className="trip-money-progress-meta">
               <span>
-                <strong>£{recordedTotal.toFixed(2)}</strong> recorded of{' '}
+                <strong>£{recordedTotal.toFixed(2)}</strong> of{' '}
                 <strong>£{(account.targetAmount as number).toFixed(2)}</strong>
               </span>
-              <span>{Math.round(percentComplete)}% complete</span>
+              <span>{Math.round(percentComplete)}%</span>
             </div>
             <div
               className="trip-money-progress-track"
@@ -732,16 +761,16 @@ const SharedAccountDetail: React.FC = () => {
             </div>
             <div className="trip-money-stat-grid">
               <div>
-                <p className="trip-money-stat-label">Contribution target</p>
+                <p className="trip-money-stat-label">Target</p>
                 <p className="trip-money-stat-value">£{(account.targetAmount as number).toFixed(2)}</p>
               </div>
               <div>
-                <p className="trip-money-stat-label">Recorded total</p>
+                <p className="trip-money-stat-label">Contributed</p>
                 <p className="trip-money-stat-value">£{recordedTotal.toFixed(2)}</p>
               </div>
-              {!isCloseOutFocus && remainingToContribute !== null && (
+              {remainingToContribute !== null && remainingToContribute > 0.001 && (
                 <div>
-                  <p className="trip-money-stat-label">Remaining to contribute</p>
+                  <p className="trip-money-stat-label">Still needed</p>
                   <p className="trip-money-stat-value">
                     £{(remainingToContribute as number).toFixed(2)}
                   </p>
@@ -752,58 +781,23 @@ const SharedAccountDetail: React.FC = () => {
                 <p className="trip-money-stat-value">{allParticipants.length}</p>
               </div>
             </div>
-            {account.targetDate && (
-              <p className="trip-money-target-date">
-                Target date: {new Date(account.targetDate).toLocaleDateString()}
-              </p>
-            )}
             {suggestedEqualShare !== null && (
               <p className="trip-money-equal-share">
-                Equal share: £{suggestedEqualShare.toFixed(2)} each
+                Each person: £{suggestedEqualShare.toFixed(2)}
               </p>
             )}
           </div>
         ) : (
           <div className="trip-money-empty-panel">
-            <p className="trip-money-empty-title">No contribution target set</p>
+            <p className="trip-money-empty-title">No target set</p>
             <p>
-              Recorded so far: <strong>£{recordedTotal.toFixed(2)}</strong>. Set a target so the group can see what remains.
+              Contributed so far: <strong>£{recordedTotal.toFixed(2)}</strong>
             </p>
             {isOwner && !isArchived && (
               <button className="btn btn-primary" onClick={handleEditClick}>
-                Set contribution target
+                Set a target
               </button>
             )}
-          </div>
-        )}
-
-        {contributionCount === 0 && (
-          <div className="trip-money-empty-panel" style={{ marginTop: '1rem' }}>
-            <p className="trip-money-empty-title">No contributions recorded yet</p>
-            <p>When someone commits money toward this trip, record it here so the group position stays clear.</p>
-          </div>
-        )}
-
-        <div className="trip-money-next-step">
-          <strong>{isOwner ? 'Organiser next step:' : 'Next step:'}</strong> {organiserNextStep}
-        </div>
-
-        {isCloseOutFocus && (
-          <div className="trip-closeout-banner" role="status">
-            <strong>
-              {hasCompletedFinalPayment
-                ? 'Payment completed'
-                : closeOutStatus === 'review_difference'
-                  ? 'Recorded total is above target'
-                  : 'Contribution target reached'}
-            </strong>
-            <p style={{ margin: '0.35rem 0 0' }}>
-              {hasCompletedFinalPayment
-                ? 'Contribution history is unchanged. Close this Trip Money pot when the group has finished reviewing.'
-                : closeOutStatus === 'review_difference'
-                  ? 'The recorded total is above the contribution target on the ledger. Review the group before closing this Trip Money pot.'
-                  : 'The recorded contribution target has been reached. Review the group before closing this Trip Money pot.'}
-            </p>
           </div>
         )}
 
@@ -813,15 +807,18 @@ const SharedAccountDetail: React.FC = () => {
             {yourRemainingAmount !== null && (
               <> · Your remaining: <strong>£{yourRemainingAmount.toFixed(2)}</strong></>
             )}
-            {availableWithdrawal > 0 && !isCloseOutFocus && (
-              <> · Available to reverse (recorded): <strong>£{availableWithdrawal.toFixed(2)}</strong></>
-            )}
           </p>
         )}
         {suggestedEqualShare !== null && (
           <p className="trip-money-equal-share">
-            Equal share is guidance for this group. Unequal contributions are allowed.
+            Equal split is a guide. Contributions can be different.
           </p>
+        )}
+
+        {!isArchived && hasCompletedFinalPayment && (
+          <div className="trip-closeout-banner" role="status">
+            <strong>Payment completed</strong>
+          </div>
         )}
 
         <div className="trip-money-actions">
@@ -832,33 +829,41 @@ const SharedAccountDetail: React.FC = () => {
                   Close Trip Money
                 </button>
               )}
-              <button type="button" className="btn btn-secondary" onClick={scrollToCloseOut}>
-                Review Trip Close-out
-              </button>
               <button
                 type="button"
                 className="btn btn-secondary"
                 onClick={() => setShowMoreActions((open) => !open)}
                 aria-expanded={showMoreActions}
               >
-                {showMoreActions ? 'Hide more actions' : 'More actions'}
+                {showMoreActions ? 'Hide more' : 'More'}
               </button>
             </>
           )}
-          {!isArchived && isCloseOutFocus && !hasCompletedFinalPayment && (
+          {!isArchived && isCloseOutFocus && hasPendingFinalPayment && (
             <>
-              {payNowCta}
-              <button type="button" className="btn btn-secondary" onClick={scrollToCloseOut}>
-                Review Trip Close-out
-              </button>
-              {!hasPendingFinalPayment && paySinglePaymentControl('pay-single-payment-status-hero')}
+              <p className="trip-money-primary-status" role="status">
+                Waiting for approval
+              </p>
               <button
                 type="button"
                 className="btn btn-secondary"
                 onClick={() => setShowMoreActions((open) => !open)}
                 aria-expanded={showMoreActions}
               >
-                {showMoreActions ? 'Hide more actions' : 'More actions'}
+                {showMoreActions ? 'Hide more' : 'More'}
+              </button>
+            </>
+          )}
+          {!isArchived && isCloseOutFocus && !hasCompletedFinalPayment && !hasPendingFinalPayment && (
+            <>
+              {payNowCta}
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowMoreActions((open) => !open)}
+                aria-expanded={showMoreActions}
+              >
+                {showMoreActions ? 'Hide more' : 'More'}
               </button>
             </>
           )}
@@ -875,7 +880,7 @@ const SharedAccountDetail: React.FC = () => {
               </button>
               {isOwner && (
                 <button className="btn btn-secondary" onClick={handleEditClick}>
-                  {hasTarget ? 'Edit details' : 'Set contribution target'}
+                  {hasTarget ? 'Edit details' : 'Set a target'}
                 </button>
               )}
               {!isOwner && (
@@ -883,15 +888,40 @@ const SharedAccountDetail: React.FC = () => {
                   View details
                 </button>
               )}
-              {hasTarget && paySinglePaymentControl('pay-single-payment-status-collecting')}
+              {availableWithdrawal > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowMoreActions((open) => !open)}
+                  aria-expanded={showMoreActions}
+                >
+                  {showMoreActions ? 'Hide more' : 'More'}
+                </button>
+              )}
             </>
           )}
           {isArchived && (
             <p style={{ margin: 0, color: '#4a5568', fontSize: '0.9rem' }}>
-              History below is read-only.
+              Read-only history
             </p>
           )}
         </div>
+        {!isArchived && !isCloseOutFocus && hasTarget && (
+          <p style={{ margin: '0.5rem 0 0', color: '#718096', fontSize: '0.85rem' }}>
+            Final payment unlocks at 100%.
+          </p>
+        )}
+
+        {!isArchived && !isCloseOutFocus && showMoreActions && availableWithdrawal > 0 && (
+          <div className="trip-money-more-actions">
+            <p className="trip-money-more-actions-label">More</p>
+            <div className="trip-money-actions" style={{ marginTop: 0, paddingTop: 0, borderTop: 'none' }}>
+              <button type="button" className="btn btn-secondary" onClick={handleWithdrawClick}>
+                Reverse contribution (£{availableWithdrawal.toFixed(2)})
+              </button>
+            </div>
+          </div>
+        )}
 
         {!isArchived && isCloseOutFocus && showMoreActions && (
           <div className="trip-money-more-actions">
@@ -911,7 +941,7 @@ const SharedAccountDetail: React.FC = () => {
               </button>
               {isOwner && (
                 <button type="button" className="btn btn-secondary" onClick={handleEditClick}>
-                  {hasTarget ? 'Edit details' : 'Set contribution target'}
+                  {hasTarget ? 'Edit details' : 'Set a target'}
                 </button>
               )}
               {!isOwner && (
@@ -921,7 +951,7 @@ const SharedAccountDetail: React.FC = () => {
               )}
               {availableWithdrawal > 0 && !hasCompletedFinalPayment && (
                 <button type="button" className="btn btn-secondary" onClick={handleWithdrawClick}>
-                  Reverse recorded contribution (£{availableWithdrawal.toFixed(2)} available)
+                  Reverse contribution (£{availableWithdrawal.toFixed(2)})
                 </button>
               )}
               {isOwner && !hasCompletedFinalPayment && (
@@ -933,30 +963,15 @@ const SharedAccountDetail: React.FC = () => {
           </div>
         )}
 
-        {user && availableWithdrawal > 0 && !isArchived && !isCloseOutFocus && (
-          <div style={{ marginTop: '0.75rem' }}>
-            <button className="btn btn-secondary" onClick={handleWithdrawClick} style={{ width: '100%' }}>
-              Reverse recorded contribution (£{availableWithdrawal.toFixed(2)} available)
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* Traveller contribution status */}
+      {/* Who has contributed */}
       <div className="card" style={{ marginBottom: '1.5rem' }} id="traveller-contributions">
-        <h2 className="card-title">Traveller contributions</h2>
+        <h2 className="card-title">Who has contributed</h2>
         {allParticipants.length <= 1 ? (
           <div className="trip-money-empty-panel">
             <p className="trip-money-empty-title">No other travellers yet</p>
-            <p>Invite friends so everyone can record their share of the trip costs.</p>
-            {!isArchived && !isCloseOutFocus && (
-              <button
-                className="btn btn-primary"
-                onClick={() => navigate(`/invitations?account=${account._id}`)}
-              >
-                Invite traveller
-              </button>
-            )}
+            <p>Invite friends so everyone can contribute.</p>
           </div>
         ) : (
           <div className="trip-money-member-list">
@@ -982,7 +997,6 @@ const SharedAccountDetail: React.FC = () => {
                       </strong>
                       <div className="trip-money-member-meta">
                         {isOrganiser ? 'Organiser' : 'Traveller'}
-                        {participant.email ? ` · ${participant.email}` : ''}
                       </div>
                     </div>
                     <span
@@ -997,24 +1011,24 @@ const SharedAccountDetail: React.FC = () => {
                       {suggestedEqualShare === null
                         ? 'Tracking'
                         : isComplete
-                          ? 'Complete'
-                          : 'Still to contribute'}
+                          ? 'Done'
+                          : 'Still to go'}
                     </span>
                   </div>
                   <div className="trip-money-member-figures">
                     <div>
-                      <span className="trip-money-stat-label">Recorded</span>
+                      <span className="trip-money-stat-label">Contributed</span>
                       <span className="trip-money-member-amount">£{recordedForPerson.toFixed(2)}</span>
                     </div>
                     {suggestedEqualShare !== null && (
                       <div>
-                        <span className="trip-money-stat-label">Suggested share</span>
+                        <span className="trip-money-stat-label">Share</span>
                         <span className="trip-money-member-amount">£{suggestedEqualShare.toFixed(2)}</span>
                       </div>
                     )}
                     {remainingForPerson !== null && (
                       <div>
-                        <span className="trip-money-stat-label">Remaining (vs share)</span>
+                        <span className="trip-money-stat-label">Remaining</span>
                         <span className="trip-money-member-amount">£{remainingForPerson.toFixed(2)}</span>
                       </div>
                     )}
@@ -1022,425 +1036,53 @@ const SharedAccountDetail: React.FC = () => {
                 </div>
               );
             })}
-            {suggestedEqualShare !== null && (
-              <p className="trip-money-equal-share" style={{ marginTop: '0.75rem' }}>
-                Equal-share figures are guidance only. Unequal contributions are allowed.
-              </p>
-            )}
           </div>
         )}
       </div>
 
       {/* Recent activity */}
-      <div className="card" id="group-activity">
-        <h2 className="card-title">Group spending record (last 24 hours)</h2>
-        <p style={{ color: '#4a5568', fontSize: '0.9rem', marginTop: '-0.25rem' }}>
-          Showing {recentTransactions.length} of {transactions.length} total recorded item{transactions.length !== 1 ? 's' : ''}.
-        </p>
+      <div className="card" id="group-activity" style={{ marginBottom: '1.5rem' }}>
+        <h2 className="card-title">Recent activity</h2>
         {transactions.length === 0 ? (
           <div className="trip-money-empty-panel">
-            <p className="trip-money-empty-title">Nothing recorded yet</p>
-            <p>Use Pay account when someone has committed money toward these shared trip costs.</p>
-            {!isArchived && !isCloseOutFocus && (
-              <button className="btn btn-primary" onClick={handleTransferClick}>
-                Pay account
-              </button>
-            )}
+            <p className="trip-money-empty-title">Nothing yet</p>
+            <p>Contributions will show up here.</p>
           </div>
         ) : recentTransactions.length === 0 ? (
           <p style={{ color: '#4a5568' }}>No activity in the last 24 hours.</p>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                  <th style={{ padding: '0.75rem', textAlign: 'left', color: '#4a5568', fontWeight: '600' }}>Date</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'left', color: '#4a5568', fontWeight: '600' }}>Type</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'left', color: '#4a5568', fontWeight: '600' }}>Description</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'left', color: '#4a5568', fontWeight: '600' }}>Traveller</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'right', color: '#4a5568', fontWeight: '600' }}>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentTransactions.map((transaction) => (
-                  <tr key={transaction._id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    <td style={{ padding: '0.75rem', color: '#4a5568' }}>
-                      {new Date(transaction.date).toLocaleString()}
-                    </td>
-                    <td style={{ padding: '0.75rem' }}>
-                      <span style={{
-                        padding: '0.25rem 0.5rem',
-                        borderRadius: '4px',
-                        fontSize: '0.85rem',
-                        fontWeight: '500',
-                        background: transaction.type === 'input' ? '#c6f6d5' : '#fed7d7',
-                        color: transaction.type === 'input' ? '#22543d' : '#742a2a'
-                      }}>
-                        {transaction.type === 'input' ? 'Contribution' : 'Cost / reverse'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '0.75rem', color: '#4a5568' }}>
-                      {transaction.description || 'No description'}
-                    </td>
-                    <td style={{ padding: '0.75rem', color: '#4a5568' }}>
-                      {travellerDisplayName(transaction.user)}
-                    </td>
-                    <td style={{
-                      padding: '0.75rem',
-                      textAlign: 'right',
-                      fontWeight: '600',
-                      color: transaction.type === 'input' ? '#38a169' : '#e53e3e'
-                    }}>
-                      {transaction.type === 'input' ? '+' : '-'}£{transaction.amount.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ul className="trip-money-activity-list">
+            {recentTransactions.map((transaction) => {
+              const name = travellerDisplayName(transaction.user);
+              const amount = `£${transaction.amount.toFixed(2)}`;
+              const line = transaction.type === 'input'
+                ? `${name} contributed ${amount}`
+                : `${name} reversed ${amount}`;
+              return (
+                <li key={transaction._id} className="trip-money-activity-item">
+                  <span>{line}</span>
+                  <span className="trip-money-activity-date">
+                    {new Date(transaction.date).toLocaleString()}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
 
-      {/* Trip Close-out — final review stage (non-custodial) */}
-      <div className="card trip-closeout" id="trip-closeout" tabIndex={-1}>
-        <p className="trip-money-kicker">End of trip review</p>
-        <h2 className="card-title" style={{ marginBottom: '0.35rem' }}>Trip Close-out</h2>
-        <p style={{ color: '#4a5568', marginTop: 0 }}>
-          Review what SHARE has recorded, compare traveller positions, and document settlement decisions.
-          SHARE helps the group finish square on paper — it does not return money, distribute residue, or close a bank account.
-        </p>
-        <div className="trip-money-transparency">
-          Settlement records help the group record what has been agreed. SHARE does not move or hold the underlying money.
-        </div>
-
-        <div className={`trip-closeout-status trip-closeout-status--${closeOutStatus}`}>
-          <strong>{closeOutLabel}</strong>
-          <p style={{ margin: '0.35rem 0 0' }}>{closeOutDetail}</p>
-        </div>
-
-        {!isCloseOutFocus && (
-        <div className="trip-money-stat-grid" style={{ marginTop: '1rem' }}>
-          <div>
-            <p className="trip-money-stat-label">Contribution target</p>
-            <p className="trip-money-stat-value">
-              {hasTarget ? `£${(account.targetAmount as number).toFixed(2)}` : 'Not set'}
+      {showFinalPaymentSection && (
+        <div className="card" id="final-payment" style={{ marginBottom: '1.5rem' }}>
+          <h2 className="card-title" style={{ marginBottom: '0.35rem' }}>Final payment</h2>
+          {pendingSettlementRequests.length === 0 ? (
+            <p style={{ color: '#4a5568', marginTop: 0 }}>
+              No final payment yet.
             </p>
-          </div>
-          <div>
-            <p className="trip-money-stat-label">Recorded total</p>
-            <p className="trip-money-stat-value">£{recordedTotal.toFixed(2)}</p>
-          </div>
-          {hasTarget && remainingToContribute !== null && remainingToContribute > 0 && (
-            <div>
-              <p className="trip-money-stat-label">Remaining to contribute</p>
-              <p className="trip-money-stat-value">£{remainingToContribute.toFixed(2)}</p>
-            </div>
+          ) : (
+            renderFinalPaymentRequests()
           )}
-          {hasTarget && amountAboveTarget > 0 && (
-            <div>
-              <p className="trip-money-stat-label">Recorded above target</p>
-              <p className="trip-money-stat-value">£{amountAboveTarget.toFixed(2)}</p>
-            </div>
-          )}
-          {hasTarget && (
-            <div>
-              <p className="trip-money-stat-label">Of target recorded</p>
-              <p className="trip-money-stat-value">{Math.round(percentComplete)}%</p>
-            </div>
-          )}
-          <div>
-            <p className="trip-money-stat-label">Travellers</p>
-            <p className="trip-money-stat-value">{allParticipants.length}</p>
-          </div>
-          <div>
-            <p className="trip-money-stat-label">Contribution records</p>
-            <p className="trip-money-stat-value">{contributionCount}</p>
-          </div>
-          <div>
-            <p className="trip-money-stat-label">Ledger activity items</p>
-            <p className="trip-money-stat-value">{activityCount}</p>
-          </div>
         </div>
-        )}
-
-        {isCloseOutFocus && (
-          <div className="trip-money-stat-grid" style={{ marginTop: '1rem' }}>
-            {amountAboveTarget > 0 && (
-              <div>
-                <p className="trip-money-stat-label">Recorded above target</p>
-                <p className="trip-money-stat-value">£{amountAboveTarget.toFixed(2)}</p>
-              </div>
-            )}
-            <div>
-              <p className="trip-money-stat-label">Contribution records</p>
-              <p className="trip-money-stat-value">{contributionCount}</p>
-            </div>
-            <div>
-              <p className="trip-money-stat-label">Ledger activity items</p>
-              <p className="trip-money-stat-value">{activityCount}</p>
-            </div>
-          </div>
-        )}
-
-        {account.targetDate && (
-          <p className="trip-money-target-date">
-            Target date: {new Date(account.targetDate).toLocaleDateString()}
-          </p>
-        )}
-
-        <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1.05rem', color: '#2d3748' }}>
-          Traveller contribution positions
-        </h3>
-        {allParticipants.length === 0 ? (
-          <p style={{ color: '#4a5568' }}>No travellers on this pot yet.</p>
-        ) : (
-          <div className="trip-money-member-list">
-            {allParticipants.map((participant) => {
-              const participantId = participant._id;
-              const recordedDisplay = calculateUserContribution(participantId);
-              let positionLabel = 'Tracking';
-              let positionClass = 'trip-money-status-neutral';
-              let positionDetail = '';
-
-              if (suggestedEqualShare !== null) {
-                const delta = recordedDisplay - suggestedEqualShare;
-                if (Math.abs(delta) < 0.01) {
-                  positionLabel = 'Matches suggested share';
-                  positionClass = 'trip-money-status-complete';
-                  positionDetail = `Recorded £${recordedDisplay.toFixed(2)} · Suggested £${suggestedEqualShare.toFixed(2)}`;
-                } else if (delta > 0) {
-                  positionLabel = 'Above suggested share';
-                  positionClass = 'trip-money-status-complete';
-                  positionDetail = `Recorded £${recordedDisplay.toFixed(2)} · Suggested £${suggestedEqualShare.toFixed(2)} · £${delta.toFixed(2)} above suggested share`;
-                } else {
-                  positionLabel = 'Below suggested share';
-                  positionClass = 'trip-money-status-pending';
-                  positionDetail = `Recorded £${recordedDisplay.toFixed(2)} · Suggested £${suggestedEqualShare.toFixed(2)} · £${Math.abs(delta).toFixed(2)} below suggested share`;
-                }
-              } else {
-                positionDetail = `Recorded £${recordedDisplay.toFixed(2)}`;
-              }
-
-              return (
-                <div key={`closeout-${participantId}`} className="trip-money-member-row">
-                  <div className="trip-money-member-main">
-                    <div>
-                      <strong>
-                        {participant.firstName} {participant.lastName}
-                        {String(participantId) === String(userId) ? ' (you)' : ''}
-                      </strong>
-                      <div className="trip-money-member-meta">{positionDetail}</div>
-                    </div>
-                    <span className={`trip-money-status-pill ${positionClass}`}>{positionLabel}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1.05rem', color: '#2d3748' }}>
-          Final payment
-        </h3>
-        <p style={{ color: '#4a5568', fontSize: '0.9rem', marginTop: 0 }}>
-          Optional. A payment request records the group’s proposed final payment in SHARE. It does not move money between bank accounts.
-          You can close this Trip Money pot without creating one.
-        </p>
-        {pendingSettlementRequests.length === 0 ? (
-          <p style={{ color: '#4a5568', fontSize: '0.95rem' }}>
-            No final payment recorded yet.
-          </p>
-        ) : (
-          <div className="trip-money-member-list">
-            {pendingSettlementRequests.map((req) => {
-              const currentUserId = getCurrentUserId();
-              const requesterId =
-                typeof req.requestedBy === 'object' ? req.requestedBy?._id : req.requestedBy;
-              const isRequester = String(requesterId) === String(currentUserId);
-              const hasApproved = (req.approvals || []).some((a: any) => {
-                const approvalUserId = typeof a.user === 'object' ? a.user?._id : a.user;
-                return String(approvalUserId) === String(currentUserId);
-              });
-              const hasRejected = (req.rejections || []).some((r: any) => {
-                const rejectionUserId = typeof r.user === 'object' ? r.user?._id : r.user;
-                return String(rejectionUserId) === String(currentUserId);
-              });
-              const canAct =
-                !isArchived && !isRequester && !hasApproved && !hasRejected && req.status === 'pending';
-              const details = parsePaymentDetails(req.description);
-              const proposer = req.requestedBy
-                ? travellerDisplayName({
-                    _id: String(requesterId || ''),
-                    firstName: req.requestedBy.firstName,
-                    lastName: req.requestedBy.lastName,
-                    email: req.requestedBy.email
-                  })
-                : 'a traveller';
-              const approvalProgress = paymentApprovalProgress(req);
-              const statusLabel = paymentRequestStatusLabel(req.status);
-              const completed = isCompletedPaymentStatus(req.status);
-              const statusClass = completed
-                ? 'trip-money-status-complete'
-                : req.status === 'rejected'
-                  ? 'trip-money-status-pending'
-                  : 'trip-money-status-pending';
-
-              return (
-                <div key={req._id} className="trip-money-member-row">
-                  <div className="trip-money-member-main">
-                    <div>
-                      <strong>
-                        {details.payee || 'Final payment'}
-                      </strong>
-                      <div className="trip-money-member-meta">
-                        £{(req.amount || 0).toFixed(2)}
-                        {details.reference ? ` · Reference: ${details.reference}` : ''}
-                      </div>
-                      <div className="trip-money-member-meta">
-                        Proposed by {proposer}
-                      </div>
-                    </div>
-                    <span className={`trip-money-status-pill ${statusClass}`}>
-                      {statusLabel}
-                    </span>
-                  </div>
-                  {req.status === 'pending' && (
-                    <p style={{ margin: '0.35rem 0 0', fontSize: '0.85rem', color: '#4a5568' }}>
-                      Approvals: {approvalProgress.current} of {approvalProgress.total}
-                    </p>
-                  )}
-                  {completed && (
-                    <p style={{ margin: '0.35rem 0 0', fontSize: '0.85rem', color: '#4a5568' }}>
-                      Prototype payment record — no real money was transferred.
-                    </p>
-                  )}
-                  {canAct && (
-                    <div className="trip-money-actions" style={{ marginTop: '0.75rem' }}>
-                      <button
-                        type="button"
-                        className="btn btn-success"
-                        onClick={() => handleApproveSettlement(req._id)}
-                      >
-                        Approve payment
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-danger"
-                        onClick={() => handleRejectSettlement(req._id)}
-                      >
-                        Reject payment
-                      </button>
-                    </div>
-                  )}
-                  {!isArchived && isRequester && req.status === 'pending' && (
-                    <div className="trip-money-actions" style={{ marginTop: '0.75rem' }}>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() => handleCancelSettlement(req._id)}
-                      >
-                        Cancel payment request
-                      </button>
-                    </div>
-                  )}
-                  {hasApproved && req.status === 'pending' && (
-                    <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: '#22543d' }}>
-                      You have approved this payment
-                    </p>
-                  )}
-                  {hasRejected && (
-                    <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: '#742a2a' }}>
-                      You have rejected this payment
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {!isArchived && hasCompletedFinalPayment && (
-          <>
-            <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1.05rem', color: '#2d3748' }}>
-              Close this pot
-            </h3>
-            <p style={{ color: '#4a5568', fontSize: '0.9rem', marginTop: 0 }}>
-              Closing archives this Trip Money pot. Contribution history and the payment record stay available as read-only.
-              No money is moved by this action.
-            </p>
-            <div className="trip-money-actions">
-              {isOwner ? (
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => setShowArchiveModal(true)}
-                >
-                  Close Trip Money
-                </button>
-              ) : (
-                <p style={{ margin: 0, color: '#4a5568', fontSize: '0.9rem' }}>
-                  The organiser can close this Trip Money pot when the group has finished reviewing.
-                </p>
-              )}
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => {
-                  document.getElementById('group-activity')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }}
-              >
-                Review activity history
-              </button>
-            </div>
-          </>
-        )}
-
-        {!isArchived && !isCloseOutFocus && (
-          <>
-            <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1.05rem', color: '#2d3748' }}>
-              Organiser next steps
-            </h3>
-            <div className="trip-money-actions">
-              {!hasTarget && isOwner && (
-                <button className="btn btn-primary" onClick={handleEditClick}>
-                  Set contribution target
-                </button>
-              )}
-              {closeOutStatus === 'still_collecting' && (
-                <button className="btn btn-primary" onClick={handleTransferClick}>
-                  Pay account
-                </button>
-              )}
-              <button
-                className="btn btn-secondary"
-                onClick={() => {
-                  document.getElementById('traveller-contributions')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }}
-              >
-                Review traveller contributions
-              </button>
-              {isOwner && (
-                <button className="btn btn-secondary" onClick={handleEditClick}>
-                  Edit contribution target
-                </button>
-              )}
-              <button
-                className="btn btn-secondary"
-                onClick={() => {
-                  document.getElementById('group-activity')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }}
-              >
-                Review activity history
-              </button>
-            </div>
-          </>
-        )}
-        <p style={{ marginTop: '0.85rem', fontSize: '0.85rem', color: '#718096' }}>
-          There is no automatic refund action in SHARE today. When the group is finished reviewing,
-          use your own bank apps or cash to settle any real-world differences you agree on. Closing this pot
-          archives it for history — it does not move money.
-        </p>
-      </div>
+      )}
 
       {isOwner && (
         <div className="card" style={{ marginBottom: '1.5rem' }}>
@@ -1449,7 +1091,7 @@ const SharedAccountDetail: React.FC = () => {
           </p>
           <h2 className="card-title" style={{ marginBottom: '0.35rem' }}>Trip Money settings</h2>
           <p style={{ color: '#718096', fontSize: '0.9rem', marginTop: 0 }}>
-            Administration only — this does not move money. Close is the normal end of the trip after payment is completed. Delete permanently is separate and is not the usual close step.
+            Administration only. Delete permanently is not the usual close.
           </p>
           <div className="trip-money-actions" style={{ flexWrap: 'wrap' }}>
             {!isArchived && !isCloseOutFocus && account.members.length > 0 && (
@@ -1482,7 +1124,7 @@ const SharedAccountDetail: React.FC = () => {
           </div>
           {!isArchived && !hasCompletedFinalPayment && (
             <p style={{ margin: '0.65rem 0 0', fontSize: '0.85rem', color: '#718096' }}>
-              Archive Trip Money is an admin close. It is not the normal next step until the final payment is completed.
+              Archive Trip Money is an admin action, not the usual next step.
             </p>
           )}
           {!isArchived && isCloseOutFocus && account.members.length > 0 && (
@@ -1534,7 +1176,7 @@ const SharedAccountDetail: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>Edit trip pot details</h2>
+              <h2 style={{ margin: 0 }}>Edit details</h2>
               <button
                 onClick={() => setShowEditModal(false)}
                 style={{
@@ -1755,7 +1397,7 @@ const SharedAccountDetail: React.FC = () => {
               alignItems: 'center',
               marginBottom: '1rem'
             }}>
-              <h2 style={{ margin: 0 }}>Pay single payment</h2>
+              <h2 style={{ margin: 0 }}>Final payment</h2>
               <button
                 onClick={() => setShowPayModal(false)}
                 style={{
@@ -1782,7 +1424,7 @@ const SharedAccountDetail: React.FC = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label" htmlFor="single-payment-payee">Supplier / payee</label>
+              <label className="form-label" htmlFor="single-payment-payee">Supplier</label>
               <input
                 id="single-payment-payee"
                 className="form-input"
@@ -1875,7 +1517,7 @@ const SharedAccountDetail: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>Leave shared trip costs</h2>
+              <h2 style={{ margin: 0 }}>Leave Trip Money</h2>
               <button
                 onClick={() => setShowRemoveModal(false)}
                 style={{
@@ -1896,7 +1538,7 @@ const SharedAccountDetail: React.FC = () => {
               </p>
             ) : (
               <p style={{ color: '#4a5568', marginTop: 0 }}>
-                This will remove you from these shared trip costs.
+                This will remove you from this Trip Money.
               </p>
             )}
 
@@ -2092,7 +1734,7 @@ const SharedAccountDetail: React.FC = () => {
           <div className="card" style={{ width: '90%', maxWidth: '480px' }}>
             <h2 style={{ marginTop: 0 }}>Transfer organiser role</h2>
             <p style={{ color: '#4a5568', fontSize: '0.9rem' }}>
-              Choose a current traveller to become organiser. This transfers administration only — not money or recorded totals.
+              Choose a current traveller to become organiser. This transfers administration only — not money.
             </p>
             <div className="form-group">
               <label className="form-label">Make organiser</label>

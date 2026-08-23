@@ -158,7 +158,7 @@ const Invitations: React.FC = () => {
     const inviter = user?.name || 'A friend';
     const loginUrl = `${window.location.origin}/login`;
     return (
-      `${inviter} invited you to join "${tripName}" on SHARE — coordinate shared trip costs together.\n\n` +
+      `${inviter} invited you to join "${tripName}" on SHARE — fund the trip together.\n\n` +
       `Log in or register here: ${loginUrl}\n` +
       `Then open Invitations to accept. SHARE records contributions; it does not hold a group bank balance.`
     );
@@ -203,7 +203,7 @@ const Invitations: React.FC = () => {
 
     try {
       if (!formData.sharedAccountId) {
-        setError('Select which shared trip costs to invite people to');
+        setError('Select which Trip Money to invite people to');
         setSubmitting(false);
         return;
       }
@@ -396,7 +396,7 @@ const Invitations: React.FC = () => {
           <div>
             <h1 className="card-title" style={{ marginBottom: '0.35rem' }}>Trip invitations</h1>
             <p style={{ margin: 0, color: '#4a5568', fontSize: '0.95rem' }}>
-              Invite friends to your shared trip costs so everyone can record contributions and finish square.
+              Invite friends to your Trip Money so everyone can contribute and finish square.
             </p>
           </div>
           <button
@@ -408,7 +408,7 @@ const Invitations: React.FC = () => {
           </button>
         </div>
         <div className="trip-money-transparency" style={{ marginTop: '1rem' }}>
-          Invitations join people to shared trip costs in SHARE. Accepting happens after they log in — there is no public invite token link yet.
+          Invitations add people to Trip Money. They accept after they log in — there is no public invite link yet.
         </div>
       </div>
 
@@ -450,7 +450,7 @@ const Invitations: React.FC = () => {
         <div className="card">
           <h2 style={{ marginTop: 0 }}>Nobody to invite yet</h2>
           <p style={{ color: '#4a5568' }}>
-            Set up shared trip costs in Trip Money first, then invite your travel group to start coordinating.
+            Set up Trip Money first, then invite your travel group.
           </p>
           <Link to="/shared-accounts" className="btn btn-primary">
             Set up Trip Money
@@ -462,7 +462,7 @@ const Invitations: React.FC = () => {
         <div className="card">
           <h2 style={{ marginBottom: '0.5rem' }}>Invite friends to this trip</h2>
           <p style={{ color: '#4a5568', marginTop: 0 }}>
-            Choose the shared trip costs pot, add travellers, then share a WhatsApp-friendly message if you like.
+            Choose the Trip Money, add travellers, then share a WhatsApp-friendly message if you like.
           </p>
 
           {formData.sharedAccountId && (
@@ -553,7 +553,7 @@ const Invitations: React.FC = () => {
       <div className="card">
         <h2 style={{ marginBottom: '0.35rem' }}>Pending invitations for you</h2>
         <p style={{ color: '#4a5568', marginTop: 0, fontSize: '0.9rem' }}>
-          Accept to join the shared trip costs pot.
+          Accept to join this Trip Money.
         </p>
         {pendingReceived.length === 0 ? (
           <div className="trip-money-empty-panel">

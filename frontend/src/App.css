@@ -707,6 +707,39 @@ body {
   margin-top: 1rem;
   padding-top: 1rem;
   border-top: 1px solid #e2e8f0;
+  align-items: center;
+}
+
+.trip-money-primary-status {
+  margin: 0;
+  font-weight: 700;
+  color: #c53030;
+  font-size: 1rem;
+}
+
+.trip-money-activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.trip-money-activity-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid #e2e8f0;
+  color: #2d3748;
+}
+
+.trip-money-activity-item:last-child {
+  border-bottom: none;
+}
+
+.trip-money-activity-date {
+  color: #718096;
+  font-size: 0.85rem;
 }
 
 .trip-money-empty-panel {

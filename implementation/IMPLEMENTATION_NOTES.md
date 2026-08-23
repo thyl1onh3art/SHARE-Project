@@ -1791,4 +1791,52 @@ Branch is ready for a later GitHub push + PR into `main` when explicitly request
 - Solo pots still do not auto-complete a final payment (pre-existing), so the primary Close path may not appear without another traveller’s approval.
 - Task 8 not started.
 
+---
+
+## Task 8 — Simplify SHARE wording and remove UI clutter
+
+**Purpose:** Make the existing Trip Money journey clearer for a first-time user. Copy, headings, and hierarchy only. Do not change contribution math, Pay now gating, PaymentRequest lifecycle, archive backend, schema, or recovered data. Task 9 not started.
+
+**Customer-language simplification:** SHARE should sound simple and collaborative, not like accounting software. Internal names (`SharedAccount`, `FinanceRecord`, `PaymentRequest.status === 'executed'`, `pendingSettlementRequests`) stay in code.
+
+**Major BEFORE → AFTER wording**
+
+| Surface | Before | After |
+|---|---|---|
+| Trip Money list | Your shared trip costs; £X of £Y recorded; Remaining; Recorded total; Payment pending | Your Trip Money; contributed; Still needed; Contributed so far; Waiting for approval |
+| Detail hero | Shared trip costs; Contribution target; Recorded total; Remaining to contribute; Equal share | Trip name + purpose; Target; Contributed; Still needed; Each person |
+| Personal | Equal share is guidance… (plus reverse available line) | Your contribution / Your remaining; one equal-split guide line |
+| Travellers | Traveller contributions; Recorded; Suggested share; Remaining (vs share) | Who has contributed; Contributed; Share; Remaining; Done / Still to go |
+| Activity | Group spending record (last 24 hours); Type table | Recent activity; “Sam contributed £100” |
+| Final payment | Pay single payment competing with Pay now; red disabled control below target | Pay now at 100%; form title Final payment; “Final payment unlocks at 100%.” below target |
+| Approval | (status labels already customer-facing) | Waiting for approval; Approvals N of M; Approve / Reject / Cancel payment |
+| Close | Trip Close-out; End of trip review; settlement/ledger copy; duplicate Close | Payment completed → Close Trip Money; archived: Trip Money closed / Read-only history |
+| Invitations | shared trip costs | Trip Money |
+
+**Duplicated content removed:** second target/traveller totals in Trip Close-out; repeated equal-share explanations; hero bank-account disclaimer (kept one on the list page and one in Pay account / Final payment forms); Organiser next steps duplicating Pay account; Review Trip Close-out; second Close Trip Money block; red disabled Pay single payment; extra Pay account in empty activity.
+
+**Primary-action hierarchy**
+- Below target: **Pay account** (Invite / Edit secondary; reverse under **More**)
+- 100%: **Pay now** (other actions under **More**)
+- Pending: **Waiting for approval**
+- Payment completed: **Close Trip Money**
+- Closed: no active action
+
+**Disclaimers retained (once each, not repeated through the page)**
+- Pay account: “Prototype: this records your contribution for testing. No money is transferred.”
+- Final payment form: “Prototype: this records the group’s proposed final payment. No money is transferred.”
+- Completed payment: “Prototype payment record — no real money was transferred.”
+
+**Functionality deliberately unchanged:** contribution totals, equal-share math, Personal Account behaviour, Pay now gating, PaymentRequest create/approve/reject/cancel/execute, archive `DELETE`, one-pot-per-trip, schema, database data.
+
+**Colour / accessibility:** existing traveller Done (green) / Still to go (amber) pills and named amounts kept. Progress bar gradient unchanged. Waiting for approval uses warning red; Payment completed stays green. Colour is not the only identifier.
+
+**Tests:** frontend 12 suites / 65 tests PASS (was 12/64). Frontend production build PASS. Backend not run (no backend files touched).
+
+**Remaining risks:**
+- SharedAccounts still contains a leftover list-page Final payment modal that is not opened by the current Pay now path (detail `?pay=now` is used instead). Copy was cleaned; behaviour unchanged.
+- Recent activity still shows only the last 24 hours; older history is not listed in that section.
+- Personal Finance / Financial Records still use older “recorded / settlement” wording; they are outside the primary Trip Money journey and were not rewritten.
+- Task 9 not started.
+
 

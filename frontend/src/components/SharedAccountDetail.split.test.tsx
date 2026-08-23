@@ -106,10 +106,10 @@ describe('SharedAccountDetail equal share', () => {
 
     renderDetail();
 
-    expect(await screen.findByText(/^Equal share: £1200.00 each$/)).toBeInTheDocument();
+    expect(await screen.findByText(/^Each person: £1200.00$/)).toBeInTheDocument();
     expect(screen.getByText(/your contribution:/i)).toHaveTextContent('£250.00');
     expect(screen.getByText(/your remaining:/i)).toHaveTextContent('£950.00');
-    expect(screen.getByText('Equal share is guidance for this group. Unequal contributions are allowed.')).toBeInTheDocument();
+    expect(screen.getByText('Equal split is a guide. Contributions can be different.')).toBeInTheDocument();
   });
 
   it('does not invent remaining when there is no contribution target', async () => {
@@ -125,7 +125,7 @@ describe('SharedAccountDetail equal share', () => {
 
     renderDetail();
 
-    expect(await screen.findByText(/no contribution target set/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no target set/i)).toBeInTheDocument();
     expect(screen.queryByText(/your remaining:/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/equal share:/i)).not.toBeInTheDocument();
   });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import axios from 'axios';
 import SharedAccountDetail from './SharedAccountDetail';
@@ -148,9 +148,8 @@ describe('SharedAccountDetail Pay account', () => {
     expect(await screen.findByText(/your contribution:/i)).toHaveTextContent('£100.00');
     expect(screen.getByText(/your remaining:/i)).toHaveTextContent('£900.00');
 
-    const activityTable = screen.getByRole('table');
-    expect(within(activityTable).getByText('Sam Brown')).toBeInTheDocument();
-    expect(within(activityTable).queryByText('Unknown User')).not.toBeInTheDocument();
+    expect(await screen.findByText('Sam Brown contributed £100.00')).toBeInTheDocument();
+    expect(screen.queryByText('Unknown User')).not.toBeInTheDocument();
     expect(mockedAxios.get).not.toHaveBeenCalledWith(expect.stringMatching(/^\/users\//));
   });
 
@@ -167,9 +166,8 @@ describe('SharedAccountDetail Pay account', () => {
 
     renderDetail();
 
-    const activityTable = await screen.findByRole('table');
-    expect(within(activityTable).getByText('Sam Brown')).toBeInTheDocument();
-    expect(within(activityTable).queryByText('Unknown User')).not.toBeInTheDocument();
+    expect(await screen.findByText('Sam Brown contributed £100.00')).toBeInTheDocument();
+    expect(screen.queryByText('Unknown User')).not.toBeInTheDocument();
     expect(mockedAxios.get).not.toHaveBeenCalledWith(expect.stringMatching(/^\/users\//));
   });
 

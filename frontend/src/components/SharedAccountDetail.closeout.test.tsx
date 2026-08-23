@@ -111,9 +111,10 @@ describe('SharedAccountDetail close-out flow', () => {
     expect(screen.queryByRole('button', { name: /review trip close-out/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^close trip money$/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /archive trip money/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^pay single payment$/i })).toBeDisabled();
-    expect(screen.getByText('Target not reached')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^pay single payment$/i })).not.toBeInTheDocument();
+    expect(screen.getByText('Final payment unlocks at 100%.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^pay account$/i })).toHaveClass('btn-primary');
   });
 
   it('promotes Pay now when the target is reached, not Close Trip Money', async () => {
@@ -142,19 +143,16 @@ describe('SharedAccountDetail close-out flow', () => {
 
     renderDetail();
 
-    expect(await screen.findByRole('status')).toHaveTextContent(/contribution target reached/i);
+    expect(await screen.findByRole('button', { name: /^pay now$/i })).toHaveClass('btn-success');
     const payNowButtons = screen.getAllByRole('button', { name: /^pay now$/i });
     expect(payNowButtons.length).toBeGreaterThan(0);
-    expect(payNowButtons[0]).toHaveClass('btn-success');
     expect(screen.queryByRole('button', { name: /^close trip money$/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /review trip close-out/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /review trip close-out/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^pay account$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^invite traveller$/i })).not.toBeInTheDocument();
-    const paySingleButtons = screen.getAllByRole('button', { name: /^pay single payment$/i });
-    expect(paySingleButtons.length).toBeGreaterThan(0);
-    paySingleButtons.forEach((button) => expect(button).not.toBeDisabled());
+    expect(screen.queryByRole('button', { name: /^pay single payment$/i })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /more actions/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^more$/i }));
     expect(await screen.findByRole('button', { name: /^pay account$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^invite traveller$/i })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /^archive trip money$/i }).length).toBeGreaterThan(0);
@@ -177,7 +175,7 @@ describe('SharedAccountDetail close-out flow', () => {
     renderDetail();
 
     expect(await screen.findByRole('heading', { name: /trip money closed/i })).toBeInTheDocument();
-    expect(screen.getByText(/this trip money is read-only/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/read-only history/i).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: /pay account/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /record contribution/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /invite traveller/i })).not.toBeInTheDocument();
@@ -185,5 +183,48 @@ describe('SharedAccountDetail close-out flow', () => {
     expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /request settlement record/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /close trip money/i })).not.toBeInTheDocument();
+  });
+
+  it('uses simple contribution, traveller, and activity wording', async () => {
+    mockAccountFetch(
+      {
+        _id: 'pot-1',
+        name: 'Canada',
+        description: 'Trip costs',
+        owner,
+        members: [member],
+        financeRecords: [],
+        targetAmount: 1000,
+        createdAt: '2026-01-01T00:00:00.000Z'
+      },
+      [
+        {
+          _id: 'r1',
+          type: 'input',
+          amount: 400,
+          date: new Date().toISOString(),
+          user: owner,
+          description: 'Deposit'
+        }
+      ]
+    );
+
+    renderDetail();
+
+    expect(await screen.findByRole('heading', { name: 'Who has contributed' })).toBeInTheDocument();
+    expect(screen.getByText('Target')).toBeInTheDocument();
+    expect(screen.getAllByText('Contributed').length).toBeGreaterThan(0);
+    expect(screen.getByText('Still needed')).toBeInTheDocument();
+    expect(screen.getAllByText('Share').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Remaining').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Suggested share')).not.toBeInTheDocument();
+    expect(screen.queryByText('Remaining (vs share)')).not.toBeInTheDocument();
+    expect(screen.queryByText('Recorded total')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Recent activity' })).toBeInTheDocument();
+    expect(screen.getByText('Sam Brown contributed £400.00')).toBeInTheDocument();
+    expect(screen.queryByText(/settlement executed/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/settlement pending/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ledger/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /trip close-out/i })).not.toBeInTheDocument();
   });
 });
