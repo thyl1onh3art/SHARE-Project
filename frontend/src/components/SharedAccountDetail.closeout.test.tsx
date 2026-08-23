@@ -111,6 +111,9 @@ describe('SharedAccountDetail close-out flow', () => {
     expect(screen.queryByRole('button', { name: /review trip close-out/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^close trip money$/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /archive trip money/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^pay single payment$/i })).toBeDisabled();
+    expect(screen.getByText('Target not reached')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
   });
 
   it('promotes review and close when the target is reached', async () => {
@@ -144,6 +147,15 @@ describe('SharedAccountDetail close-out flow', () => {
     expect(screen.getAllByRole('button', { name: /^close trip money$/i }).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: /^pay account$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^invite traveller$/i })).not.toBeInTheDocument();
+    const paySingleButtons = screen.getAllByRole('button', { name: /^pay single payment$/i });
+    expect(paySingleButtons.length).toBeGreaterThan(0);
+    paySingleButtons.forEach((button) => expect(button).not.toBeDisabled());
+    const payNowButtons = screen.getAllByRole('button', { name: /^pay now$/i });
+    expect(payNowButtons.length).toBeGreaterThan(0);
+    payNowButtons.forEach((button) => {
+      expect(button).not.toBeDisabled();
+      expect(button).toHaveClass('btn-success');
+    });
 
     fireEvent.click(screen.getByRole('button', { name: /more actions/i }));
     expect(await screen.findByRole('button', { name: /^pay account$/i })).toBeInTheDocument();
@@ -167,10 +179,12 @@ describe('SharedAccountDetail close-out flow', () => {
     renderDetail();
 
     expect(await screen.findByRole('heading', { name: /this trip money is closed/i })).toBeInTheDocument();
-    expect(screen.getByText(/new contributions, invitations and settlement requests cannot be added/i)).toBeInTheDocument();
+    expect(screen.getByText(/new contributions, invitations and payment requests cannot be added/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /pay account/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /record contribution/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /invite traveller/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /pay single payment/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /request settlement record/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /close trip money/i })).not.toBeInTheDocument();
   });

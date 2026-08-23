@@ -57,7 +57,7 @@ const loadActiveSharedAccount = async (sharedAccountRef) => {
 // Create a settlement-record approval request (ledger coordination only)
 exports.createPaymentRequest = async (req, res) => {
   try {
-    const { sharedAccountId, amount, description, requestType } = req.body;
+    const { sharedAccountId, amount, description, requestType, payee, reference } = req.body;
     const userId = req.user.userId;
 
     if (!sharedAccountId || !amount) {
@@ -98,6 +98,34 @@ exports.createPaymentRequest = async (req, res) => {
       });
     }
 
+    const records = await FinanceRecord.find({ sharedAccount: sharedAccountId });
+    const recordedTotal = records.reduce((sum, record) => {
+      const amount = Number(record.amount) || 0;
+      return sum + (record.type === 'input' ? amount : -amount);
+    }, 0);
+    const targetAmount = Number(sharedAccount.targetAmount) || 0;
+    const amountPence = Math.round(parsedAmount * 100);
+    const targetPence = Math.round(targetAmount * 100);
+    const recordedPence = Math.round(recordedTotal * 100);
+
+    if (targetPence <= 0) {
+      return res.status(400).json({
+        message: 'A contribution target is required before creating a payment request.'
+      });
+    }
+
+    if (recordedPence < targetPence) {
+      return res.status(400).json({
+        message: 'The contribution target must be reached before creating a payment request.'
+      });
+    }
+
+    if (amountPence !== targetPence) {
+      return res.status(400).json({
+        message: 'The payment request amount must be the contribution target.'
+      });
+    }
+
     const { allParticipants } = getParticipantIds(sharedAccount);
     const otherParticipants = allParticipants.filter((id) => id !== userId.toString());
     const requiredApprovals = otherParticipants.length;
@@ -110,15 +138,24 @@ exports.createPaymentRequest = async (req, res) => {
     if (existingRequest) {
       return res.status(400).json({
         message:
-          'There is already a pending settlement request for this Trip Money pot. Wait for it to be resolved or cancel it.'
+          'There is already a pending payment request for this Trip Money pot. Wait for it to be resolved or cancel it.'
       });
     }
+
+    const payeeText = String(payee || '').trim();
+    const referenceText = String(reference || '').trim();
+    const noteText = String(description || '').trim();
+    const composedDescription = [
+      payeeText && `Payee: ${payeeText}`,
+      referenceText && `Ref: ${referenceText}`,
+      noteText
+    ].filter(Boolean).join(' · ') || `Payment request for ${sharedAccount.name}`;
 
     const paymentRequest = new PaymentRequest({
       sharedAccount: sharedAccountId,
       requestedBy: userId,
-      amount: parsedAmount,
-      description: description || `Settlement record for ${sharedAccount.name}`,
+      amount: targetPence / 100,
+      description: composedDescription,
       requestType: 'payment',
       requiredApprovals,
       status: 'pending'
@@ -130,7 +167,7 @@ exports.createPaymentRequest = async (req, res) => {
 
     res.status(201).json({
       message:
-        'Settlement request created. Travellers must approve before the ledger settlement is recorded. SHARE does not send bank payments.',
+        'Payment request created. Travellers must approve before it is recorded. SHARE does not send bank payments.',
       paymentRequest
     });
   } catch (err) {

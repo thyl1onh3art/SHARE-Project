@@ -5,6 +5,8 @@ import {
   tripMoneyParticipantCount,
   equalShareAmount,
   personalRemaining,
+  canPaySinglePayment,
+  singlePaymentAmount,
   resolveLedgerTraveller,
   travellerDisplayName
 } from './tripHome';
@@ -88,6 +90,23 @@ describe('equal share and remaining', () => {
   it('does not show a negative remaining after the share is reached', () => {
     expect(personalRemaining(600, 600)).toBe(0);
     expect(personalRemaining(600, 800)).toBe(0);
+  });
+});
+
+describe('pay single payment gating', () => {
+  it('is unavailable below target, with no target, or when archived', () => {
+    expect(canPaySinglePayment(900, 1000)).toBe(false);
+    expect(canPaySinglePayment(1000, 0)).toBe(false);
+    expect(canPaySinglePayment(1000, null)).toBe(false);
+    expect(canPaySinglePayment(1000, 1000, true)).toBe(false);
+  });
+
+  it('is available at or above target and always uses the full target amount', () => {
+    expect(canPaySinglePayment(1000, 1000)).toBe(true);
+    expect(canPaySinglePayment(1100, 1000)).toBe(true);
+    expect(singlePaymentAmount(2000)).toBe(2000);
+    expect(singlePaymentAmount(1999.999)).toBe(2000);
+    expect(singlePaymentAmount(0)).toBeNull();
   });
 });
 

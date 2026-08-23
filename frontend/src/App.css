@@ -788,6 +788,37 @@ body {
   color: #4a5568;
 }
 
+.pay-single-payment-control {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.pay-single-payment-control .btn:disabled {
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.pay-single-payment-status {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.pay-single-payment-control.is-incomplete .pay-single-payment-status {
+  color: #c53030;
+}
+
+.pay-single-payment-control.is-ready .pay-single-payment-status {
+  color: #276749;
+}
+
+.pay-now-cta {
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 14px 28px;
+}
+
 .trip-money-list-progress {
   margin-top: 0.25rem;
 }

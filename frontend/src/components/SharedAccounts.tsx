@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { canPaySinglePayment, singlePaymentAmount } from '../utils/tripHome';
 
 const emptyCreateForm = () => {
   const defaultDate = new Date();
@@ -451,14 +452,13 @@ const SharedAccounts: React.FC = () => {
     e.preventDefault();
     if (!selectedAccount) return;
 
-    const balance = calculateAccountBalance(selectedAccount);
-    if (balance <= 0) {
-      setError('Nothing recorded to settle. The tracked total for this trip pot is £0.00 or less.');
-      return;
-    }
-
-    if (personalBalance !== null && balance > personalBalance) {
-      setError('Your personal tracked total is lower than the amount to settle.');
+    const recorded = calculateAccountBalance(selectedAccount);
+    const amount = singlePaymentAmount(selectedAccount.targetAmount);
+    if (
+      amount === null ||
+      !canPaySinglePayment(recorded, selectedAccount.targetAmount, !!selectedAccount.isDeleted)
+    ) {
+      setError('Available once the contribution target is reached.');
       return;
     }
 
@@ -466,11 +466,10 @@ const SharedAccounts: React.FC = () => {
     setError('');
 
     try {
-      // Create a payment request instead of executing payment directly
       await axios.post('/payment-requests', {
         sharedAccountId: selectedAccount._id,
-        amount: balance,
-        description: `Settlement record for ${selectedAccount.name}`
+        amount,
+        description: `Payment request for ${selectedAccount.name}`
       });
 
       // Refresh payment requests and accounts
@@ -481,7 +480,7 @@ const SharedAccounts: React.FC = () => {
       setSelectedAccount(null);
       setError(''); // Clear any errors
       // Show success message
-      alert('Settlement request created. All travellers will be notified and must approve before the ledger settlement is recorded. SHARE does not send bank payments.');
+      alert('Payment request created. Travellers must approve before it is recorded. SHARE does not send bank payments.');
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to create payment request';
       setError(errorMessage);
@@ -534,7 +533,7 @@ const SharedAccounts: React.FC = () => {
       setError('');
     } catch (err: any) {
       const errorMessage =
-        err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to cancel settlement request';
+        err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to cancel payment request';
       setError(errorMessage);
     }
   };
@@ -752,7 +751,7 @@ const SharedAccounts: React.FC = () => {
       {/* Pending Payment Requests */}
       {paymentRequests.length > 0 && (
         <div className="card" style={{ marginBottom: '1.5rem', background: '#fef3c7', border: '2px solid #f59e0b' }}>
-          <h2 style={{ marginBottom: '1rem', color: '#92400e' }}>Pending settlement approvals</h2>
+          <h2 style={{ marginBottom: '1rem', color: '#92400e' }}>Pending payment approvals</h2>
           {paymentRequests.map((request: any) => {
             // Get current user ID from auth context
             const currentUserId = user?.id || (user as any)?._id || '';
@@ -782,7 +781,7 @@ const SharedAccounts: React.FC = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
                   <div>
                     <h3 style={{ margin: '0 0 0.5rem 0', color: '#2d3748' }}>
-                      Settlement request for: {request.sharedAccount?.name || 'Unknown trip pot'}
+                      Payment request for: {request.sharedAccount?.name || 'Unknown trip pot'}
                     </h3>
                     <p style={{ margin: '0.25rem 0', color: '#4a5568', fontSize: '0.9rem' }}>
                       <strong>Amount:</strong> £{request.amount?.toFixed(2)}
@@ -805,14 +804,14 @@ const SharedAccounts: React.FC = () => {
                       onClick={() => handleApprovePayment(request._id)}
                       style={{ flex: 1 }}
                     >
-                      Approve settlement record
+                      Approve payment request
                     </button>
                     <button
                       className="btn btn-danger"
                       onClick={() => handleRejectPayment(request._id)}
                       style={{ flex: 1 }}
                     >
-                      Reject settlement record
+                      Reject payment request
                     </button>
                   </div>
                 )}
@@ -823,7 +822,7 @@ const SharedAccounts: React.FC = () => {
                       onClick={() => handleCancelSettlement(request._id)}
                       style={{ flex: 1 }}
                     >
-                      Cancel settlement request
+                      Cancel payment request
                     </button>
                   </div>
                 )}
@@ -836,7 +835,7 @@ const SharedAccounts: React.FC = () => {
                     marginTop: '0.5rem',
                     color: '#22543d'
                   }}>
-                    You have approved this settlement request
+                    You have approved this payment request
                   </div>
                 )}
                 {hasRejected && (
@@ -848,7 +847,7 @@ const SharedAccounts: React.FC = () => {
                     marginTop: '0.5rem',
                     color: '#742a2a'
                   }}>
-                    You have rejected this settlement request
+                    You have rejected this payment request
                   </div>
                 )}
                 {request.status === 'executed' && (
@@ -860,7 +859,7 @@ const SharedAccounts: React.FC = () => {
                     marginTop: '0.5rem',
                     color: '#2a4365'
                   }}>
-                    Settlement has been recorded in the group ledger
+                    Payment has been recorded in the group ledger
                   </div>
                 )}
                 {request.status === 'rejected' && (
@@ -872,7 +871,7 @@ const SharedAccounts: React.FC = () => {
                     marginTop: '0.5rem',
                     color: '#742a2a'
                   }}>
-                    Settlement request was rejected
+                    Payment request was rejected
                   </div>
                 )}
               </div>
@@ -965,7 +964,7 @@ const SharedAccounts: React.FC = () => {
                     e.currentTarget.style.background = 'white';
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem' }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <h3 style={{ 
                         margin: '0 0 0.35rem 0', 
@@ -1036,6 +1035,19 @@ const SharedAccounts: React.FC = () => {
                         </div>
                       )}
                     </div>
+                    {canPaySinglePayment(balance, account.targetAmount, false) && (
+                      <button
+                        type="button"
+                        className="btn btn-success pay-now-cta"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          navigate(`/shared-accounts/${account._id}?pay=now`);
+                        }}
+                      >
+                        Pay now
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -1793,7 +1805,7 @@ const SharedAccounts: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>Request settlement record</h2>
+              <h2 style={{ margin: 0 }}>Pay single payment</h2>
               <button
                 onClick={() => {
                   setShowPayModal(false);
@@ -1882,7 +1894,7 @@ const SharedAccounts: React.FC = () => {
                   disabled={paySubmitting || calculateAccountBalance(selectedAccount) <= 0}
                   style={{ flex: 1 }}
                 >
-                  {paySubmitting ? <span className="spinner"></span> : 'Request settlement record'}
+                  {paySubmitting ? <span className="spinner"></span> : 'Create payment request'}
                 </button>
               </div>
             </form>

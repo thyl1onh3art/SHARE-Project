@@ -61,12 +61,27 @@ describe('Trip Money settlement records', () => {
     account = await SharedAccount.create({
       owner: ownerUser._id,
       name: 'Settlement Pot',
-      members: [memberUser._id]
+      members: [memberUser._id],
+      targetAmount: 50
     });
   });
 
+  async function fundPot(amount) {
+    const record = await FinanceRecord.create({
+      user: ownerUser._id,
+      type: 'input',
+      amount,
+      sharedAccount: account._id
+    });
+    account.financeRecords.push(record._id);
+    await account.save();
+    return record;
+  }
+
   describe('CREATE', () => {
     it('allows a current participant to create a settlement request', async () => {
+      await fundPot(50);
+
       const response = await request(app)
         .post('/api/payment-requests')
         .set('Authorization', `Bearer ${ownerToken}`)
@@ -75,6 +90,64 @@ describe('Trip Money settlement records', () => {
 
       expect(response.body.paymentRequest.status).toBe('pending');
       expect(response.body.paymentRequest.requestType).toBe('payment');
+      expect(response.body.paymentRequest.amount).toBe(50);
+    });
+
+    it('rejects a request while recorded total is below target', async () => {
+      await fundPot(20);
+
+      await request(app)
+        .post('/api/payment-requests')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ sharedAccountId: account._id.toString(), amount: 50 })
+        .expect(400);
+    });
+
+    it('rejects an amount other than the contribution target', async () => {
+      await fundPot(50);
+
+      await request(app)
+        .post('/api/payment-requests')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ sharedAccountId: account._id.toString(), amount: 10 })
+        .expect(400);
+
+      await request(app)
+        .post('/api/payment-requests')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ sharedAccountId: account._id.toString(), amount: 80 })
+        .expect(400);
+    });
+
+    it('allows a request at the target amount when recorded total is above target', async () => {
+      await fundPot(80);
+
+      const response = await request(app)
+        .post('/api/payment-requests')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          sharedAccountId: account._id.toString(),
+          amount: 50,
+          payee: 'Hotel North',
+          reference: 'INV-22'
+        })
+        .expect(201);
+
+      expect(response.body.paymentRequest.amount).toBe(50);
+      expect(response.body.paymentRequest.description).toMatch(/Hotel North/);
+      expect(response.body.paymentRequest.description).toMatch(/INV-22/);
+    });
+
+    it('does not require a personal finance balance', async () => {
+      await fundPot(50);
+      const personal = await FinanceRecord.find({ user: ownerUser._id, sharedAccount: { $exists: false } });
+      expect(personal).toHaveLength(0);
+
+      await request(app)
+        .post('/api/payment-requests')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ sharedAccountId: account._id.toString(), amount: 50 })
+        .expect(201);
     });
 
     it('rejects unrelated users', async () => {
@@ -123,6 +196,18 @@ describe('Trip Money settlement records', () => {
           amount: 10,
           requestType: 'withdrawal'
         })
+        .expect(400);
+    });
+
+    it('rejects creation when there is no contribution target', async () => {
+      account.targetAmount = undefined;
+      await account.save();
+      await fundPot(50);
+
+      await request(app)
+        .post('/api/payment-requests')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ sharedAccountId: account._id.toString(), amount: 50 })
         .expect(400);
     });
   });

@@ -137,6 +137,25 @@ export function personalRemaining(
   return Math.max(0, Math.round((equalShare - Math.max(0, Number(yourContribution) || 0)) * 100) / 100);
 }
 
+const toPence = (value: number) => Math.round((Number(value) || 0) * 100);
+
+export function singlePaymentAmount(targetAmount?: number | null): number | null {
+  const target = Number(targetAmount) || 0;
+  if (target <= 0) return null;
+  return toPence(target) / 100;
+}
+
+export function canPaySinglePayment(
+  recordedTotal: number,
+  targetAmount?: number | null,
+  isArchived = false
+): boolean {
+  if (isArchived) return false;
+  const target = singlePaymentAmount(targetAmount);
+  if (target === null) return false;
+  return toPence(recordedTotal) >= toPence(target);
+}
+
 export function resolveLedgerTraveller(
   recordUser: PersonSummary | string | null | undefined,
   owner?: PersonSummary | string | null,

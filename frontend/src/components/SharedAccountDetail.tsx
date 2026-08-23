@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -7,7 +7,9 @@ import {
   personalRemaining,
   resolveLedgerTraveller,
   travellerDisplayName,
-  tripMoneyParticipantCount
+  tripMoneyParticipantCount,
+  canPaySinglePayment,
+  singlePaymentAmount
 } from '../utils/tripHome';
 
 interface FinanceRecord {
@@ -52,6 +54,8 @@ interface SharedAccount {
 const SharedAccountDetail: React.FC = () => {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const autoOpenedPayForm = useRef(false);
   const { user } = useAuth();
   const [account, setAccount] = useState<SharedAccount | null>(null);
   const [transactions, setTransactions] = useState<FinanceRecord[]>([]);
@@ -76,10 +80,9 @@ const SharedAccountDetail: React.FC = () => {
     description: ''
   });
   const [transferSubmitting, setTransferSubmitting] = useState(false);
-  const [personalBalance, setPersonalBalance] = useState<number | null>(null);
-  const [loadingPersonalBalance, setLoadingPersonalBalance] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
   const [paySubmitting, setPaySubmitting] = useState(false);
+  const [payForm, setPayForm] = useState({ payee: '', reference: '', note: '' });
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [removeSubmitting, setRemoveSubmitting] = useState(false);
   const [newOwnerId, setNewOwnerId] = useState('');
@@ -142,6 +145,25 @@ const SharedAccountDetail: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (loading || !account || autoOpenedPayForm.current) return;
+    if (searchParams.get('pay') !== 'now') return;
+    autoOpenedPayForm.current = true;
+
+    const recorded = transactions.reduce((sum, record) => {
+      return sum + (record.type === 'input' ? record.amount : -record.amount);
+    }, 0);
+    if (canPaySinglePayment(recorded, account.targetAmount, !!account.isDeleted)) {
+      setPayForm({ payee: '', reference: '', note: '' });
+      setError('');
+      setShowPayModal(true);
+    }
+
+    const next = new URLSearchParams(searchParams);
+    next.delete('pay');
+    setSearchParams(next, { replace: true });
+  }, [loading, account, transactions, searchParams, setSearchParams]);
 
   const getCurrentUserId = () => {
     return (user as any)?._id || (user as any)?.id || '';
@@ -218,25 +240,6 @@ const SharedAccountDetail: React.FC = () => {
       setError(err.response?.data?.message || 'Failed to reverse recorded contribution');
     } finally {
       setWithdrawSubmitting(false);
-    }
-  };
-
-  const fetchPersonalBalance = async () => {
-    try {
-      setLoadingPersonalBalance(true);
-      const personalRecordsResponse = await axios.get('/finance');
-      const personalRecords = personalRecordsResponse.data.filter((record: any) => !record.sharedAccount);
-      const personalIncome = personalRecords
-        .filter((record: any) => record.type === 'input')
-        .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
-      const personalExpenses = personalRecords
-        .filter((record: any) => record.type === 'output')
-        .reduce((sum: number, record: any) => sum + (record.amount || 0), 0);
-      setPersonalBalance(personalIncome - personalExpenses);
-    } catch {
-      setPersonalBalance(null);
-    } finally {
-      setLoadingPersonalBalance(false);
     }
   };
 
@@ -330,24 +333,34 @@ const SharedAccountDetail: React.FC = () => {
     }
   };
 
-  const handlePayClick = async () => {
+  const handlePayClick = () => {
+    if (!account) return;
+    const recorded = calculateBalance();
+    if (!canPaySinglePayment(recorded, account.targetAmount, !!account.isDeleted)) {
+      setError('Available once the contribution target is reached.');
+      return;
+    }
+    setPayForm({ payee: '', reference: '', note: '' });
     setError('');
     setShowPayModal(true);
-    await fetchPersonalBalance();
   };
 
   const handlePaySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!account || !accountId) return;
 
-    const balance = calculateBalance();
-    if (balance <= 0) {
-      setError('Nothing recorded to settle. The tracked total for this trip pot is £0.00 or less.');
+    const recorded = calculateBalance();
+    const amount = singlePaymentAmount(account.targetAmount);
+    if (
+      amount === null ||
+      !canPaySinglePayment(recorded, account.targetAmount, !!account.isDeleted)
+    ) {
+      setError('Available once the contribution target is reached.');
       return;
     }
 
-    if (personalBalance !== null && balance > personalBalance) {
-      setError('Your personal tracked total is lower than the amount to settle.');
+    if (!payForm.payee.trim()) {
+      setError('Enter a supplier / payee.');
       return;
     }
 
@@ -357,14 +370,17 @@ const SharedAccountDetail: React.FC = () => {
     try {
       await axios.post('/payment-requests', {
         sharedAccountId: accountId,
-        amount: balance,
-        description: `Settlement record for ${account.name}`
+        amount,
+        payee: payForm.payee.trim(),
+        reference: payForm.reference.trim(),
+        description: payForm.note.trim()
       });
       setShowPayModal(false);
+      setPayForm({ payee: '', reference: '', note: '' });
       await fetchAccountDetails();
-      alert('Settlement request created. All travellers will be notified and must approve before the ledger settlement is recorded. SHARE does not send bank payments.');
+      alert('Payment request created. Travellers must approve before it is recorded. SHARE does not send bank payments.');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create settlement request');
+      setError(err.response?.data?.message || 'Failed to create payment request');
     } finally {
       setPaySubmitting(false);
     }
@@ -376,7 +392,7 @@ const SharedAccountDetail: React.FC = () => {
       await axios.post(`/payment-requests/${requestId}/approve`);
       await fetchAccountDetails();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to approve settlement record');
+      setError(err.response?.data?.message || 'Failed to approve payment request');
     }
   };
 
@@ -386,7 +402,7 @@ const SharedAccountDetail: React.FC = () => {
       await axios.post(`/payment-requests/${requestId}/reject`);
       await fetchAccountDetails();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to reject settlement record');
+      setError(err.response?.data?.message || 'Failed to reject payment request');
     }
   };
 
@@ -396,7 +412,7 @@ const SharedAccountDetail: React.FC = () => {
       await axios.post(`/payment-requests/${requestId}/cancel`);
       await fetchAccountDetails();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to cancel settlement request');
+      setError(err.response?.data?.message || 'Failed to cancel payment request');
     }
   };
 
@@ -513,6 +529,8 @@ const SharedAccountDetail: React.FC = () => {
   const isArchived = !!account.isDeleted;
   const recordedTotal = calculateBalance();
   const hasTarget = !!(account.targetAmount && account.targetAmount > 0);
+  const paySinglePaymentReady = canPaySinglePayment(recordedTotal, account.targetAmount, isArchived);
+  const singlePaymentValue = singlePaymentAmount(account.targetAmount);
   const remainingToContribute = hasTarget
     ? Math.max(0, (account.targetAmount as number) - recordedTotal)
     : null;
@@ -577,6 +595,37 @@ const SharedAccountDetail: React.FC = () => {
       : 'Contribution target reached on the ledger. Review Trip Close-out, then close this pot when the group is finished. SHARE does not move money.';
   }
 
+  const paySinglePaymentControl = (statusId: string) => (
+    <span
+      className={`pay-single-payment-control ${paySinglePaymentReady ? 'is-ready' : 'is-incomplete'}`}
+      data-state={paySinglePaymentReady ? 'ready' : 'incomplete'}
+    >
+      <button
+        type="button"
+        className={`btn ${paySinglePaymentReady ? 'btn-success' : 'btn-danger'}`}
+        onClick={handlePayClick}
+        disabled={!paySinglePaymentReady}
+        title={paySinglePaymentReady ? 'Ready to pay' : 'Target not reached'}
+        aria-describedby={statusId}
+      >
+        Pay single payment
+      </button>
+      <span id={statusId} className="pay-single-payment-status">
+        {paySinglePaymentReady ? 'Ready to pay' : 'Target not reached'}
+      </span>
+    </span>
+  );
+
+  const payNowCta = paySinglePaymentReady ? (
+    <button
+      type="button"
+      className="btn btn-success pay-now-cta"
+      onClick={handlePayClick}
+    >
+      Pay now
+    </button>
+  ) : null;
+
   return (
     <div className="trip-money-detail">
       <div className="trip-money-detail-header">
@@ -612,7 +661,7 @@ const SharedAccountDetail: React.FC = () => {
         >
           <h2 className="card-title" style={{ marginBottom: '0.35rem' }}>This Trip Money is closed</h2>
           <p style={{ margin: 0, color: '#4a5568' }}>
-            Its recorded history is kept for reference. New contributions, invitations and settlement requests cannot be added.
+            Its recorded history is kept for reference. New contributions, invitations and payment requests cannot be added.
           </p>
         </div>
       )}
@@ -748,12 +797,11 @@ const SharedAccountDetail: React.FC = () => {
         <div className="trip-money-actions">
           {!isArchived && isCloseOutFocus && (
             <>
+              {payNowCta}
               <button type="button" className="btn btn-primary" onClick={scrollToCloseOut}>
                 Review Trip Close-out
               </button>
-              <button type="button" className="btn btn-secondary" onClick={handlePayClick}>
-                Request settlement record
-              </button>
+              {paySinglePaymentControl('pay-single-payment-status-hero')}
               {isOwner && (
                 <button type="button" className="btn btn-secondary" onClick={() => setShowArchiveModal(true)}>
                   Close Trip Money
@@ -790,9 +838,7 @@ const SharedAccountDetail: React.FC = () => {
                   View details
                 </button>
               )}
-              <button className="btn btn-secondary" onClick={handlePayClick}>
-                Request settlement record
-              </button>
+              {hasTarget && paySinglePaymentControl('pay-single-payment-status-collecting')}
             </>
           )}
           {isArchived && (
@@ -1143,15 +1189,15 @@ const SharedAccountDetail: React.FC = () => {
         )}
 
         <h3 style={{ margin: '1.25rem 0 0.5rem', fontSize: '1.05rem', color: '#2d3748' }}>
-          Settlement records
+          Payment requests
         </h3>
         <p style={{ color: '#4a5568', fontSize: '0.9rem', marginTop: 0 }}>
-          Optional. Settlement records document an agreed ledger adjustment in SHARE. They do not move money between bank accounts.
+          Optional. A payment request records the group’s proposed final payment in SHARE. It does not move money between bank accounts.
           You can close this Trip Money pot without creating one.
         </p>
         {pendingSettlementRequests.length === 0 ? (
           <p style={{ color: '#4a5568', fontSize: '0.95rem' }}>
-            No pending settlement records for this pot.
+            No pending payment requests for this pot.
           </p>
         ) : (
           <div className="trip-money-member-list">
@@ -1175,7 +1221,7 @@ const SharedAccountDetail: React.FC = () => {
                 <div key={req._id} className="trip-money-member-row">
                   <div className="trip-money-member-main">
                     <div>
-                      <strong>£{(req.amount || 0).toFixed(2)} settlement record</strong>
+                      <strong>£{(req.amount || 0).toFixed(2)} payment request</strong>
                       <div className="trip-money-member-meta">
                         Requested by{' '}
                         {req.requestedBy
@@ -1190,8 +1236,8 @@ const SharedAccountDetail: React.FC = () => {
                     </span>
                   </div>
                   <p style={{ margin: '0.35rem 0 0', fontSize: '0.85rem', color: '#4a5568' }}>
-                    Approvals: {req.approvals?.length || 0} / {req.requiredApprovals || 0}. Approving records a ledger
-                    settlement — SHARE does not send bank payments.
+                    Approvals: {req.approvals?.length || 0} / {req.requiredApprovals || 0}. Approving records the
+                    payment request — SHARE does not send bank payments.
                   </p>
                   {canAct && (
                     <div className="trip-money-actions" style={{ marginTop: '0.75rem' }}>
@@ -1200,14 +1246,14 @@ const SharedAccountDetail: React.FC = () => {
                         className="btn btn-success"
                         onClick={() => handleApproveSettlement(req._id)}
                       >
-                        Approve settlement record
+                        Approve payment request
                       </button>
                       <button
                         type="button"
                         className="btn btn-danger"
                         onClick={() => handleRejectSettlement(req._id)}
                       >
-                        Reject settlement record
+                        Reject payment request
                       </button>
                     </div>
                   )}
@@ -1218,18 +1264,18 @@ const SharedAccountDetail: React.FC = () => {
                         className="btn btn-secondary"
                         onClick={() => handleCancelSettlement(req._id)}
                       >
-                        Cancel settlement request
+                        Cancel payment request
                       </button>
                     </div>
                   )}
                   {hasApproved && (
                     <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: '#22543d' }}>
-                      You have approved this settlement request
+                      You have approved this payment request
                     </p>
                   )}
                   {hasRejected && (
                     <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: '#742a2a' }}>
-                      You have rejected this settlement request
+                      You have rejected this payment request
                     </p>
                   )}
                 </div>
@@ -1248,6 +1294,7 @@ const SharedAccountDetail: React.FC = () => {
               SHARE does not move or pay out money.
             </p>
             <div className="trip-money-actions">
+              {payNowCta}
               {isOwner ? (
                 <button type="button" className="btn btn-primary" onClick={() => setShowArchiveModal(true)}>
                   Close Trip Money
@@ -1257,9 +1304,7 @@ const SharedAccountDetail: React.FC = () => {
                   The organiser can close this Trip Money pot when the group has finished reviewing.
                 </p>
               )}
-              <button type="button" className="btn btn-secondary" onClick={handlePayClick}>
-                Request settlement record
-              </button>
+              {paySinglePaymentControl('pay-single-payment-status-closeout')}
               <button
                 type="button"
                 className="btn btn-secondary"
@@ -1615,20 +1660,20 @@ const SharedAccountDetail: React.FC = () => {
           alignItems: 'center',
           zIndex: 1000
         }}>
-          <div className="card" style={{ 
-            width: '90%', 
-            maxWidth: '520px', 
-            maxHeight: '90vh', 
+          <div className="card" style={{
+            width: '90%',
+            maxWidth: '520px',
+            maxHeight: '90vh',
             overflow: 'auto',
             position: 'relative'
           }}>
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              marginBottom: '1rem' 
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '1rem'
             }}>
-              <h2 style={{ margin: 0 }}>Request settlement record</h2>
+              <h2 style={{ margin: 0 }}>Pay single payment</h2>
               <button
                 onClick={() => setShowPayModal(false)}
                 style={{
@@ -1643,23 +1688,53 @@ const SharedAccountDetail: React.FC = () => {
               </button>
             </div>
 
-            <p style={{ color: '#4a5568', marginTop: 0 }}>
-              Settlement amount to record: <strong>£{calculateBalance().toFixed(2)}</strong>
-            </p>
+            <form onSubmit={handlePaySubmit}>
+            <div className="form-group">
+              <label className="form-label" htmlFor="single-payment-amount">Amount</label>
+              <input
+                id="single-payment-amount"
+                className="form-input"
+                value={singlePaymentValue !== null ? `£${singlePaymentValue.toFixed(2)}` : ''}
+                readOnly
+              />
+            </div>
 
-            {loadingPersonalBalance ? (
-              <p style={{ color: '#4a5568' }}>Loading personal tracked total...</p>
-            ) : personalBalance !== null ? (
-              <p style={{ color: '#4a5568' }}>
-                Personal tracked total: <strong>£{personalBalance.toFixed(2)}</strong>
-              </p>
-            ) : (
-              <p style={{ color: '#4a5568' }}>
-                Personal tracked total unavailable.
-              </p>
-            )}
-            <p style={{ color: '#4a5568', fontSize: '0.85rem' }}>
-              Group approval records this against the trip pot ledger. SHARE does not send a bank payment.
+            <div className="form-group">
+              <label className="form-label" htmlFor="single-payment-payee">Supplier / payee</label>
+              <input
+                id="single-payment-payee"
+                className="form-input"
+                value={payForm.payee}
+                onChange={(e) => setPayForm({ ...payForm, payee: e.target.value })}
+                required
+                placeholder="e.g. Hotel, airline, tour company"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="single-payment-reference">Reference</label>
+              <input
+                id="single-payment-reference"
+                className="form-input"
+                value={payForm.reference}
+                onChange={(e) => setPayForm({ ...payForm, reference: e.target.value })}
+                placeholder="e.g. booking or invoice number"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="single-payment-note">Note (optional)</label>
+              <input
+                id="single-payment-note"
+                className="form-input"
+                value={payForm.note}
+                onChange={(e) => setPayForm({ ...payForm, note: e.target.value })}
+                placeholder="Anything the group should remember"
+              />
+            </div>
+
+            <p style={{ color: '#718096', fontSize: '0.85rem' }}>
+              Prototype: this records the group’s proposed final payment. No money is transferred.
             </p>
 
             {error && (
@@ -1668,7 +1743,6 @@ const SharedAccountDetail: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={handlePaySubmit}>
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
                 <button
                   type="button"
@@ -1684,7 +1758,7 @@ const SharedAccountDetail: React.FC = () => {
                   disabled={paySubmitting}
                   style={{ flex: 1 }}
                 >
-                  {paySubmitting ? <span className="spinner"></span> : 'Request settlement record'}
+                  {paySubmitting ? <span className="spinner"></span> : 'Create payment request'}
                 </button>
               </div>
             </form>

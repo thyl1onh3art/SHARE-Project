@@ -169,7 +169,7 @@ const Navbar: React.FC = () => {
                     {link.to === '/shared-accounts' && settlementActionCount > 0 && (
                       <span
                         style={settlementBadgeStyle}
-                        aria-label={`${settlementActionCount} settlement records awaiting your review`}
+                        aria-label={`${settlementActionCount} payment requests awaiting your review`}
                       >
                         {settlementActionCount > 9 ? '9+' : settlementActionCount}
                       </span>
@@ -280,7 +280,7 @@ const Navbar: React.FC = () => {
               {link.to === '/shared-accounts' && settlementActionCount > 0 && (
                 <span
                   style={settlementBadgeStyle}
-                  aria-label={`${settlementActionCount} settlement records awaiting your review`}
+                  aria-label={`${settlementActionCount} payment requests awaiting your review`}
                 >
                   {settlementActionCount > 9 ? '9+' : settlementActionCount}
                 </span>

@@ -1694,12 +1694,44 @@ Branch is ready for a later GitHub push + PR into `main` when explicitly request
 
 **Kept:** auth, membership, archived read-only, contribution history, target progress, Task 3 remaining. Frontend still refuses contributions that would exceed the **group target** (existing rule; reported, not removed). Equal share is not a hard cap.
 
-**Deferred:** debit cards, saved payment methods, Stripe/PayPal/wallets. SHARE must never store PAN/CVV. Task 5 settlement “Pay single payment” not started.
+**Deferred:** debit cards, saved payment methods, Stripe/PayPal/wallets. SHARE must never store PAN/CVV.
 
 **Schema/data:** unchanged. Recovered Mongo data not modified.
 
 **Tests:** frontend 9 suites / 34 tests PASS (was 8/28). Frontend build PASS. `directContribution` 4/4; `tripEventLink` 6/6; `sharedAccountArchive` 19/19; `sharedAccountAccess` included in that 41/41 combined run. No new regressions. Legacy `sharedAccount.test.js` not run (known flaky; unchanged).
 
 **Activity history follow-up:** `GET /finance?sharedAccount=` now populates `user` (`firstName lastName email`). The detail page no longer calls non-existent `GET /users/:id` (that produced “Unknown User”). Activity rows use name, or email as fallback. Frontend still maps a string user id to pot owner/members if history is not populated.
+
+---
+
+## Task 5 — Pay single payment
+
+**Wording:** customer action **Request settlement record** → **Pay single payment**. Related copy uses payment request / payment approval / payment history. Internal model remains `PaymentRequest`.
+
+**Availability:** only when Trip Money is active and `recordedTotal >= targetAmount`. Below target: disabled button plus “Available once the contribution target is reached.” No target: hidden. Archived: hidden. Backend `POST /api/payment-requests` rejects below-target, no-target, and archived creates.
+
+**Amount:** always the contribution `targetAmount`, not a user-entered figure and not the current recorded total. Frontend posts that amount; backend rejects any other amount (pence-rounded). Above-target pots can still create a request, but the amount stays the target.
+
+**Form:** Amount (read-only), Supplier / payee, Reference, optional note. Primary action **Create payment request**. Disclaimer: “Prototype: this records the group’s proposed final payment. No money is transferred.” Payee/reference are stored in `description` (no schema change).
+
+**Personal Account:** removed from this flow. Detail page no longer fetches `/finance` personal records or blocks on personal tracked total.
+
+**Lifecycle unchanged:** statuses still pending / approved / rejected / executed / cancelled. Approve/reject/cancel rules unchanged. Duplicate-execution protection unchanged.
+
+**Execution-semantics conflict (reported, not changed):** when the last required approval is recorded, the server still writes a pot `FinanceRecord` `output` for the request amount and that reduces `recordedTotal`. That does not match the future “pay the supplier the full target and then close the pot” product vision. This task does not invent a new completion state or auto-archive.
+
+**Archive:** still read-only; payment requests cannot be created or mutated.
+
+**Not in this task:** real supplier payments, full extra approval UX beyond existing votes, auto close/archive (Task 6).
+
+**Files:** `paymentRequestController.js`, `SharedAccountDetail.tsx`, `SharedAccounts.tsx`, `Navbar.tsx`, `tripHome.ts`, focused tests, these notes.
+
+**Schema/data:** unchanged. Recovered Mongo data not modified.
+
+**Status colour polish:** below target the control is red/`btn-danger`, disabled, and labelled “Target not reached”. At/above target it is green/`btn-success`, enabled, and labelled “Ready to pay”. Colour is not the only cue.
+
+**Pay now CTA:** when the target is reached on an active pot, a prominent green **Pay now** button is the first action on the detail page and on matching `/shared-accounts` cards. List **Pay now** navigates to `/shared-accounts/:id?pay=now`, which opens the existing Pay single payment form (fixed target amount, payee, reference, prototype disclaimer). It does not execute a payment. Hidden below target, with no target, and when archived. Card click still opens the pot; Pay now uses stopPropagation.
+
+**Tests:** frontend 11 suites / 47 tests PASS (was 9/34). Frontend production build PASS. Combined backend `paymentRequestSettlement` + `directContribution` + `sharedAccountArchive` + `sharedAccountAccess`: 4 suites / 56 tests PASS (`paymentRequestSettlement` 21/21; `directContribution` 4/4; `sharedAccountArchive` 19/19; `sharedAccountAccess` 12/12). Legacy `sharedAccount.test.js` not run (known flaky; unchanged).
 
 
