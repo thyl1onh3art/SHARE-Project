@@ -56,7 +56,7 @@ describe('Invitations accept flow', () => {
     (mockedAxios.post as jest.Mock).mockResolvedValue({ data: {} });
   });
 
-  it('accepts an invitation and opens the linked Trip Money', async () => {
+  it('keeps /invitations and shows invitation actions under Notifications', async () => {
     render(
       <MemoryRouter initialEntries={['/invitations']}>
         <Routes>
@@ -66,7 +66,12 @@ describe('Invitations accept flow', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: /accept invitation/i }));
+    expect(await screen.findByRole('heading', { name: 'Notifications' })).toBeInTheDocument();
+    expect(screen.getByText('Shared Account invitations and updates')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /accept invitation/i })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Invitations' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /accept invitation/i }));
 
     await waitFor(() => {
       expect(mockedAxios.post).toHaveBeenCalledWith('/invites/accept', { inviteId: 'inv-1' });

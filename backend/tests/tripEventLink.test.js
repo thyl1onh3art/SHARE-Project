@@ -197,4 +197,94 @@ describe('Trip ↔ Trip Money link', () => {
       .set('Authorization', `Bearer ${ownerToken}`)
       .expect(200);
   });
+
+  it('creates a trip and linked Trip Money together', async () => {
+    const beforeEvents = await Event.countDocuments();
+    const beforePots = await SharedAccount.countDocuments();
+
+    const response = await request(app)
+      .post('/api/events/with-trip-money')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        title: 'Barcelona',
+        description: 'Friends trip',
+        eventDate: '2027-09-01',
+        eventTime: '10:00',
+        location: 'Barcelona',
+        category: 'holiday',
+        targetAmount: 1000
+      })
+      .expect(201);
+
+    expect(response.body.sharedAccount.name).toBe('Barcelona');
+    expect(response.body.sharedAccount.targetAmount).toBe(1000);
+    expect(String(response.body.sharedAccount.event)).toBe(String(response.body.event._id));
+    expect(response.body.event.tripMoney._id).toBe(String(response.body.sharedAccount._id));
+    expect(await Event.countDocuments()).toBe(beforeEvents + 1);
+    expect(await SharedAccount.countDocuments()).toBe(beforePots + 1);
+
+    const listed = await request(app)
+      .get('/api/events')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(200);
+
+    const created = listed.body.find((item) => item.title === 'Barcelona');
+    expect(created.tripMoney._id).toBe(String(response.body.sharedAccount._id));
+    expect(created.tripMoney.targetAmount).toBe(1000);
+  });
+
+  it('rejects a combined create with a £0 or missing target', async () => {
+    const beforeEvents = await Event.countDocuments();
+    await request(app)
+      .post('/api/events/with-trip-money')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        title: 'No target',
+        eventDate: '2027-09-01',
+        eventTime: '10:00',
+        targetAmount: 0
+      })
+      .expect(400);
+
+    await request(app)
+      .post('/api/events/with-trip-money')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        title: 'Missing target',
+        eventDate: '2027-09-01',
+        eventTime: '10:00'
+      })
+      .expect(400);
+
+    expect(await Event.countDocuments()).toBe(beforeEvents);
+    expect(await SharedAccount.countDocuments({ name: 'No target' })).toBe(0);
+  });
+
+  it('does not leave an Event if Trip Money creation fails', async () => {
+    const beforeEvents = await Event.countDocuments();
+    const saveSpy = jest.spyOn(SharedAccount.prototype, 'save').mockImplementationOnce(function failSave() {
+      return Promise.reject(new Error('simulated pot failure'));
+    });
+
+    try {
+      const response = await request(app)
+        .post('/api/events/with-trip-money')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          title: 'Rollback trip',
+          eventDate: '2027-09-01',
+          eventTime: '10:00',
+          targetAmount: 500
+        })
+        .expect(500);
+
+      expect(response.body.message).toMatch(/could not create trip money/i);
+      expect(response.body.message).not.toMatch(/mongo|objectid|simulated pot failure/i);
+      expect(await Event.countDocuments()).toBe(beforeEvents);
+      expect(await Event.findOne({ title: 'Rollback trip' })).toBeNull();
+      expect(await SharedAccount.countDocuments({ name: 'Rollback trip' })).toBe(0);
+    } finally {
+      saveSpy.mockRestore();
+    }
+  });
 });

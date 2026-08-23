@@ -26,16 +26,16 @@ describe('tripCountdownLabel', () => {
       .toBe('Today');
   });
 
-  it('shows Trip completed after the trip date', () => {
+  it('shows Completed after the date has passed', () => {
     expect(tripCountdownLabel('2026-08-01', '10:00', new Date('2026-08-22T12:00:00')))
-      .toBe('Trip completed');
+      .toBe('Completed');
   });
 });
 
 describe('tripMoneyPrimaryAction', () => {
   it('offers Set up Trip Money when no pot is linked', () => {
     const action = tripMoneyPrimaryAction('trip-1', 'Canada', null);
-    expect(action.label).toBe('Set up Trip Money');
+    expect(action.label).toBe('Set up Shared Account');
     expect(action.to).toContain('/shared-accounts?event=trip-1');
     expect(action.to).toContain('name=Canada');
   });
@@ -48,7 +48,7 @@ describe('tripMoneyPrimaryAction', () => {
       targetAmount: 2400,
       recordedTotal: 1800
     });
-    expect(action.label).toBe('Open Trip Money');
+    expect(action.label).toBe('Open Shared Account');
     expect(action.to).toBe('/shared-accounts/pot-1');
   });
 
@@ -59,7 +59,7 @@ describe('tripMoneyPrimaryAction', () => {
       targetAmount: 2400,
       recordedTotal: 2400
     });
-    expect(action.label).toBe('Review Trip Money');
+    expect(action.label).toBe('Review Shared Account');
   });
 
   it('offers View closed Trip Money for an archived pot', () => {
@@ -70,7 +70,7 @@ describe('tripMoneyPrimaryAction', () => {
       targetAmount: 2400,
       recordedTotal: 2400
     });
-    expect(action.label).toBe('View closed Trip Money');
+    expect(action.label).toBe('View closed Shared Account');
     expect(action.to).toBe('/shared-accounts/pot-1');
   });
 });

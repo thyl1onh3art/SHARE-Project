@@ -25,7 +25,7 @@ const InviteRecipientsForm: React.FC<InviteRecipientsFormProps> = ({
   recipients,
   onChange,
   title = 'Travellers to invite',
-  description = 'Pick SHARE friends for convenience, or enter another registered user’s email. Friendship alone does not grant Trip Money access.'
+  description = 'Pick SHARE friends for convenience, or enter another registered user’s email. Friendship alone does not grant Shared Account access.'
 }) => {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loadingFriends, setLoadingFriends] = useState(true);
@@ -176,7 +176,7 @@ const InviteRecipientsForm: React.FC<InviteRecipientsFormProps> = ({
       ))}
 
       <button type="button" className="btn btn-secondary" onClick={addRecipient} style={{ width: '100%' }}>
-        + Add another traveller
+        + Add another member
       </button>
     </div>
   );

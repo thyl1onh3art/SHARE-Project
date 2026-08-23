@@ -105,6 +105,7 @@ function renderDetail(initial = '/shared-accounts/pot-1') {
   return render(
     <MemoryRouter initialEntries={[initial]}>
       <Routes>
+        <Route path="/events" element={<div>Shared Accounts home</div>} />
         <Route path="/shared-accounts" element={<TripMoneyList />} />
         <Route path="/shared-accounts/:accountId" element={<SharedAccountDetail />} />
       </Routes>
@@ -156,13 +157,14 @@ describe('SharedAccountDetail payment completion', () => {
 
     renderDetail();
 
+    expect(await screen.findByRole('button', { name: /back to shared accounts/i })).toBeInTheDocument();
     expect(await screen.findByText('Example Hotel')).toBeInTheDocument();
     expect(screen.getByText(/reference:\s*ABC123/i)).toBeInTheDocument();
     expect(screen.getAllByText('Payment completed').length).toBeGreaterThan(0);
     expect(screen.getByText(/proposed by sam brown/i)).toBeInTheDocument();
     expect(screen.getByText('Prototype payment record — no real money was transferred.')).toBeInTheDocument();
 
-    const closeButtons = screen.getAllByRole('button', { name: /^close trip money$/i });
+    const closeButtons = screen.getAllByRole('button', { name: /^close shared account$/i });
     expect(closeButtons[0]).toHaveClass('btn-primary');
     expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
   });
@@ -181,15 +183,15 @@ describe('SharedAccountDetail payment completion', () => {
 
     renderDetail();
 
-    fireEvent.click((await screen.findAllByRole('button', { name: /^close trip money$/i }))[0]);
-    expect(await screen.findByRole('heading', { name: 'Close Trip Money?' })).toBeInTheDocument();
-    expect(screen.getByText(/move it to your archived trip money/i)).toBeInTheDocument();
+    fireEvent.click((await screen.findAllByRole('button', { name: /^close shared account$/i }))[0]);
+    expect(await screen.findByRole('heading', { name: 'Close Shared Account?' })).toBeInTheDocument();
+    expect(screen.getByText(/move it to your archived shared accounts/i)).toBeInTheDocument();
     expect(screen.getAllByText(/no money is moved by this action/i).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole('button', { name: /^keep open$/i }));
-    expect(screen.queryByRole('heading', { name: 'Close Trip Money?' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Close Shared Account?' })).not.toBeInTheDocument();
     expect(mockedAxios.delete).not.toHaveBeenCalled();
-    expect(screen.getAllByRole('button', { name: /^close trip money$/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: /^close shared account$/i }).length).toBeGreaterThan(0);
   });
 
   it('archives on Close Trip Money and returns to the list', async () => {
@@ -207,14 +209,14 @@ describe('SharedAccountDetail payment completion', () => {
 
     renderDetail();
 
-    fireEvent.click((await screen.findAllByRole('button', { name: /^close trip money$/i }))[0]);
-    const dialog = (await screen.findByRole('heading', { name: 'Close Trip Money?' })).closest('.card') as HTMLElement;
-    fireEvent.click(within(dialog).getByRole('button', { name: /^close trip money$/i }));
+    fireEvent.click((await screen.findAllByRole('button', { name: /^close shared account$/i }))[0]);
+    const dialog = (await screen.findByRole('heading', { name: 'Close Shared Account?' })).closest('.card') as HTMLElement;
+    fireEvent.click(within(dialog).getByRole('button', { name: /^close shared account$/i }));
 
     await waitFor(() => {
       expect(mockedAxios.delete).toHaveBeenCalledWith('/shared-accounts/pot-1');
     });
-    expect(await screen.findByText('Trip Money list archived=1')).toBeInTheDocument();
+    expect(await screen.findByText('Shared Accounts home')).toBeInTheDocument();
   });
 
   it('keeps contribution and payment history readable after close', async () => {
@@ -235,7 +237,7 @@ describe('SharedAccountDetail payment completion', () => {
 
     renderDetail();
 
-    expect(await screen.findByRole('heading', { name: /trip money closed/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /shared account closed/i })).toBeInTheDocument();
     expect(screen.getAllByText(/read-only history/i).length).toBeGreaterThan(0);
     expect(screen.getByRole('progressbar', { name: 'Contribution progress' })).toHaveAttribute('aria-valuenow', '100');
     expect(screen.getAllByText('Contributed').length).toBeGreaterThan(0);
@@ -245,7 +247,7 @@ describe('SharedAccountDetail payment completion', () => {
     expect(screen.getAllByText('Payment completed').length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^pay account$/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^close trip money$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^close shared account$/i })).not.toBeInTheDocument();
   });
 
   it('shows approval progress and actions for a required member', async () => {
@@ -268,7 +270,7 @@ describe('SharedAccountDetail payment completion', () => {
     expect(screen.getByRole('button', { name: /^approve payment$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^reject payment$/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^close trip money$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^close shared account$/i })).not.toBeInTheDocument();
   });
 
   it('lets the proposer cancel a pending payment request', async () => {

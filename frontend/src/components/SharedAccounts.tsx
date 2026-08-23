@@ -97,11 +97,11 @@ const SharedAccounts: React.FC = () => {
       setAccounts(response.data);
     } catch (err: any) {
       if (err.response?.status === 401) {
-        setError('Please log in to view trip money');
+        setError('Please log in to view shared accounts');
       } else if (err.response?.status === 403) {
         setError('Access denied. Please check your permissions.');
       } else {
-        setError(`Failed to load trip money: ${err.response?.data?.message || err.message}`);
+        setError(`Failed to load shared accounts: ${err.response?.data?.message || err.message}`);
       }
     } finally {
       setLoading(false);
@@ -197,7 +197,7 @@ const SharedAccounts: React.FC = () => {
     const targetDate = createForm.targetDate ? new Date(createForm.targetDate) : null;
 
     if (name.length < 2) {
-      setCreateError('Enter a Trip Money name (at least 2 characters).');
+      setCreateError('Enter an account name (at least 2 characters).');
       return;
     }
     if (!description) {
@@ -244,7 +244,7 @@ const SharedAccounts: React.FC = () => {
       const message =
         err.response?.data?.message ||
         err.response?.data?.errors?.map((item: any) => item.msg || item.message).filter(Boolean).join(', ') ||
-        'Could not set up Trip Money. Please check the details and try again.';
+        'Could not set up this Shared Account. Please check the details and try again.';
       setCreateError(message);
     } finally {
       setCreateSubmitting(false);
@@ -469,7 +469,7 @@ const SharedAccounts: React.FC = () => {
       setSelectedAccount(null);
       setError(''); // Clear any errors
       // Show success message
-      alert('Payment request created. Travellers must approve before it is recorded. SHARE does not send bank payments.');
+      alert('Payment request created. Members must approve before it is recorded. SHARE does not send bank payments.');
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to create payment request';
       setError(errorMessage);
@@ -548,7 +548,7 @@ const SharedAccounts: React.FC = () => {
         await fetchArchivedAccounts();
       }
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to archive Trip Money';
+      const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to archive Shared Account';
       setError(errorMessage);
     } finally {
       setDeleteSubmitting(false);
@@ -592,7 +592,7 @@ const SharedAccounts: React.FC = () => {
         setSelectedAccount(null);
       }
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to update Trip Money';
+      const errorMessage = err.response?.data?.message || 'Failed to update Shared Account';
       setError(errorMessage);
     } finally {
       setEditSubmitting(false);
@@ -661,7 +661,7 @@ const SharedAccounts: React.FC = () => {
     return (
       <div style={{ textAlign: 'center', padding: '2rem' }}>
         <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
-        <p style={{ marginTop: '1rem', color: '#4a5568' }}>Loading trip money...</p>
+        <p style={{ marginTop: '1rem', color: '#4a5568' }}>Loading shared accounts...</p>
       </div>
     );
   }
@@ -671,9 +671,9 @@ const SharedAccounts: React.FC = () => {
       <div className="card">
         <div className="card-header">
           <div>
-            <h1 className="card-title">Trip Money</h1>
+            <h1 className="card-title">Shared Accounts</h1>
             <p style={{ margin: '0.35rem 0 0', color: '#4a5568', fontSize: '0.95rem' }}>
-              Track what the group has contributed toward the trip.
+              Set up an account that is not yet on the main list.
             </p>
           </div>
         </div>
@@ -701,7 +701,7 @@ const SharedAccounts: React.FC = () => {
             style={{ padding: '8px 14px', fontSize: '0.85rem' }}
             onClick={() => openCreateModal()}
           >
-            Set up Trip Money
+            Set up Shared Account
           </button>
           <button
             type="button"
@@ -715,7 +715,7 @@ const SharedAccounts: React.FC = () => {
               }
             }}
           >
-            {showArchived ? 'Hide archived Trip Money' : 'Show archived Trip Money'}
+            {showArchived ? 'Hide archived Shared Accounts' : 'Show archived Shared Accounts'}
           </button>
         </div>
       </div>
@@ -770,7 +770,7 @@ const SharedAccounts: React.FC = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
                   <div>
                     <h3 style={{ margin: '0 0 0.5rem 0', color: '#2d3748' }}>
-                      Payment request for: {request.sharedAccount?.name || 'Unknown trip pot'}
+                      Payment request for: {request.sharedAccount?.name || 'Unknown Shared Account'}
                     </h3>
                     <p style={{ margin: '0.25rem 0', color: '#4a5568', fontSize: '0.9rem' }}>
                       <strong>Amount:</strong> £{request.amount?.toFixed(2)}
@@ -872,24 +872,24 @@ const SharedAccounts: React.FC = () => {
       {/* Accounts List */}
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <h2 style={{ margin: 0 }}>Your Trip Money</h2>
+          <h2 style={{ margin: 0 }}>Shared Accounts</h2>
           <button
             type="button"
             className="btn btn-primary"
             style={{ padding: '8px 14px', fontSize: '0.85rem' }}
             onClick={() => openCreateModal()}
           >
-            Set up Trip Money
+            Set up Shared Account
           </button>
         </div>
         
         {accounts.length === 0 ? (
           <div style={{ color: '#4a5568', textAlign: 'center', padding: '2rem' }}>
             <p style={{ marginTop: 0, fontSize: '1.05rem', fontWeight: 600, color: '#2d3748' }}>
-              No Trip Money yet
+              No shared accounts yet
             </p>
             <p style={{ marginTop: 0 }}>
-              Set up Trip Money for a hotel deposit, tickets, or group trip costs, then invite travellers.
+              Set up a Shared Account for a hotel deposit, tickets, birthday, or any group cost, then invite members.
             </p>
             <p style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>
               SHARE only records contributions here — it does not hold money in a bank account.
@@ -899,7 +899,7 @@ const SharedAccounts: React.FC = () => {
               className="btn btn-primary"
               onClick={() => openCreateModal()}
             >
-              Set up Trip Money
+              Set up Shared Account
             </button>
           </div>
         ) : (
@@ -1008,7 +1008,7 @@ const SharedAccounts: React.FC = () => {
                             {remaining !== null && remaining > 0.001 && (
                               <span>Still needed £{(remaining as number).toFixed(2)}</span>
                             )}
-                            <span>{participantCount} {participantCount === 1 ? 'traveller' : 'travellers'}</span>
+                            <span>{participantCount} {participantCount === 1 ? 'member' : 'members'}</span>
                             {hasPendingPayment && (
                               <span className="trip-money-pending-badge">Waiting for approval</span>
                             )}
@@ -1029,7 +1029,7 @@ const SharedAccounts: React.FC = () => {
                           </div>
                           <div>
                             <span style={{ fontSize: '0.9rem', color: '#4a5568', fontWeight: '500' }}>
-                              {participantCount} {participantCount === 1 ? 'traveller' : 'travellers'}
+                              {participantCount} {participantCount === 1 ? 'member' : 'members'}
                             </span>
                           </div>
                           {hasPendingPayment && (
@@ -1061,12 +1061,12 @@ const SharedAccounts: React.FC = () => {
 
       {showArchived && (
         <div className="card" style={{ marginTop: '1.5rem' }}>
-          <h2 style={{ marginTop: 0, marginBottom: '0.35rem' }}>Archived Trip Money</h2>
+          <h2 style={{ marginTop: 0, marginBottom: '0.35rem' }}>Archived Shared Accounts</h2>
           <p style={{ color: '#718096', fontSize: '0.9rem', marginTop: 0 }}>
             Kept for trip history. New contribution activity cannot be recorded on these pots.
           </p>
           {archivedAccounts.length === 0 ? (
-            <p style={{ color: '#718096' }}>No archived Trip Money pots.</p>
+            <p style={{ color: '#718096' }}>No archived Shared Accounts.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {archivedAccounts.map((account) => (
@@ -1266,7 +1266,7 @@ const SharedAccounts: React.FC = () => {
               marginBottom: '1rem'
             }}>
               <p style={{ color: '#92400e', fontSize: '0.9rem', margin: 0 }}>
-                <strong>How it works:</strong> This records a contribution against your personal tracked total and this trip pot. SHARE does not move bank funds.
+                <strong>How it works:</strong> This records a contribution against your personal tracked total and this Shared Account. SHARE does not move bank funds.
                 {selectedAccount.targetAmount && selectedAccount.targetAmount > 0 && (
                   <span> Contributions cannot exceed the target of £{selectedAccount.targetAmount.toFixed(2)}.</span>
                 )}
@@ -1295,7 +1295,7 @@ const SharedAccounts: React.FC = () => {
                   placeholder="0.00"
                 />
                 <p style={{ fontSize: '0.85rem', color: '#4a5568', marginTop: '0.25rem' }}>
-                  Enter how much to record from your personal tracked total toward this trip pot.
+                  Enter how much to record from your personal tracked total toward this Shared Account.
                   {personalBalance !== null && personalBalance > 0 && (
                     <span style={{ display: 'block', marginTop: '0.25rem', color: '#667eea', fontWeight: 'bold' }}>
                       Available in personal tracked total: £{personalBalance.toFixed(2)}
@@ -1388,7 +1388,7 @@ const SharedAccounts: React.FC = () => {
               alignItems: 'center',
               marginBottom: '1rem'
             }}>
-              <h2 style={{ margin: 0 }}>Set up Trip Money</h2>
+              <h2 style={{ margin: 0 }}>Set up Shared Account</h2>
               <button
                 type="button"
                 onClick={closeCreateModal}
@@ -1407,11 +1407,11 @@ const SharedAccounts: React.FC = () => {
             </div>
 
             <p style={{ color: '#4a5568', marginTop: 0, fontSize: '0.9rem' }}>
-              Create Trip Money for a hotel deposit, tickets, or group trip costs.
+              Create a Shared Account for a hotel deposit, tickets, birthday, or any group cost.
             </p>
             {createEventId && (
               <p style={{ color: '#2c5282', marginTop: 0, fontSize: '0.9rem' }}>
-                This Trip Money will be linked to this trip. You will return to the same pot from the trip next time.
+                This Shared Account will be linked and will open from the main list next time.
               </p>
             )}
 
@@ -1423,7 +1423,7 @@ const SharedAccounts: React.FC = () => {
 
             <form onSubmit={handleCreateAccount}>
               <div className="form-group">
-                <label className="form-label" htmlFor="trip-money-name">Trip Money name</label>
+                <label className="form-label" htmlFor="trip-money-name">Account name</label>
                 <input
                   id="trip-money-name"
                   type="text"
@@ -1432,7 +1432,7 @@ const SharedAccounts: React.FC = () => {
                   onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
                   required
                   maxLength={100}
-                  placeholder="e.g. Canada trip costs"
+                  placeholder="e.g. Barcelona Holiday, Sarah's 30th"
                   disabled={createSubmitting}
                 />
               </div>
@@ -1500,7 +1500,7 @@ const SharedAccounts: React.FC = () => {
                   style={{ flex: 1 }}
                   disabled={createSubmitting}
                 >
-                  {createSubmitting ? <span className="spinner"></span> : 'Create Trip Money'}
+                  {createSubmitting ? <span className="spinner"></span> : 'Create Shared Account'}
                 </button>
               </div>
             </form>
@@ -1535,7 +1535,7 @@ const SharedAccounts: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>View / edit Trip Money</h2>
+              <h2 style={{ margin: 0 }}>View / edit Shared Account</h2>
               <button
                 onClick={() => {
                   setShowEditModal(false);
@@ -1579,7 +1579,7 @@ const SharedAccounts: React.FC = () => {
                   color: '#4a5568', 
                   fontSize: '0.9rem'
                 }}>
-                  <strong>Travellers:</strong>{' '}
+                  <strong>Members:</strong>{' '}
                   <span style={{ color: '#2b6cb0' }}>
                     {getParticipantCount(selectedAccount)} {getParticipantCount(selectedAccount) === 1 ? 'person' : 'people'} (invited and accepted)
                   </span>
@@ -1644,7 +1644,7 @@ const SharedAccounts: React.FC = () => {
                           <strong>Total Needed:</strong> £{selectedAccount.targetAmount.toFixed(2)}
                         </p>
                         <p style={{ margin: '0.25rem 0' }}>
-                          <strong>Travellers:</strong> {participantCount}
+                          <strong>Members:</strong> {participantCount}
                         </p>
                         <p style={{ margin: '0.25rem 0', fontWeight: 'bold', color: '#78350f' }}>
                           <strong>Per Person:</strong> £{perPersonAmount.toFixed(2)}
@@ -1740,7 +1740,7 @@ const SharedAccounts: React.FC = () => {
                   placeholder="e.g., 100.00"
                 />
                 <p style={{ fontSize: '0.85rem', color: '#4a5568', marginTop: '0.25rem' }}>
-                  The contribution target for this trip pot.
+                  The contribution target for this Shared Account.
                 </p>
               </div>
 
@@ -1839,7 +1839,7 @@ const SharedAccounts: React.FC = () => {
               boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
             }}>
               <h3 style={{ margin: 0, fontSize: '0.9rem', opacity: 0.9, fontWeight: 'normal' }}>
-                Trip pot: {selectedAccount.name}
+                Shared Account: {selectedAccount.name}
               </h3>
               <p style={{ 
                 fontSize: '2rem', 
@@ -1935,7 +1935,7 @@ const SharedAccounts: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0, color: '#2b6cb0' }}>Archive Trip Money</h2>
+              <h2 style={{ margin: 0, color: '#2b6cb0' }}>Archive Shared Account</h2>
               <button
                 onClick={() => {
                   setShowDeleteModal(false);
@@ -1961,7 +1961,7 @@ const SharedAccounts: React.FC = () => {
               marginBottom: '1rem'
             }}>
               <p style={{ color: '#2c5282', fontSize: '1rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
-                Archive this Trip Money pot?
+                Archive this Shared Account?
               </p>
               <p style={{ color: '#2c5282', fontSize: '0.9rem', margin: 0 }}>
                 <strong>"{selectedAccount.name}"</strong> will leave your active list. Recorded history stays available as read-only. This does not move or delete real-world money.
@@ -1988,7 +1988,7 @@ const SharedAccounts: React.FC = () => {
                 disabled={deleteSubmitting}
                 style={{ flex: 1 }}
               >
-                {deleteSubmitting ? <span className="spinner"></span> : 'Archive Trip Money'}
+                {deleteSubmitting ? <span className="spinner"></span> : 'Archive Shared Account'}
               </button>
             </div>
           </div>

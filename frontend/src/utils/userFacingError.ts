@@ -22,8 +22,8 @@ export function userFacingError(err: unknown, fallback: string): string {
   }
 
   if (/shared account not found/i.test(message)) {
-    return 'This Trip Money could not be found.';
+    return 'This Shared Account could not be found.';
   }
 
-  return message.replace(/shared account/gi, 'Trip Money');
+  return message.replace(/trip money/gi, 'Shared Account');
 }

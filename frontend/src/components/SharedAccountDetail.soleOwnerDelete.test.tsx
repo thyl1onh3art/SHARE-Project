@@ -96,6 +96,7 @@ function renderDetail(initial = '/shared-accounts/pot-1') {
   return render(
     <MemoryRouter initialEntries={[initial]}>
       <Routes>
+        <Route path="/events" element={<div>Shared Accounts home</div>} />
         <Route path="/shared-accounts" element={<TripMoneyList />} />
         <Route path="/shared-accounts/:accountId" element={<SharedAccountDetail />} />
       </Routes>
@@ -118,10 +119,10 @@ describe('SharedAccountDetail sole-owner accidental delete', () => {
     mockAccountFetch(soleAccount);
 
     renderDetail();
-    await openHeaderRemoveModal(/^delete trip money$/i);
+    await openHeaderRemoveModal(/^delete shared account$/i);
 
-    const dialog = (await screen.findByRole('heading', { name: 'Delete Trip Money?' })).closest('.card') as HTMLElement;
-    fireEvent.click(within(dialog).getByRole('button', { name: /^delete trip money$/i }));
+    const dialog = (await screen.findByRole('heading', { name: 'Delete Shared Account?' })).closest('.card') as HTMLElement;
+    fireEvent.click(within(dialog).getByRole('button', { name: /^delete shared account$/i }));
 
     await waitFor(() => {
       expect(mockedAxios.delete).toHaveBeenCalledWith('/shared-accounts/pot-1');
@@ -131,18 +132,18 @@ describe('SharedAccountDetail sole-owner accidental delete', () => {
       expect.anything()
     );
     expect(mockedAxios.delete).not.toHaveBeenCalledWith('/shared-accounts/pot-1/permanent');
-    expect(await screen.findByText('Trip Money list archived=1')).toBeInTheDocument();
+    expect(await screen.findByText('Shared Accounts home')).toBeInTheDocument();
   });
 
   it('does not show a transfer-ownership requirement for a sole owner', async () => {
     mockAccountFetch(soleAccount);
 
     renderDetail();
-    await openHeaderRemoveModal(/^delete trip money$/i);
+    await openHeaderRemoveModal(/^delete shared account$/i);
 
-    expect(await screen.findByRole('heading', { name: 'Delete Trip Money?' })).toBeInTheDocument();
-    expect(screen.getByText(/you.?re the only traveller in this trip money/i)).toBeInTheDocument();
-    expect(screen.getByText(/archived trip money/i)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Delete Shared Account?' })).toBeInTheDocument();
+    expect(screen.getByText(/you.?re the only member in this shared account/i)).toBeInTheDocument();
+    expect(screen.getByText(/archived shared accounts/i)).toBeInTheDocument();
     expect(screen.getByText(/read-only/i)).toBeInTheDocument();
     expect(screen.queryByText(/cannot be undone/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/transfer ownership/i)).not.toBeInTheDocument();
@@ -158,14 +159,14 @@ describe('SharedAccountDetail sole-owner accidental delete', () => {
     });
 
     renderDetail();
-    await openHeaderRemoveModal(/^delete trip money$/i);
+    await openHeaderRemoveModal(/^delete shared account$/i);
 
-    expect(await screen.findByRole('heading', { name: 'Delete Trip Money?' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Delete Shared Account?' })).toBeInTheDocument();
     expect(screen.queryByLabelText(/new organiser/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/pending@example.com/i)).not.toBeInTheDocument();
 
-    const dialog = screen.getByRole('heading', { name: 'Delete Trip Money?' }).closest('.card') as HTMLElement;
-    fireEvent.click(within(dialog).getByRole('button', { name: /^delete trip money$/i }));
+    const dialog = screen.getByRole('heading', { name: 'Delete Shared Account?' }).closest('.card') as HTMLElement;
+    fireEvent.click(within(dialog).getByRole('button', { name: /^delete shared account$/i }));
 
     await waitFor(() => {
       expect(mockedAxios.delete).toHaveBeenCalledWith('/shared-accounts/pot-1');
@@ -183,16 +184,16 @@ describe('SharedAccountDetail sole-owner accidental delete', () => {
     });
 
     renderDetail();
-    await openHeaderRemoveModal(/^leave trip money$/i);
+    await openHeaderRemoveModal(/^leave shared account$/i);
 
-    expect(await screen.findByRole('heading', { name: 'Leave Trip Money' })).toBeInTheDocument();
-    expect(screen.getByText(/select a traveller to transfer organiser rights/i)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Leave Shared Account' })).toBeInTheDocument();
+    expect(screen.getByText(/select a member to transfer organiser rights/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/new organiser/i)).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /alex friend/i })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /^remove$/i }));
 
-    expect(await screen.findAllByText(/select a traveller to become organiser/i)).not.toHaveLength(0);
+    expect(await screen.findAllByText(/select a member to become organiser/i)).not.toHaveLength(0);
     expect(mockedAxios.post).not.toHaveBeenCalled();
     expect(mockedAxios.delete).not.toHaveBeenCalled();
   });
@@ -204,11 +205,11 @@ describe('SharedAccountDetail sole-owner accidental delete', () => {
     }, []);
 
     renderDetail();
-    await openHeaderRemoveModal(/^leave trip money$/i);
+    await openHeaderRemoveModal(/^leave shared account$/i);
 
-    expect(await screen.findByRole('heading', { name: 'Leave Trip Money' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Leave Shared Account' })).toBeInTheDocument();
     expect(screen.getByLabelText(/new organiser/i)).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Delete Trip Money?' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Delete Shared Account?' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^remove$/i })).toBeInTheDocument();
   });
 
@@ -240,12 +241,12 @@ describe('SharedAccountDetail sole-owner accidental delete', () => {
     renderDetail();
 
     expect(await screen.findAllByText('Payment completed')).not.toHaveLength(0);
-    const closeButtons = screen.getAllByRole('button', { name: /^close trip money$/i });
+    const closeButtons = screen.getAllByRole('button', { name: /^close shared account$/i });
     expect(closeButtons[0]).toHaveClass('btn-primary');
 
     fireEvent.click(closeButtons[0]);
-    const closeDialog = (await screen.findByRole('heading', { name: 'Close Trip Money?' })).closest('.card') as HTMLElement;
-    fireEvent.click(within(closeDialog).getByRole('button', { name: /^close trip money$/i }));
+    const closeDialog = (await screen.findByRole('heading', { name: 'Close Shared Account?' })).closest('.card') as HTMLElement;
+    fireEvent.click(within(closeDialog).getByRole('button', { name: /^close shared account$/i }));
 
     await waitFor(() => {
       expect(mockedAxios.delete).toHaveBeenCalledWith('/shared-accounts/pot-1');
@@ -255,17 +256,17 @@ describe('SharedAccountDetail sole-owner accidental delete', () => {
       expect.stringContaining('/transfer-ownership'),
       expect.anything()
     );
-    expect(await screen.findByText('Trip Money list archived=1')).toBeInTheDocument();
+    expect(await screen.findByText('Shared Accounts home')).toBeInTheDocument();
   });
 
   it('does not use permanent delete for an active sole-owner pot', async () => {
     mockAccountFetch(soleAccount);
 
     renderDetail();
-    await openHeaderRemoveModal(/^delete trip money$/i);
+    await openHeaderRemoveModal(/^delete shared account$/i);
 
-    const dialog = (await screen.findByRole('heading', { name: 'Delete Trip Money?' })).closest('.card') as HTMLElement;
-    fireEvent.click(within(dialog).getByRole('button', { name: /^delete trip money$/i }));
+    const dialog = (await screen.findByRole('heading', { name: 'Delete Shared Account?' })).closest('.card') as HTMLElement;
+    fireEvent.click(within(dialog).getByRole('button', { name: /^delete shared account$/i }));
 
     await waitFor(() => {
       expect(mockedAxios.delete).toHaveBeenCalledWith('/shared-accounts/pot-1');

@@ -82,14 +82,12 @@ const PersonalFinance: React.FC = () => {
             </p>
             <h1 className="card-title" style={{ marginBottom: '0.35rem' }}>Personal tracking</h1>
             <p style={{ margin: 0, color: '#4a5568', fontSize: '0.95rem' }}>
-              Optional notes of your own recorded activity. SHARE’s main journey is Trips, Trip Money, and Invitations — not personal banking.
+              Optional notes of your own recorded activity. SHARE’s main journey is Shared Accounts — not personal banking.
             </p>
             <p style={{ margin: '0.65rem 0 0', fontSize: '0.9rem' }}>
-              <Link to="/events" style={{ color: '#2b6cb0' }}>Trips</Link>
+              <Link to="/events" style={{ color: '#2b6cb0' }}>Shared Accounts</Link>
               {' · '}
-              <Link to="/shared-accounts" style={{ color: '#2b6cb0' }}>Trip Money</Link>
-              {' · '}
-              <Link to="/invitations" style={{ color: '#2b6cb0' }}>Invitations</Link>
+              <Link to="/invitations" style={{ color: '#2b6cb0' }}>Notifications</Link>
             </p>
           </div>
         </div>
@@ -136,13 +134,13 @@ const PersonalFinance: React.FC = () => {
       <div className="card">
         <h2 style={{ marginBottom: '1rem' }}>Personal activity</h2>
         <p style={{ color: '#4a5568', fontSize: '0.85rem', marginBottom: '1rem' }}>
-          Showing {records.length} personal record{records.length !== 1 ? 's' : ''} (excludes Trip Money group entries).
+          Showing {records.length} personal record{records.length !== 1 ? 's' : ''} (excludes Shared Account group entries).
         </p>
         
         {records.length === 0 ? (
           <p style={{ color: '#4a5568', textAlign: 'center', padding: '2rem' }}>
-            No personal activity recorded yet. For group trip costs, use{' '}
-            <Link to="/shared-accounts">Trip Money</Link>.
+            No personal activity recorded yet. For group costs, use{' '}
+            <Link to="/events">Shared Accounts</Link>.
           </p>
         ) : (
           <div className="list">

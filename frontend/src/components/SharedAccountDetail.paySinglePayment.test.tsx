@@ -268,7 +268,7 @@ describe('SharedAccountDetail final payment', () => {
 
     renderDetail();
 
-    expect(await screen.findByRole('heading', { name: /trip money closed/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /shared account closed/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /pay single payment/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
   });

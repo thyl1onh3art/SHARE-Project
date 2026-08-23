@@ -4,18 +4,17 @@ import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 
 const primaryLinks = [
-  { to: '/events', label: 'Trips' },
-  { to: '/shared-accounts', label: 'Trip Money' },
-  { to: '/invitations', label: 'Invitations' },
+  { to: '/events', label: 'Shared Accounts' },
+  { to: '/invitations', label: 'Notifications' },
 ];
 
 const moreLinks = [
   { to: '/friends', label: 'Friends' },
   { to: '/personal-finance', label: 'Personal tracking' },
   { to: '/financial-records', label: 'Activity history' },
-  { to: '/calendar', label: 'Trip calendar' },
-  { to: '/gallery', label: 'Trip photos' },
-  { to: '/map', label: 'Trip map' },
+  { to: '/calendar', label: 'Calendar' },
+  { to: '/gallery', label: 'Photos' },
+  { to: '/map', label: 'Map' },
   { to: '/accommodations', label: 'Places to stay' },
 ];
 
@@ -155,7 +154,12 @@ const Navbar: React.FC = () => {
   return (
     <nav className="share-nav">
       <div className="share-nav-inner">
-        <Link to="/" className="share-nav-brand" onClick={closeAllMenus}>
+        <Link
+          to="/"
+          className="share-nav-brand"
+          aria-label="SHARE — Home"
+          onClick={closeAllMenus}
+        >
           SHARE
         </Link>
 
@@ -166,7 +170,7 @@ const Navbar: React.FC = () => {
                 {primaryLinks.map((link) => (
                   <Link key={link.to} to={link.to} className="share-nav-link">
                     {link.label}
-                    {link.to === '/shared-accounts' && settlementActionCount > 0 && (
+                    {link.to === '/events' && settlementActionCount > 0 && (
                       <span
                         style={settlementBadgeStyle}
                         aria-label={`${settlementActionCount} payment requests awaiting your review`}
@@ -177,7 +181,7 @@ const Navbar: React.FC = () => {
                     {link.to === '/invitations' && invitationUnreadCount > 0 && (
                       <span
                         style={invitationBadgeStyle}
-                        aria-label={`${invitationUnreadCount} unread trip invitations`}
+                        aria-label={`${invitationUnreadCount} unread invitations`}
                       >
                         {invitationUnreadCount > 9 ? '9+' : invitationUnreadCount}
                       </span>
@@ -277,7 +281,7 @@ const Navbar: React.FC = () => {
               onClick={closeAllMenus}
             >
               {link.label}
-              {link.to === '/shared-accounts' && settlementActionCount > 0 && (
+              {link.to === '/events' && settlementActionCount > 0 && (
                 <span
                   style={settlementBadgeStyle}
                   aria-label={`${settlementActionCount} payment requests awaiting your review`}
@@ -288,7 +292,7 @@ const Navbar: React.FC = () => {
               {link.to === '/invitations' && invitationUnreadCount > 0 && (
                 <span
                   style={invitationBadgeStyle}
-                  aria-label={`${invitationUnreadCount} unread trip invitations`}
+                  aria-label={`${invitationUnreadCount} unread invitations`}
                 >
                   {invitationUnreadCount > 9 ? '9+' : invitationUnreadCount}
                 </span>

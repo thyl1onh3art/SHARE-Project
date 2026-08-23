@@ -168,7 +168,7 @@ const Register: React.FC = () => {
         <div className="card-header">
           <h2 className="card-title">Join SHARE</h2>
           <p style={{ margin: '0.35rem 0 0', color: '#4a5568', fontSize: '0.9rem' }}>
-            Organise group trips, invite travellers, and coordinate shared costs.
+            Create Shared Accounts, invite members, and coordinate shared costs.
           </p>
         </div>
         

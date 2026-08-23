@@ -7,6 +7,9 @@ const { asyncHandler } = require('../middleware/errorHandler');
 // Create a new event
 router.post('/', auth, asyncHandler(eventController.createEvent));
 
+// Create a trip together with linked Trip Money
+router.post('/with-trip-money', auth, asyncHandler(eventController.createEventWithTripMoney));
+
 // Get all events for the user
 router.get('/', auth, asyncHandler(eventController.getUserEvents));
 

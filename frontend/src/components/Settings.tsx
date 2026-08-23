@@ -191,8 +191,8 @@ const Settings: React.FC = () => {
               </p>
               <ul style={{ color: '#c53030', margin: '0.5rem 0 0 1rem' }}>
                 <li>Your profile information</li>
-                <li>Trip Money and personal activity records</li>
-                <li>Trip Money memberships</li>
+                <li>Shared Account and personal activity records</li>
+                <li>Shared Account memberships</li>
                 <li>Invitations and notifications</li>
               </ul>
             </div>

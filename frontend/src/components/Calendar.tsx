@@ -241,7 +241,7 @@ const Calendar: React.FC = () => {
           </div>
           <div>
             {dayEvents.length === 0 ? (
-              <p style={{ color: '#a0aec0', fontSize: '0.85rem' }}>No trips</p>
+              <p style={{ color: '#a0aec0', fontSize: '0.85rem' }}>None</p>
             ) : (
               dayEvents.map((event) => (
                 <div
@@ -292,7 +292,7 @@ const Calendar: React.FC = () => {
           {isToday && <span style={{ color: '#0284c7', marginLeft: '0.5rem' }}>(Today)</span>}
         </h2>
         {dayEvents.length === 0 ? (
-          <p style={{ color: '#a0aec0' }}>No trips scheduled for this day</p>
+          <p style={{ color: '#a0aec0' }}>Nothing scheduled for this day</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {dayEvents.map((event) => (
@@ -354,16 +354,14 @@ const Calendar: React.FC = () => {
             <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#718096' }}>
               Secondary · More menu
             </p>
-            <h1 className="card-title" style={{ marginBottom: '0.35rem' }}>Trip calendar</h1>
+            <h1 className="card-title" style={{ marginBottom: '0.35rem' }}>Calendar</h1>
             <p style={{ margin: 0, color: '#4a5568', fontSize: '0.95rem' }}>
-              See trip dates and group plans at a glance. Organise the trip itself from Trips; coordinate costs in Trip Money.
+              See Shared Account dates and group plans at a glance.
             </p>
             <p style={{ margin: '0.65rem 0 0', fontSize: '0.9rem' }}>
-              <Link to="/events" style={{ color: '#2b6cb0' }}>Trips</Link>
+              <Link to="/events" style={{ color: '#2b6cb0' }}>Shared Accounts</Link>
               {' · '}
-              <Link to="/shared-accounts" style={{ color: '#2b6cb0' }}>Trip Money</Link>
-              {' · '}
-              <Link to="/invitations" style={{ color: '#2b6cb0' }}>Invitations</Link>
+              <Link to="/invitations" style={{ color: '#2b6cb0' }}>Notifications</Link>
             </p>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -379,7 +377,7 @@ const Calendar: React.FC = () => {
               className="btn btn-primary"
               style={{ padding: '8px 16px', fontSize: '14px' }}
             >
-              Trip countdown
+              Countdown
             </button>
           </div>
         </div>

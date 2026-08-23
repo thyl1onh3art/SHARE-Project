@@ -148,7 +148,7 @@ const SharedAccountDetail: React.FC = () => {
         setPendingSettlementRequests([]);
       }
     } catch (err: any) {
-      setError(userFacingError(err, 'Failed to load Trip Money'));
+      setError(userFacingError(err, 'Failed to load Shared Account'));
     } finally {
       setLoading(false);
     }
@@ -343,9 +343,9 @@ const SharedAccountDetail: React.FC = () => {
       !canPaySinglePayment(recorded, account.targetAmount, !!account.isDeleted)
     ) {
       setError(completed
-        ? 'A final payment has already been completed for this Trip Money pot.'
+        ? 'A final payment has already been completed for this Shared Account.'
         : pending
-          ? 'There is already a pending payment request for this Trip Money pot.'
+          ? 'There is already a pending payment request for this Shared Account.'
           : 'Available once the target is reached.');
       return;
     }
@@ -369,9 +369,9 @@ const SharedAccountDetail: React.FC = () => {
       !canPaySinglePayment(recorded, account.targetAmount, !!account.isDeleted)
     ) {
       setError(completed
-        ? 'A final payment has already been completed for this Trip Money pot.'
+        ? 'A final payment has already been completed for this Shared Account.'
         : pending
-          ? 'There is already a pending payment request for this Trip Money pot.'
+          ? 'There is already a pending payment request for this Shared Account.'
           : 'Available once the target is reached.');
       return;
     }
@@ -459,9 +459,9 @@ const SharedAccountDetail: React.FC = () => {
       try {
         await axios.delete(`/shared-accounts/${accountId}`);
         setShowRemoveModal(false);
-        navigate('/shared-accounts?archived=1');
+        navigate('/events');
       } catch (err: any) {
-        setError(userFacingError(err, 'Failed to delete Trip Money'));
+        setError(userFacingError(err, 'Failed to delete Shared Account'));
       } finally {
         setRemoveSubmitting(false);
       }
@@ -469,7 +469,7 @@ const SharedAccountDetail: React.FC = () => {
     }
 
     if (isOwner && !newOwnerId) {
-      setError('Please select a traveller to become organiser before you leave.');
+      setError('Please select a member to become organiser before you leave.');
       return;
     }
 
@@ -488,9 +488,9 @@ const SharedAccountDetail: React.FC = () => {
           memberId: currentUserId
         });
       }
-      navigate('/shared-accounts');
+      navigate('/events');
     } catch (err: any) {
-      setError(userFacingError(err, 'Failed to leave Trip Money'));
+      setError(userFacingError(err, 'Failed to leave Shared Account'));
     } finally {
       setRemoveSubmitting(false);
     }
@@ -503,9 +503,9 @@ const SharedAccountDetail: React.FC = () => {
     try {
       await axios.delete(`/shared-accounts/${accountId}`);
       setShowArchiveModal(false);
-      navigate('/shared-accounts?archived=1');
+      navigate('/events');
     } catch (err: any) {
-      setError(userFacingError(err, 'Failed to archive Trip Money'));
+      setError(userFacingError(err, 'Failed to archive Shared Account'));
     } finally {
       setArchiveSubmitting(false);
     }
@@ -518,9 +518,9 @@ const SharedAccountDetail: React.FC = () => {
     try {
       await axios.delete(`/shared-accounts/${accountId}/permanent`);
       setShowPermanentDeleteModal(false);
-      navigate('/shared-accounts');
+      navigate('/events');
     } catch (err: any) {
-      setError(userFacingError(err, 'Failed to permanently delete Trip Money'));
+      setError(userFacingError(err, 'Failed to permanently delete Shared Account'));
     } finally {
       setPermanentDeleteSubmitting(false);
     }
@@ -528,7 +528,7 @@ const SharedAccountDetail: React.FC = () => {
 
   const handleTransferOrganiserRole = async () => {
     if (!accountId || !organiserTransferId || organiserTransferSubmitting) {
-      setError('Select a traveller to make organiser.');
+      setError('Select a member to make organiser.');
       return;
     }
     setOrganiserTransferSubmitting(true);
@@ -560,8 +560,8 @@ const SharedAccountDetail: React.FC = () => {
     return (
       <div className="card">
         <p style={{ color: '#e53e3e' }}>{error || 'Account not found'}</p>
-        <button className="btn btn-secondary" onClick={() => navigate('/shared-accounts')}>
-          Back to Trip Money
+        <button className="btn btn-secondary" onClick={() => navigate('/events')}>
+          Back to Shared Accounts
         </button>
       </div>
     );
@@ -630,7 +630,7 @@ const SharedAccountDetail: React.FC = () => {
               lastName: req.requestedBy.lastName,
               email: req.requestedBy.email
             })
-          : 'a traveller';
+          : 'a member';
         const approvalProgress = paymentApprovalProgress(req);
         const statusLabel = paymentRequestStatusLabel(req.status);
         const completed = isCompletedPaymentStatus(req.status);
@@ -726,14 +726,14 @@ const SharedAccountDetail: React.FC = () => {
   return (
     <div className="trip-money-detail">
       <div className="trip-money-detail-header">
-        <button className="btn btn-secondary" onClick={() => navigate('/shared-accounts')}>
-          ← Back to Trip Money
+        <button className="btn btn-secondary" onClick={() => navigate('/events')}>
+          ← Back to Shared Accounts
         </button>
         {!isArchived && (
           <button
             onClick={() => setShowRemoveModal(true)}
-            aria-label={isSoleOwner ? 'Delete Trip Money' : 'Leave Trip Money'}
-            title={isSoleOwner ? 'Delete Trip Money' : 'Leave Trip Money'}
+            aria-label={isSoleOwner ? 'Delete Shared Account' : 'Leave Shared Account'}
+            title={isSoleOwner ? 'Delete Shared Account' : 'Leave Shared Account'}
             className="trip-money-remove-btn"
           >
             ×
@@ -770,7 +770,7 @@ const SharedAccountDetail: React.FC = () => {
             border: '1px solid #cbd5e0'
           }}
         >
-          <h2 className="card-title" style={{ marginBottom: '0.35rem' }}>Trip Money closed</h2>
+          <h2 className="card-title" style={{ marginBottom: '0.35rem' }}>Shared Account closed</h2>
           <p style={{ margin: 0, color: '#4a5568' }}>
             Read-only history
           </p>
@@ -784,7 +784,7 @@ const SharedAccountDetail: React.FC = () => {
           <p className="trip-money-purpose">{account.description}</p>
         ) : (
           <p className="trip-money-purpose trip-money-empty-hint">
-            Add a short note about what this Trip Money is for, such as a hotel deposit.
+            Add a short note about what this Shared Account is for.
           </p>
         )}
 
@@ -828,7 +828,7 @@ const SharedAccountDetail: React.FC = () => {
                 </div>
               )}
               <div>
-                <p className="trip-money-stat-label">Travellers</p>
+                <p className="trip-money-stat-label">Members</p>
                 <p className="trip-money-stat-value">{allParticipants.length}</p>
               </div>
             </div>
@@ -877,7 +877,7 @@ const SharedAccountDetail: React.FC = () => {
             <>
               {isOwner && (
                 <button type="button" className="btn btn-primary" onClick={() => setShowArchiveModal(true)}>
-                  Close Trip Money
+                  Close Shared Account
                 </button>
               )}
               <button
@@ -927,7 +927,7 @@ const SharedAccountDetail: React.FC = () => {
                 className="btn btn-secondary"
                 onClick={() => navigate(`/invitations?account=${account._id}`)}
               >
-                Invite traveller
+                Invite member
               </button>
               {isOwner && (
                 <button className="btn btn-secondary" onClick={handleEditClick}>
@@ -988,7 +988,7 @@ const SharedAccountDetail: React.FC = () => {
                 className="btn btn-secondary"
                 onClick={() => navigate(`/invitations?account=${account._id}`)}
               >
-                Invite traveller
+                Invite member
               </button>
               {isOwner && (
                 <button type="button" className="btn btn-secondary" onClick={handleEditClick}>
@@ -1007,7 +1007,7 @@ const SharedAccountDetail: React.FC = () => {
               )}
               {isOwner && !hasCompletedFinalPayment && (
                 <button type="button" className="btn btn-secondary" onClick={() => setShowArchiveModal(true)}>
-                  Archive Trip Money
+                  Archive Shared Account
                 </button>
               )}
             </div>
@@ -1021,7 +1021,7 @@ const SharedAccountDetail: React.FC = () => {
         <h2 className="card-title">Who has contributed</h2>
         {allParticipants.length <= 1 ? (
           <div className="trip-money-empty-panel">
-            <p className="trip-money-empty-title">No other travellers yet</p>
+            <p className="trip-money-empty-title">No other members yet</p>
             <p>Invite friends so everyone can contribute.</p>
           </div>
         ) : (
@@ -1140,7 +1140,7 @@ const SharedAccountDetail: React.FC = () => {
           <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#718096' }}>
             Organiser actions
           </p>
-          <h2 className="card-title" style={{ marginBottom: '0.35rem' }}>Trip Money settings</h2>
+          <h2 className="card-title" style={{ marginBottom: '0.35rem' }}>Shared Account settings</h2>
           <p style={{ color: '#718096', fontSize: '0.9rem', marginTop: 0 }}>
             Administration only. Delete permanently is not the usual close.
           </p>
@@ -1159,7 +1159,7 @@ const SharedAccountDetail: React.FC = () => {
             )}
             {!isArchived && !hasCompletedFinalPayment && (
               <button type="button" className="btn btn-secondary" onClick={() => setShowArchiveModal(true)}>
-                Archive Trip Money
+                Archive Shared Account
               </button>
             )}
             {isArchived && (
@@ -1175,7 +1175,7 @@ const SharedAccountDetail: React.FC = () => {
           </div>
           {!isArchived && !hasCompletedFinalPayment && (
             <p style={{ margin: '0.65rem 0 0', fontSize: '0.85rem', color: '#718096' }}>
-              Archive Trip Money is an admin action, not the usual next step.
+              Archive Shared Account is an admin action, not the usual next step.
             </p>
           )}
           {!isArchived && isCloseOutFocus && account.members.length > 0 && (
@@ -1568,7 +1568,7 @@ const SharedAccountDetail: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>{isSoleOwner ? 'Delete Trip Money?' : 'Leave Trip Money'}</h2>
+              <h2 style={{ margin: 0 }}>{isSoleOwner ? 'Delete Shared Account?' : 'Leave Shared Account'}</h2>
               <button
                 onClick={() => setShowRemoveModal(false)}
                 style={{
@@ -1586,19 +1586,19 @@ const SharedAccountDetail: React.FC = () => {
             {isSoleOwner ? (
               <>
                 <p style={{ color: '#4a5568', marginTop: 0 }}>
-                  You’re the only traveller in this Trip Money.
+                  You’re the only member in this Shared Account.
                 </p>
                 <p style={{ color: '#4a5568' }}>
-                  This will close it and move it to Archived Trip Money. History stays available as read-only. No money is moved.
+                  This will close it and move it to Archived Shared Accounts. History stays available as read-only. No money is moved.
                 </p>
               </>
             ) : isOwner ? (
               <p style={{ color: '#4a5568', marginTop: 0 }}>
-                You are the creator. Select a traveller to transfer organiser rights before you leave.
+                You are the creator. Select a member to transfer organiser rights before you leave.
               </p>
             ) : (
               <p style={{ color: '#4a5568', marginTop: 0 }}>
-                This will remove you from this Trip Money.
+                This will remove you from this Shared Account.
               </p>
             )}
 
@@ -1612,7 +1612,7 @@ const SharedAccountDetail: React.FC = () => {
                   onChange={(e) => setNewOwnerId(e.target.value)}
                   required
                 >
-                  <option value="">Select traveller</option>
+                  <option value="">Select member</option>
                   {account.members.map((member) => (
                     <option key={member._id} value={member._id}>
                       {member.firstName} {member.lastName} ({member.email})
@@ -1644,7 +1644,7 @@ const SharedAccountDetail: React.FC = () => {
                 disabled={removeSubmitting}
                 style={{ flex: 1 }}
               >
-                {removeSubmitting ? <span className="spinner"></span> : isSoleOwner ? 'Delete Trip Money' : 'Remove'}
+                {removeSubmitting ? <span className="spinner"></span> : isSoleOwner ? 'Delete Shared Account' : 'Remove'}
               </button>
             </div>
           </div>
@@ -1789,7 +1789,7 @@ const SharedAccountDetail: React.FC = () => {
           <div className="card" style={{ width: '90%', maxWidth: '480px' }}>
             <h2 style={{ marginTop: 0 }}>Transfer organiser role</h2>
             <p style={{ color: '#4a5568', fontSize: '0.9rem' }}>
-              Choose a current traveller to become organiser. This transfers administration only — not money.
+              Choose a current member to become organiser. This transfers administration only — not money.
             </p>
             <div className="form-group">
               <label className="form-label">Make organiser</label>
@@ -1798,7 +1798,7 @@ const SharedAccountDetail: React.FC = () => {
                 value={organiserTransferId}
                 onChange={(e) => setOrganiserTransferId(e.target.value)}
               >
-                <option value="">Select traveller</option>
+                <option value="">Select member</option>
                 {account.members.map((member) => (
                   <option key={member._id} value={member._id}>
                     {member.firstName} {member.lastName} ({member.email})
@@ -1831,14 +1831,14 @@ const SharedAccountDetail: React.FC = () => {
           justifyContent: 'center', alignItems: 'center', zIndex: 1000
         }}>
           <div className="card" style={{ width: '90%', maxWidth: '480px' }}>
-            <h2 style={{ marginTop: 0 }}>{hasCompletedFinalPayment ? 'Close Trip Money?' : 'Archive Trip Money?'}</h2>
+            <h2 style={{ marginTop: 0 }}>{hasCompletedFinalPayment ? 'Close Shared Account?' : 'Archive Shared Account?'}</h2>
             {hasCompletedFinalPayment ? (
               <>
                 <p style={{ color: '#4a5568' }}>
-                  This will close this Trip Money and move it to your archived Trip Money.
+                  This will close this Shared Account and move it to your archived Shared Accounts.
                 </p>
                 <p style={{ color: '#4a5568' }}>
-                  The contribution history, payment record, and traveller history will remain available as read-only records.
+                  The contribution history, payment record, and member history will remain available as read-only records.
                 </p>
                 <p style={{ color: '#4a5568' }}>
                   No money is moved by this action.
@@ -1847,10 +1847,10 @@ const SharedAccountDetail: React.FC = () => {
             ) : (
               <>
                 <p style={{ color: '#4a5568' }}>
-                  This will close this Trip Money before a final payment is completed and move it to your archived Trip Money.
+                  This will close this Shared Account before a final payment is completed and move it to your archived Shared Accounts.
                 </p>
                 <p style={{ color: '#4a5568' }}>
-                  The contribution history and traveller history will remain available as read-only records.
+                  The contribution history and member history will remain available as read-only records.
                 </p>
                 <p style={{ color: '#4a5568' }}>
                   No money is moved by this action.
@@ -1862,7 +1862,7 @@ const SharedAccountDetail: React.FC = () => {
                 Keep open
               </button>
               <button type="button" className="btn btn-primary" style={{ flex: 1, minWidth: '8rem' }} onClick={handleArchiveTripMoney} disabled={archiveSubmitting}>
-                {archiveSubmitting ? <span className="spinner"></span> : hasCompletedFinalPayment ? 'Close Trip Money' : 'Archive Trip Money'}
+                {archiveSubmitting ? <span className="spinner"></span> : hasCompletedFinalPayment ? 'Close Shared Account' : 'Archive Shared Account'}
               </button>
             </div>
           </div>
@@ -1878,7 +1878,7 @@ const SharedAccountDetail: React.FC = () => {
           <div className="card" style={{ width: '90%', maxWidth: '480px' }}>
             <h2 style={{ marginTop: 0, color: '#c53030' }}>Delete permanently</h2>
             <p style={{ color: '#4a5568' }}>
-              Permanently remove the archived pot <strong>{account.name}</strong>? Recorded activity rows are kept with the pot name for history. The Trip Money pot itself will no longer open.
+              Permanently remove the archived Shared Account <strong>{account.name}</strong>? Recorded activity rows are kept with the account name for history. The Shared Account itself will no longer open.
             </p>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowPermanentDeleteModal(false)} disabled={permanentDeleteSubmitting}>

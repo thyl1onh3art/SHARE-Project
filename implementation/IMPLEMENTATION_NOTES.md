@@ -1910,7 +1910,123 @@ Contribution math, Pay now gating, PaymentRequest lifecycle, archive backend, on
 - Invitations still require a matching registered email; there is no public invite token link.
 - Trip list contribution totals refresh on load, not live.
 - Personal Finance / Financial Records still use older recorded/settlement wording (outside the demo path).
-- Task 10 not started.
+
+---
+
+## Task 10 — Home balance + unified Trip creation
+
+**Purpose:** Show the user’s personal tracked balance on Home, and create linked Trip Money in the same Create Trip flow. No Task 11 work. No recovered Mongo edits.
+
+### 10A — Personal balance on Home
+
+**Source of truth:** `GET /api/finance` FinanceRecords, same formula as Activity history (`FinancialRecords.tsx`): personal inputs minus outputs, excluding rows with `sharedAccount` and permanently deleted Trip Money history (`archivedAccountName` without `sharedAccount`). There is no backend balance endpoint. Helper: `frontend/src/utils/personalBalance.ts`.
+
+**Home:** `EventCountdown` (`/events`, logged-in landing) now shows a **Your balance** card. Informational only. Does **not** gate Pay account, contributions, invites, or final payment.
+
+**Wording:** `Prototype balance — no real money is held.` £0.00 is shown when there are no personal records. Fetch failure keeps trips usable and does not show raw Axios/Mongo errors.
+
+### 10B — Unified Trip + Trip Money creation
+
+**Before:** `POST /events` then a separate **Set up Trip Money** step (`POST /shared-accounts` with `eventId`).
+
+**After:** Create Trip form includes Target. Submit calls `POST /api/events/with-trip-money`, which creates the Event then a linked SharedAccount and returns both. The UI navigates straight to `/shared-accounts/:id`. No Set up Trip Money step for new trips.
+
+**Architecture:** Event and SharedAccount models are unchanged. Link remains `SharedAccount.event`. One-pot-per-trip unique sparse index unchanged. `POST /events` and `POST /shared-accounts` remain for legacy/setup fallback.
+
+**Partial failure:** If pot save fails after Event save, the new Event is deleted (`Event.deleteOne` for that id/owner only). No Mongo transactions (not used in this app).
+
+**Legacy:** Trips without a pot still use Set up Trip Money. Unlinked SharedAccounts appear in a secondary **Shared Accounts** section on Trips (wording updated in 10D). Closed linked pots still open archived/read-only history from the trip card.
+
+### 10C — Trips is the single main entry point
+
+Primary nav is **Trips · Notifications · More** (Notifications label from 10D; route remains `/invitations`). The standalone **Trip Money** nav item is gone. `/shared-accounts` and `/shared-accounts/:id` stay routed for setup fallback and deep links.
+
+**Access:**
+- Active linked pot: trip card → `/shared-accounts/:id`
+- Closed linked pot: trip card → archived/read-only pot
+- No-pot trip: trip card → setup fallback
+- Unlinked/legacy pots: shown only when they exist, as **Shared Accounts** at the bottom of Trips (active + archived lists, `event` unset). Not auto-linked. No fake Event created.
+
+**Back:** Trip Money detail uses **Back to Trips** (`/events`). Close/archive/leave/delete also return to Trips.
+
+**Tests:** Navbar has no Trip Money link; trip-card and create-flow tests remain; unlinked pots stay reachable; Home balance and unified create still pass.
+
+**Validation:** target must be > 0; trip name/date/time remain required. Double-submit guarded with a ref + disabled button. Errors go through `userFacingError`.
+
+**Target date:** pot `targetDate` is the trip date at 23:59 if still in the future, otherwise tomorrow. Not a new user-facing field.
+
+### Tests / remaining risks
+
+Frontend: Home balance, unified create, existing trip-card navigation, Pay account, close/archive. Backend: `tripEventLink` combined create, £0 target, pot-failure rollback; existing archive/access/contribution/payment/invite suites.
+
+**Remaining risks:** Two overlapping Create Trip requests from two tabs can still create two trips. Solo pots still cannot complete final payment. Personal budget planner on the create form is unchanged secondary UI. Task 11 not started.
+
+### 10D — Customer-facing wording: Shared Accounts + Notifications
+
+Wording/UI-label only. Routes, APIs, SharedAccount model, invitations backend, and component filenames are unchanged.
+
+**Shared Accounts:**
+- List heading **Your Trip Money** → **Shared Accounts** (`SharedAccounts.tsx`). Nearby empty copy is **No shared accounts yet**.
+- The unlinked-pot collection on Trips (**Older Trip Money**) is also labelled **Shared Accounts**. Supporting line: older shared accounts not linked to a trip.
+- Per-trip wording kept: Close Trip Money, Trip Money closed, Set up Trip Money, Trip Money target, etc. No `SharedAccount` without a space.
+
+**Notifications:**
+- Primary nav label **Invitations** → **Notifications**. Route still `/invitations`.
+- Screen heading **Trip invitations** → **Notifications**, with supporting line **Trip invitations and updates**.
+- Invitation-specific actions kept: Accept invitation, Invitations you sent, Invite travellers.
+- Payment-request badges stay on Trips (10C). No new notification backend.
+
+**Tests / build:** Frontend `18` suites / `91` tests passed. Production build compiled successfully. Backend files not touched for 10D.
+
+No commit / no push / stash@{0} untouched. Task 11 not started.
+
+### 10E — Generalise SHARE beyond trips
+
+SHARE is now presented as a general shared-money product. The customer-facing object is **Shared Account**, not Trip / Trip Money.
+
+**Customer language:**
+- Nav: **Shared Accounts · Notifications · More**. Route `/events` unchanged.
+- Main page heading is **Shared Accounts** (one heading). Supporting: “Create and manage the accounts you share with other people.”
+- Create: **Create Shared Account**, **Account name**, **Target**, **Date**, **Location**. Type labels generalised (Holiday, Birthday, Festival / tickets, Other). Location remains optional.
+- Members replace travellers. Invite member. Notifications say Shared Account invitation.
+- Lifecycle: Close Shared Account → Shared Account closed → Archived Shared Accounts. Sole-owner delete: Delete Shared Account? Soft-archive behaviour unchanged.
+- Legacy unlinked pots: **Older Accounts** (only if any exist). Not auto-linked.
+- Your balance (10A) unchanged. Pay account / Pay now / approval language unchanged.
+
+**Internal architecture retained:** Event + SharedAccount models, `/api/events`, `/events/with-trip-money`, `/shared-accounts`, Mongo collections, and component filenames. No schema or recovered-data migration.
+
+**Conflict noted:** Pack slogan still says “Fund the trip together.” Customer UI no longer uses Trip as a product category. Login tagline is now “Create Shared Accounts. Contribute together. Finish square.”
+
+**Tests / build:** Frontend `18` suites / `91` tests passed. Production build compiled successfully. No additional backend changes for 10E.
+
+No commit / no push / stash@{0} untouched. Task 11 not started. Recovered DB untouched.
+
+### 10F — Separate Home from Shared Accounts
+
+Home is the personal overview. Shared Accounts is the group-account list. They no longer share one screen.
+
+**Routing:** `/` now renders `Home` (protected). SHARE logo and the Home nav item go to `/`. Shared Accounts stays at `/events` (`EventCountdown`). Login lands on `/`. Backend `/api/events` and `/shared-accounts/:id` unchanged.
+
+**Home:** heading Home, **Your balance**, prototype disclaimer. Optional **Active Shared Accounts: N** with a link to `/events`. No account cards. No Create Shared Account. Balance formula unchanged from 10A.
+
+**Shared Accounts:** heading Shared Accounts, Create Shared Account (10B unified create), **Active Shared Accounts** cards. No Your balance. Closed linked accounts sit behind **Show archived accounts**. Unlinked pots remain **Older Accounts** on this page only.
+
+**Tests / build:** Frontend `19` suites / `92` tests passed. Production build compiled successfully. No backend changes for 10F.
+
+No commit / no push / stash@{0} untouched. Task 11 not started.
+
+### 10G — SHARE logo is Home
+
+Visible **Home** nav item removed. Primary nav is **Shared Accounts · Notifications · More**.
+
+The SHARE brand link still goes to `/` (Home from 10F). Accessible name: **SHARE — Home**. It remains a semantic `Link`. Keyboard focus-visible outline added on the brand because none existed.
+
+Routes unchanged: `/` Home, `/events` Shared Accounts, `/invitations` Notifications. Login still lands on Home. No backend changes.
+
+**Tests / build:** Frontend `19` suites / `93` tests passed. Production build compiled successfully. No backend changes for 10G.
+
+No commit / no push / stash@{0} untouched. Task 11 not started.
+
 
 ### Sole-owner accidental Trip Money delete (demo bugfix)
 

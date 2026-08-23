@@ -107,10 +107,10 @@ describe('SharedAccountDetail close-out flow', () => {
     renderDetail();
 
     expect(await screen.findAllByRole('button', { name: /pay account/i })).not.toHaveLength(0);
-    expect(screen.getAllByRole('button', { name: /invite traveller/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: /invite member/i }).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: /review trip close-out/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^close trip money$/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /archive trip money/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^close shared account$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /archive shared account/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^pay single payment$/i })).not.toBeInTheDocument();
     expect(screen.getByText('Final payment unlocks at 100%.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
@@ -146,16 +146,16 @@ describe('SharedAccountDetail close-out flow', () => {
     expect(await screen.findByRole('button', { name: /^pay now$/i })).toHaveClass('btn-success');
     const payNowButtons = screen.getAllByRole('button', { name: /^pay now$/i });
     expect(payNowButtons.length).toBeGreaterThan(0);
-    expect(screen.queryByRole('button', { name: /^close trip money$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^close shared account$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /review trip close-out/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^pay account$/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^invite traveller$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^invite member$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^pay single payment$/i })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /^more$/i }));
     expect(await screen.findByRole('button', { name: /^pay account$/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^invite traveller$/i })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /^archive trip money$/i }).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /^invite member$/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /^archive shared account$/i }).length).toBeGreaterThan(0);
   });
 
   it('shows closed read-only copy when archived', async () => {
@@ -174,15 +174,15 @@ describe('SharedAccountDetail close-out flow', () => {
 
     renderDetail();
 
-    expect(await screen.findByRole('heading', { name: /trip money closed/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /shared account closed/i })).toBeInTheDocument();
     expect(screen.getAllByText(/read-only history/i).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: /pay account/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /record contribution/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /invite traveller/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /invite member/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /pay single payment/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /request settlement record/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /close trip money/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /close shared account/i })).not.toBeInTheDocument();
   });
 
   it('uses simple contribution, traveller, and activity wording', async () => {

@@ -71,20 +71,20 @@ describe('SharedAccounts create Trip Money', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: /set up trip money/i }).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole('button', { name: /set up shared account/i }).length).toBeGreaterThan(0);
     });
 
-    fireEvent.click(screen.getAllByRole('button', { name: /set up trip money/i })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /set up shared account/i })[0]);
 
-    expect(await screen.findByRole('heading', { name: /set up trip money/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /set up shared account/i })).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText(/trip money name/i), { target: { value: 'Canada' } });
+    fireEvent.change(screen.getByLabelText(/account name/i), { target: { value: 'Canada' } });
     fireEvent.change(screen.getByLabelText(/what are you collecting for/i), {
       target: { value: 'Flights and cabin' }
     });
     fireEvent.change(screen.getByLabelText(/target amount/i), { target: { value: '2000' } });
 
-    fireEvent.click(screen.getByRole('button', { name: /^create trip money$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^create shared account$/i }));
 
     await waitFor(() => {
       expect(mockedAxios.post).toHaveBeenCalledWith(

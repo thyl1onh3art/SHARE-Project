@@ -8,7 +8,7 @@ describe('userFacingError', () => {
 
   it('rewrites shared-account wording for customers', () => {
     expect(userFacingError({ response: { data: { message: 'Shared account not found' } } }, 'Failed'))
-      .toBe('This Trip Money could not be found.');
+      .toBe('This Shared Account could not be found.');
   });
 
   it('hides Axios status and Mongo-style errors', () => {

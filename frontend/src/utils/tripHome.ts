@@ -57,7 +57,7 @@ export function tripCountdownLabel(
 
   const dayDiff = Math.round((startDay.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
   if (dayDiff === 0) return 'Today';
-  if (dayDiff < 0) return 'Trip completed';
+  if (dayDiff < 0) return 'Completed';
   if (dayDiff === 1) return '1 day to go';
   return `${dayDiff} days to go`;
 }
@@ -84,23 +84,23 @@ export function tripMoneyPrimaryAction(
 ): TripPrimaryAction {
   if (!tripMoney?._id) {
     return {
-      label: 'Set up Trip Money',
+      label: 'Set up Shared Account',
       to: `/shared-accounts?event=${encodeURIComponent(tripId)}&name=${encodeURIComponent(tripTitle)}`
     };
   }
 
   const potPath = `/shared-accounts/${tripMoney._id}`;
   if (tripMoney.isDeleted) {
-    return { label: 'View closed Trip Money', to: potPath };
+    return { label: 'View closed Shared Account', to: potPath };
   }
 
   const target = Number(tripMoney.targetAmount) || 0;
   const recorded = Number(tripMoney.recordedTotal) || 0;
   if (target > 0 && recorded >= target) {
-    return { label: 'Review Trip Money', to: potPath };
+    return { label: 'Review Shared Account', to: potPath };
   }
 
-  return { label: 'Open Trip Money', to: potPath };
+  return { label: 'Open Shared Account', to: potPath };
 }
 
 export function tripMoneyParticipantCount(

@@ -169,14 +169,12 @@ const FinancialRecords: React.FC = () => {
             </p>
             <h1 className="card-title" style={{ marginBottom: '0.35rem' }}>Activity history</h1>
             <p style={{ margin: 0, color: '#4a5568', fontSize: '0.95rem' }}>
-              A secondary view of personal tracked activity and recent Trip Money pots. Coordinate the group from Trips, Trip Money, and Invitations.
+              A secondary view of personal tracked activity and recent Shared Accounts.
             </p>
             <p style={{ margin: '0.65rem 0 0', fontSize: '0.9rem' }}>
-              <Link to="/events" style={{ color: '#2b6cb0' }}>Trips</Link>
+              <Link to="/events" style={{ color: '#2b6cb0' }}>Shared Accounts</Link>
               {' · '}
-              <Link to="/shared-accounts" style={{ color: '#2b6cb0' }}>Trip Money</Link>
-              {' · '}
-              <Link to="/invitations" style={{ color: '#2b6cb0' }}>Invitations</Link>
+              <Link to="/invitations" style={{ color: '#2b6cb0' }}>Notifications</Link>
             </p>
           </div>
         </div>
@@ -247,9 +245,9 @@ const FinancialRecords: React.FC = () => {
       {sharedAccounts.length > 0 && (
         <div style={{ marginBottom: '2rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Trip Money</h2>
-            <Link to="/shared-accounts" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
-              View all shared trip costs
+            <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Shared Accounts</h2>
+            <Link to="/events" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
+              View Shared Accounts
             </Link>
           </div>
           <div className="grid grid-2" style={{ gap: '1rem' }}>
@@ -347,7 +345,7 @@ const FinancialRecords: React.FC = () => {
                     }}>
                       <span>
                         {memberCount + 1}{' '}
-                        {memberCount + 1 === 1 ? 'traveller' : 'travellers'}
+                        {memberCount + 1 === 1 ? 'member' : 'members'}
                       </span>
                       <span>{account.financeRecords?.length || 0} recorded item{(account.financeRecords?.length || 0) !== 1 ? 's' : ''}</span>
                     </div>
@@ -364,8 +362,8 @@ const FinancialRecords: React.FC = () => {
           <p style={{ color: '#4a5568', marginBottom: '1rem' }}>
             You don't have any shared trip costs yet.
           </p>
-          <Link to="/shared-accounts" className="btn btn-primary">
-            Set up shared trip costs
+          <Link to="/events" className="btn btn-primary">
+            Create a trip
           </Link>
         </div>
       )}
@@ -373,7 +371,7 @@ const FinancialRecords: React.FC = () => {
       <div className="card" style={{ marginBottom: '1.5rem' }}>
         <h2 style={{ marginTop: 0, marginBottom: '0.35rem' }}>Current activity</h2>
         <p style={{ color: '#4a5568', fontSize: '0.9rem', marginBottom: '1rem' }}>
-          Personal tracked items only. Live Trip Money ledgers stay on Trip Money.
+          Personal tracked items only. Live Shared Account records stay on Shared Accounts.
         </p>
         {currentActivity.length === 0 ? (
           <p style={{ color: '#718096', margin: 0 }}>No personal activity recorded yet.</p>
@@ -405,10 +403,10 @@ const FinancialRecords: React.FC = () => {
 
       {archivedRecords.length > 0 && (
         <div className="card" style={{ marginBottom: '1.5rem' }}>
-          <h2 style={{ marginTop: 0, marginBottom: '0.35rem' }}>Archived Trip Money history</h2>
+          <h2 style={{ marginTop: 0, marginBottom: '0.35rem' }}>Archived Shared Account history</h2>
           <p style={{ color: '#4a5568', fontSize: '0.9rem', marginBottom: '1rem' }}>
-            This Trip Money pot was permanently removed, but your recorded activity has been kept for history.
-            Soft-archived pots still appear under Trip Money → Archived.
+            This Shared Account was permanently removed, but your recorded activity has been kept for history.
+            Soft-archived accounts still appear under Shared Accounts → Archived.
           </p>
           <div className="list">
             {archivedRecords.map((record) => (
@@ -421,7 +419,7 @@ const FinancialRecords: React.FC = () => {
                     {record.archivedAccountName ? ` · ${record.archivedAccountName}` : ''}
                   </p>
                   <p style={{ color: '#718096', fontSize: '0.8rem', margin: 0 }}>
-                    Historical only — no Trip Money link or actions
+                    Historical only — no Shared Account link or actions
                   </p>
                 </div>
                 <span

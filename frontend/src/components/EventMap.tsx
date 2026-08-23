@@ -187,16 +187,14 @@ const EventMap: React.FC = () => {
         <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#718096' }}>
           Secondary · More menu
         </p>
-        <h1 className="card-title" style={{ marginBottom: '0.35rem' }}>Trip map</h1>
+        <h1 className="card-title" style={{ marginBottom: '0.35rem' }}>Map</h1>
         <p style={{ color: '#4a5568', marginBottom: '0.5rem' }}>
-          Optional view of trip destinations and places. Plan the group trip from Trips; invite friends and track shared costs from the primary journey.
+          Optional view of Shared Account locations and places.
         </p>
         <p style={{ margin: 0, fontSize: '0.9rem' }}>
-          <Link to="/events" style={{ color: '#2b6cb0' }}>Trips</Link>
+          <Link to="/events" style={{ color: '#2b6cb0' }}>Shared Accounts</Link>
           {' · '}
-          <Link to="/shared-accounts" style={{ color: '#2b6cb0' }}>Trip Money</Link>
-          {' · '}
-          <Link to="/invitations" style={{ color: '#2b6cb0' }}>Invitations</Link>
+          <Link to="/invitations" style={{ color: '#2b6cb0' }}>Notifications</Link>
         </p>
       </div>
 
@@ -257,7 +255,7 @@ const EventMap: React.FC = () => {
       {filteredEvents.length > 0 && (
         <div className="card">
           <h2 style={{ marginBottom: '1rem' }}>
-            Trips ({filteredEvents.length})
+            Shared Accounts ({filteredEvents.length})
           </h2>
           <div className="grid grid-2">
             {filteredEvents.map((event) => (

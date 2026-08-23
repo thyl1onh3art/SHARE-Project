@@ -62,12 +62,12 @@ describe('SharedAccounts trip link create', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByLabelText(/trip money name/i)).toHaveValue('Canada');
+    expect(await screen.findByLabelText(/account name/i)).toHaveValue('Canada');
     fireEvent.change(screen.getByLabelText(/what are you collecting for/i), {
       target: { value: 'Flights' }
     });
     fireEvent.change(screen.getByLabelText(/target amount/i), { target: { value: '500' } });
-    fireEvent.click(screen.getByRole('button', { name: /^create trip money$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^create shared account$/i }));
 
     await waitFor(() => {
       expect(mockedAxios.post).toHaveBeenCalledWith(

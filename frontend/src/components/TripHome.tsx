@@ -12,7 +12,7 @@ const TripHome: React.FC = () => {
   useEffect(() => {
     const redirect = async () => {
       if (!eventId) {
-        setError('Trip not found');
+        setError('Shared Account not found');
         return;
       }
 
@@ -22,7 +22,7 @@ const TripHome: React.FC = () => {
         const action = tripMoneyPrimaryAction(trip._id || eventId, trip.title, trip.tripMoney);
         navigate(action.to, { replace: true });
       } catch (err: any) {
-        setError(err.response?.data?.message || 'Could not load this trip.');
+        setError(err.response?.data?.message || 'Could not load this Shared Account.');
       }
     };
 
@@ -33,7 +33,7 @@ const TripHome: React.FC = () => {
     return (
       <div className="card">
         <p style={{ marginTop: 0 }}>{error}</p>
-        <Link to="/events">Back to trips</Link>
+        <Link to="/events">Back to Shared Accounts</Link>
       </div>
     );
   }
@@ -41,7 +41,7 @@ const TripHome: React.FC = () => {
   return (
     <div style={{ textAlign: 'center', padding: '2rem' }}>
       <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
-      <p style={{ marginTop: '1rem', color: '#4a5568' }}>Opening trip...</p>
+      <p style={{ marginTop: '1rem', color: '#4a5568' }}>Opening Shared Account...</p>
     </div>
   );
 };

@@ -107,7 +107,7 @@ const Invitations: React.FC = () => {
         // Non-blocking — list still loads
       }
     } catch (err: any) {
-      setError('Failed to load trip invitations');
+      setError('Failed to load invitations');
     } finally {
       setLoading(false);
     }
@@ -115,16 +115,16 @@ const Invitations: React.FC = () => {
 
   const getAccountName = (accountIdOrObject: string | SharedAccountRef | null) => {
     if (accountIdOrObject === null || accountIdOrObject === undefined) {
-      return 'Trip Money';
+      return 'Shared Account';
     }
     if (typeof accountIdOrObject === 'object' && accountIdOrObject !== null && 'name' in accountIdOrObject) {
       return accountIdOrObject.name;
     }
     if (typeof accountIdOrObject === 'string') {
       const account = accounts.find(acc => acc._id === accountIdOrObject);
-      return account ? account.name : 'Shared trip costs';
+      return account ? account.name : 'Shared Account';
     }
-    return 'Shared trip costs';
+    return 'Shared Account';
   };
 
   const getSenderName = (sender: string | SenderRef) => {
@@ -134,7 +134,7 @@ const Invitations: React.FC = () => {
       if (full) return full;
       if (sender.email) return sender.email;
     }
-    return 'A traveller';
+    return 'A member';
   };
 
   const getSenderId = (sender: string | SenderRef) => {
@@ -161,9 +161,9 @@ const Invitations: React.FC = () => {
     const inviter = user?.name || 'A friend';
     const loginUrl = `${window.location.origin}/login`;
     return (
-      `${inviter} invited you to join "${tripName}" on SHARE — fund the trip together.\n\n` +
+      `${inviter} invited you to a Shared Account "${tripName}" on SHARE.\n\n` +
       `Log in or register here: ${loginUrl}\n` +
-      `Then open Invitations to accept. SHARE records contributions; it does not hold a group bank balance.`
+      `Then open Notifications to accept. SHARE records contributions; it does not hold a group bank balance.`
     );
   };
 
@@ -206,7 +206,7 @@ const Invitations: React.FC = () => {
 
     try {
       if (!formData.sharedAccountId) {
-        setError('Select which Trip Money to invite people to');
+        setError('Select which Shared Account to invite people to');
         setSubmitting(false);
         return;
       }
@@ -214,7 +214,7 @@ const Invitations: React.FC = () => {
       const results = await sendInvitesForAccount(formData.sharedAccountId, formData.recipients);
 
       if (results.success === 0 && results.failed.length === 0) {
-        setError('Add at least one traveller with an email or phone number');
+        setError('Add at least one member with an email or phone number');
         setSubmitting(false);
         return;
       }
@@ -290,7 +290,7 @@ const Invitations: React.FC = () => {
     return (
       <div style={{ textAlign: 'center', padding: '2rem' }}>
         <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
-        <p style={{ marginTop: '1rem', color: '#4a5568' }}>Loading trip invitations...</p>
+        <p style={{ marginTop: '1rem', color: '#4a5568' }}>Loading invitations...</p>
       </div>
     );
   }
@@ -338,7 +338,7 @@ const Invitations: React.FC = () => {
               <>
                 Invited{' '}
                 <strong>
-                  {invitation.recipientEmail || invitation.recipientPhone || 'traveller'}
+                  {invitation.recipientEmail || invitation.recipientPhone || 'member'}
                 </strong>
               </>
             )}
@@ -415,9 +415,9 @@ const Invitations: React.FC = () => {
       <div className="card">
         <div className="card-header" style={{ alignItems: 'flex-start', gap: '1rem' }}>
           <div>
-            <h1 className="card-title" style={{ marginBottom: '0.35rem' }}>Trip invitations</h1>
+            <h1 className="card-title" style={{ marginBottom: '0.35rem' }}>Notifications</h1>
             <p style={{ margin: 0, color: '#4a5568', fontSize: '0.95rem' }}>
-              Invite friends to your Trip Money so everyone can contribute and finish square.
+              Shared Account invitations and updates
             </p>
           </div>
           <button
@@ -425,11 +425,11 @@ const Invitations: React.FC = () => {
             className="btn btn-primary"
             disabled={accounts.length === 0}
           >
-            {showForm ? 'Cancel' : 'Invite travellers'}
+            {showForm ? 'Cancel' : 'Invite members'}
           </button>
         </div>
         <div className="trip-money-transparency" style={{ marginTop: '1rem' }}>
-          Invitations add people to Trip Money. They accept after they log in — there is no public invite link yet.
+          Invitations add people to a Shared Account. They accept after they log in — there is no public invite link yet.
         </div>
       </div>
 
@@ -471,19 +471,19 @@ const Invitations: React.FC = () => {
         <div className="card">
           <h2 style={{ marginTop: 0 }}>Nobody to invite yet</h2>
           <p style={{ color: '#4a5568' }}>
-            Set up Trip Money first, then invite your travel group.
+            Create a Shared Account first, then invite members.
           </p>
-          <Link to="/shared-accounts" className="btn btn-primary">
-            Set up Trip Money
+          <Link to="/events" className="btn btn-primary">
+            Create a Shared Account
           </Link>
         </div>
       )}
 
       {showForm && accounts.length > 0 && (
         <div className="card">
-          <h2 style={{ marginBottom: '0.5rem' }}>Invite friends to this trip</h2>
+          <h2 style={{ marginBottom: '0.5rem' }}>Invite members</h2>
           <p style={{ color: '#4a5568', marginTop: 0 }}>
-            Choose the Trip Money, add travellers, then share a WhatsApp-friendly message if you like.
+            Choose the Shared Account, add members, then share a WhatsApp-friendly message if you like.
           </p>
 
           {formData.sharedAccountId && (
@@ -526,21 +526,21 @@ const Invitations: React.FC = () => {
                 </button>
               </div>
               <p style={{ color: '#0369a1', fontSize: '0.8rem', margin: '0.65rem 0 0' }}>
-                Share copies a message with the SHARE login page. Friends still need an email invite (or matching account email) to accept in Invitations — SHARE does not yet issue public invite links.
+                Share copies a message with the SHARE login page. Friends still need an email invite (or matching account email) to accept in Notifications — SHARE does not yet issue public invite links.
               </p>
             </div>
           )}
 
           <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label className="form-label">Shared trip costs</label>
+              <label className="form-label">Shared Account</label>
               <select
                 className="form-select"
                 value={formData.sharedAccountId}
                 onChange={(e) => setFormData({ ...formData, sharedAccountId: e.target.value })}
                 required
               >
-                <option value="">Select a trip pot</option>
+                <option value="">Select a Shared Account</option>
                 {accounts.map((account) => (
                   <option key={account._id} value={account._id}>
                     {account.name}
@@ -564,7 +564,7 @@ const Invitations: React.FC = () => {
               {submitting ? (
                 <span className="spinner"></span>
               ) : (
-                `Send trip invitation${formData.recipients.length > 1 ? 's' : ''}`
+                `Send Shared Account invitation${formData.recipients.length > 1 ? 's' : ''}`
               )}
             </button>
           </form>
@@ -574,13 +574,13 @@ const Invitations: React.FC = () => {
       <div className="card">
         <h2 style={{ marginBottom: '0.35rem' }}>Pending invitations for you</h2>
         <p style={{ color: '#4a5568', marginTop: 0, fontSize: '0.9rem' }}>
-          Accept to join this Trip Money.
+          Accept to join this Shared Account.
         </p>
         {pendingReceived.length === 0 ? (
           <div className="trip-money-empty-panel">
             <p className="trip-money-empty-title">No pending invitations</p>
             <p style={{ marginBottom: 0 }}>
-              When a friend invites your email to their trip pot, it will show up here.
+              When a friend invites your email to their Shared Account, it will show up here.
             </p>
           </div>
         ) : (
@@ -599,11 +599,11 @@ const Invitations: React.FC = () => {
           <div className="trip-money-empty-panel">
             <p className="trip-money-empty-title">Nobody has been invited yet</p>
             <p>
-              Invite your travel group to start coordinating the trip.
+              Invite members to start contributing together.
             </p>
             {accounts.length > 0 && (
               <button type="button" className="btn btn-primary" onClick={() => setShowForm(true)}>
-                Invite travellers
+                Invite members
               </button>
             )}
           </div>

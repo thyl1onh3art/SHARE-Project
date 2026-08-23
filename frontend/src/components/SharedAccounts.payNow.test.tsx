@@ -152,7 +152,7 @@ describe('SharedAccounts list Pay now', () => {
     expect(screen.getByText('no target')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /show archived trip money/i }));
+    fireEvent.click(screen.getByRole('button', { name: /show archived shared accounts/i }));
     expect(await screen.findByText('closed pot')).toBeInTheDocument();
     expect(screen.getByText('Closed')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
@@ -222,7 +222,7 @@ describe('SharedAccounts list Pay now', () => {
     expect(screen.getByText('Closed')).toBeInTheDocument();
     expect(screen.getByText('task 1 test')).toBeInTheDocument();
     fireEvent.click(screen.getByText('closed pot'));
-    expect(await screen.findByRole('heading', { name: /trip money closed/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /shared account closed/i })).toBeInTheDocument();
     expect(screen.getAllByText(/read-only history/i).length).toBeGreaterThan(0);
   });
 });

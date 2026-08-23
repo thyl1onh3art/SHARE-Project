@@ -85,14 +85,12 @@ const Friends: React.FC = () => {
             </p>
             <h1 className="card-title" style={{ marginBottom: '0.35rem' }}>Friends</h1>
             <p style={{ margin: 0, color: '#4a5568', fontSize: '0.95rem' }}>
-              Your SHARE friends — people you often travel with. Saving someone here does not give them access to your Trips or Trip Money; invite them separately when you plan together.
+              Your SHARE friends — people you often share costs with. Saving someone here does not give them access to your Shared Accounts; invite them separately when you plan together.
             </p>
             <p style={{ margin: '0.65rem 0 0', fontSize: '0.9rem' }}>
-              <Link to="/events" style={{ color: '#2b6cb0' }}>Trips</Link>
+              <Link to="/events" style={{ color: '#2b6cb0' }}>Shared Accounts</Link>
               {' · '}
-              <Link to="/shared-accounts" style={{ color: '#2b6cb0' }}>Trip Money</Link>
-              {' · '}
-              <Link to="/invitations" style={{ color: '#2b6cb0' }}>Invitations</Link>
+              <Link to="/invitations" style={{ color: '#2b6cb0' }}>Notifications</Link>
             </p>
           </div>
         </div>
@@ -101,7 +99,7 @@ const Friends: React.FC = () => {
       <div className="card" style={{ marginTop: '1rem' }}>
         <h2 style={{ marginTop: 0 }}>Add friend</h2>
         <p style={{ color: '#718096', fontSize: '0.9rem' }}>
-          Add by email — they must already have a SHARE account. Friendship is a contact list only; it does not open Trip Money pots or trip membership.
+          Add by email — they must already have a SHARE account. Friendship is a contact list only; it does not open Shared Account membership.
         </p>
 
         <form onSubmit={handleAddFriend}>
@@ -149,7 +147,7 @@ const Friends: React.FC = () => {
         >
           <h2 style={{ margin: 0 }}>Your SHARE friends ({friends.length})</h2>
           <Link to="/invitations" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '14px' }}>
-            Open Invitations
+            Open Notifications
           </Link>
         </div>
 
@@ -158,7 +156,7 @@ const Friends: React.FC = () => {
             <p>No friends saved yet.</p>
             <p style={{ fontSize: '0.9rem' }}>
               Add someone by email above, then invite them to a trip from{' '}
-              <Link to="/invitations">Invitations</Link> when you are ready to share Trip Money.
+              <Link to="/invitations">Notifications</Link> when you are ready to share an account.
             </p>
           </div>
         ) : (

@@ -73,6 +73,16 @@ const attachTripMoneyToEvents = async (events, userId) => {
   return Array.isArray(events) ? decorated : decorated[0];
 };
 
+const potTargetDateFromTripDate = (eventDate) => {
+  const fromTrip = new Date(`${eventDate}T23:59:59`);
+  if (!Number.isNaN(fromTrip.getTime()) && fromTrip > new Date()) {
+    return fromTrip;
+  }
+  const fallback = new Date();
+  fallback.setDate(fallback.getDate() + 1);
+  return fallback;
+};
+
 // Create a new event
 exports.createEvent = async (req, res) => {
   try {
@@ -100,6 +110,91 @@ exports.createEvent = async (req, res) => {
     res.status(201).json(event);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+// Create a Trip and its linked Trip Money in one step. If pot creation fails, the new Event is removed.
+exports.createEventWithTripMoney = async (req, res) => {
+  let createdEventId;
+  try {
+    const userId = req.user.userId;
+    const { targetAmount, eventId, sharedAccount, ...tripFields } = req.body;
+    const amount = parseFloat(targetAmount);
+
+    if (!(amount > 0)) {
+      return res.status(400).json({ message: 'Trip Money target must be greater than 0' });
+    }
+    if (!tripFields.title || !tripFields.eventDate || !tripFields.eventTime) {
+      return res.status(400).json({ message: 'Trip name, date and start time are required' });
+    }
+
+    const eventData = {
+      user: userId,
+      ...tripFields
+    };
+
+    if (eventData.budget && eventData.budget.totalAmount > 0 && eventData.eventDate) {
+      const savingsData = calculateSavingsPlan(
+        eventData.budget.totalAmount,
+        eventData.eventDate,
+        eventData.budget.savingsFrequency || 'monthly'
+      );
+      eventData.budget = {
+        ...eventData.budget,
+        ...savingsData
+      };
+    }
+
+    const event = new Event(eventData);
+    await event.save();
+    createdEventId = event._id;
+
+    const potName = String(event.title || '').trim();
+    const potDescription = String(event.description || '').trim() || `Shared costs for ${potName}`;
+    const targetDate = potTargetDateFromTripDate(event.eventDate);
+
+    try {
+      const sharedAccountDoc = new SharedAccount({
+        owner: userId,
+        name: potName,
+        description: potDescription,
+        targetAmount: amount,
+        targetDate,
+        perPersonAmount: amount,
+        members: [],
+        financeRecords: [],
+        event: event._id
+      });
+      await sharedAccountDoc.save();
+
+      const populatedAccount = await SharedAccount.findById(sharedAccountDoc._id)
+        .populate('owner', 'firstName lastName email')
+        .populate('members', 'firstName lastName email');
+
+      return res.status(201).json({
+        event: await attachTripMoneyToEvents(event, userId),
+        sharedAccount: populatedAccount,
+        message: 'Trip created'
+      });
+    } catch (potErr) {
+      await Event.deleteOne({ _id: createdEventId, user: userId });
+      if (potErr && potErr.code === 11000) {
+        return res.status(400).json({
+          message: 'This trip already has Trip Money. Open the existing pot instead of creating another.'
+        });
+      }
+      return res.status(500).json({
+        message: 'Could not create Trip Money for this trip. Please try again.'
+      });
+    }
+  } catch (err) {
+    if (createdEventId) {
+      await Event.deleteOne({ _id: createdEventId, user: req.user.userId }).catch(() => {});
+    }
+    if (err && err.name === 'ValidationError') {
+      return res.status(400).json({ message: 'Please check the trip details and try again.' });
+    }
+    return res.status(500).json({ message: 'Could not create this trip. Please try again.' });
   }
 };
 

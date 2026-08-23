@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -10,6 +10,7 @@ import {
   tripMoneyPrimaryAction,
   TripMoneySummary
 } from '../utils/tripHome';
+import { userFacingError } from '../utils/userFacingError';
 
 interface Event {
   _id?: string;
@@ -79,22 +80,33 @@ const EventCountdown: React.FC = () => {
     sharedWith: []
   });
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const [legacyPots, setLegacyPots] = useState<Array<{
+    _id: string;
+    name: string;
+    isDeleted?: boolean;
+    targetAmount?: number;
+    event?: string | null;
+  }>>([]);
+  const [targetAmount, setTargetAmount] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
 
-  // Keep category values aligned with the existing Event API/model; only labels are trip-oriented.
+  // Keep category values aligned with the existing Event API/model; labels are general.
   const categories = [
-    { value: 'holiday', label: 'Group holiday' },
-    { value: 'travel', label: 'City break / travel' },
-    { value: 'social', label: 'Friends trip' },
-    { value: 'sports', label: 'Ski / sports trip' },
-    { value: 'concert', label: 'Festival / tickets trip' },
-    { value: 'birthday', label: 'Birthday getaway' },
-    { value: 'anniversary', label: 'Anniversary trip' },
-    { value: 'work', label: 'Work trip' },
-    { value: 'other', label: 'Other trip' }
+    { value: 'holiday', label: 'Holiday' },
+    { value: 'travel', label: 'Travel' },
+    { value: 'social', label: 'Friends / social' },
+    { value: 'sports', label: 'Sports' },
+    { value: 'concert', label: 'Festival / tickets' },
+    { value: 'birthday', label: 'Birthday' },
+    { value: 'anniversary', label: 'Anniversary' },
+    { value: 'work', label: 'Work' },
+    { value: 'other', label: 'Other' }
   ];
 
   useEffect(() => {
     fetchEvents();
+    fetchLegacyPots();
   }, []);
 
   const fetchEvents = async () => {
@@ -106,12 +118,35 @@ const EventCountdown: React.FC = () => {
     } catch (err: any) {
       console.error('Error fetching events:', err);
       if (err.response?.status === 401) {
-        setError('Please log in to view your trips');
+        setError('Please log in to view your Shared Accounts');
       } else {
-        setError(`Failed to load trips: ${err.response?.data?.message || 'Please try again.'}`);
+        setError(`Failed to load Shared Accounts: ${err.response?.data?.message || 'Please try again.'}`);
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchLegacyPots = async () => {
+    try {
+      const [activeResponse, archivedResponse] = await Promise.all([
+        axios.get('/shared-accounts'),
+        axios.get('/shared-accounts?archived=true').catch(() => ({ data: [] }))
+      ]);
+      const combined = [
+        ...(Array.isArray(activeResponse.data) ? activeResponse.data : []),
+        ...(Array.isArray(archivedResponse.data) ? archivedResponse.data : [])
+      ];
+      const seen = new Set<string>();
+      setLegacyPots(combined.filter((pot: { _id?: string; event?: string | null }) => {
+        if (pot.event || !pot._id || seen.has(pot._id)) {
+          return false;
+        }
+        seen.add(pot._id);
+        return true;
+      }));
+    } catch {
+      setLegacyPots([]);
     }
   };
 
@@ -163,50 +198,39 @@ const EventCountdown: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (submitting) return;
+    if (submittingRef.current || submitting) return;
+    const amount = parseFloat(targetAmount);
+    if (!(amount > 0)) {
+      setError('Target must be greater than 0');
+      return;
+    }
+    submittingRef.current = true;
     setSubmitting(true);
+    setError('');
 
     try {
-      await axios.post('/events', formData);
-      setFormData({
-        title: '',
-        description: '',
-        eventDate: '',
-        eventTime: '',
-        location: '',
-        category: 'holiday',
-        isRecurring: false,
-        recurringType: 'yearly',
-        budget: {
-          totalAmount: 0,
-          currency: 'GBP',
-          savingsGoal: 0,
-          savingsFrequency: 'monthly',
-          amountPerPeriod: 0,
-          startDate: '',
-          isActive: false
-        },
-        accommodation: {
-          name: '',
-          type: 'hotel',
-          price: 0,
-          bookingLink: '',
-          notes: ''
-        },
-        isShared: false,
-        sharedWith: []
+      const response = await axios.post('/events/with-trip-money', {
+        ...formData,
+        targetAmount: amount
       });
+      const potId = response.data?.sharedAccount?._id;
+      if (potId) {
+        navigate(`/shared-accounts/${potId}`);
+        return;
+      }
       setShowForm(false);
+      setTargetAmount('');
       fetchEvents();
-    } catch (err: any) {
-      setError(`Failed to create trip: ${err.response?.data?.message || 'Please try again.'}`);
+    } catch (err: unknown) {
+      setError(userFacingError(err, 'Could not create this Shared Account. Please try again.'));
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this trip?')) {
+    if (!window.confirm('Are you sure you want to delete this Shared Account?')) {
       return;
     }
 
@@ -214,7 +238,7 @@ const EventCountdown: React.FC = () => {
       await axios.delete(`/events/${id}`);
       fetchEvents();
     } catch (err: any) {
-      setError(`Failed to delete trip: ${err.response?.data?.message || err.message}`);
+      setError(`Failed to delete Shared Account: ${err.response?.data?.message || err.message}`);
     }
   };
 
@@ -222,31 +246,127 @@ const EventCountdown: React.FC = () => {
     return (
       <div style={{ textAlign: 'center', padding: '2rem' }}>
         <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
-        <p style={{ marginTop: '1rem', color: '#4a5568' }}>Loading trips...</p>
+        <p style={{ marginTop: '1rem', color: '#4a5568' }}>Loading shared accounts...</p>
       </div>
     );
   }
+
+  const isArchivedAccount = (event: Event) => !!event.tripMoney?.isDeleted;
+  const activeEvents = events.filter((event) => !isArchivedAccount(event));
+  const archivedEvents = events.filter(isArchivedAccount);
+
+  const renderAccountCard = (event: Event) => {
+    const recorded = Number(event.tripMoney?.recordedTotal) || 0;
+    const target = Number(event.tripMoney?.targetAmount) || 0;
+    const yourRemaining = event.tripMoney && !event.tripMoney.isDeleted
+      ? personalRemaining(
+          equalShareAmount(
+            target,
+            tripMoneyParticipantCount(event.tripMoney.owner, event.tripMoney.members)
+          ),
+          Number(event.tripMoney.yourContribution) || 0
+        )
+      : null;
+    const destination = tripMoneyPrimaryAction(
+      event._id || '',
+      event.title,
+      event.tripMoney
+    ).to;
+    const memberCount = event.tripMoney
+      ? tripMoneyParticipantCount(event.tripMoney.owner, event.tripMoney.members)
+      : 0;
+
+    const openAccount = () => {
+      if (destination) {
+        navigate(destination);
+      }
+    };
+
+    return (
+      <div
+        key={event._id || event.title}
+        className="card trip-list-card"
+        role="link"
+        tabIndex={0}
+        aria-label={`Open ${event.title}`}
+        onClick={(e) => {
+          if ((e.target as HTMLElement).closest('.trip-list-remove')) {
+            return;
+          }
+          openAccount();
+        }}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) {
+            return;
+          }
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openAccount();
+          }
+        }}
+      >
+        <div className="trip-list-card-header">
+          <div>
+            <h3 className="trip-list-title">{event.title}</h3>
+            <p className="trip-list-countdown">
+              {tripCountdownLabel(event.eventDate, event.eventTime)}
+            </p>
+            {event.location && (
+              <p className="trip-list-location">{event.location}</p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => handleDelete(event._id || '')}
+            className="btn btn-secondary trip-list-remove"
+          >
+            Remove
+          </button>
+        </div>
+
+        {event.tripMoney?.isDeleted && (
+          <p className="trip-list-money">Shared Account closed</p>
+        )}
+        {event.tripMoney && !event.tripMoney.isDeleted && target > 0 && (
+          <p className="trip-list-money">
+            Target {formatGbp(target)}
+            {' · '}
+            {formatGbp(recorded)} contributed
+            {' · Still needed '}
+            {formatGbp(Math.max(0, target - recorded))}
+            {memberCount > 0 && (
+              <> · {memberCount} {memberCount === 1 ? 'member' : 'members'}</>
+            )}
+            {yourRemaining !== null && (
+              <> · Your remaining: {formatGbp(yourRemaining)}</>
+            )}
+          </p>
+        )}
+        {!event.tripMoney && (
+          <p className="trip-list-money">Shared Account not set up yet</p>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div>
       <div className="card">
         <div className="card-header">
           <div>
-            <h1 className="card-title">Trips</h1>
+            <h1 className="card-title">Shared Accounts</h1>
             <p style={{ margin: '0.35rem 0 0', color: '#4a5568', fontSize: '0.95rem' }}>
-              Plan the trip together. Track shared costs. Finish square. Plan destination and dates here, then coordinate shared costs in Trip Money.
+              Create and manage the accounts you share with other people.
             </p>
             <p style={{ margin: '0.65rem 0 0', fontSize: '0.9rem' }}>
-              <Link to="/invitations" style={{ color: '#2b6cb0' }}>Invite travellers</Link>
-              {' · '}
-              <Link to="/shared-accounts" style={{ color: '#2b6cb0' }}>Trip Money</Link>
+              <Link to="/invitations" style={{ color: '#2b6cb0' }}>Invite members</Link>
             </p>
           </div>
           <button 
             onClick={() => setShowForm(!showForm)}
             className="btn btn-primary"
           >
-            {showForm ? 'Cancel' : 'Create trip'}
+            {showForm ? 'Cancel' : 'Create Shared Account'}
           </button>
         </div>
       </div>
@@ -271,25 +391,26 @@ const EventCountdown: React.FC = () => {
       {/* Add Trip Form */}
       {showForm && (
         <div className="card">
-          <h2 style={{ marginBottom: '0.5rem' }}>Add a trip</h2>
+          <h2 style={{ marginBottom: '0.5rem' }}>Create Shared Account</h2>
           <p style={{ marginTop: 0, marginBottom: '1rem', color: '#4a5568', fontSize: '0.9rem' }}>
-            Examples: Amsterdam weekend, Ibiza trip, ski holiday, stag/hen trip, or a friends group holiday.
+            Add a name, date, and target. After you create it you can invite members straight away.
           </p>
           <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label className="form-label">Trip name *</label>
+              <label className="form-label" htmlFor="shared-account-name">Account name *</label>
               <input
+                id="shared-account-name"
                 type="text"
                 className="form-input"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 required
-                placeholder="e.g., Amsterdam weekend, Ibiza trip, ski holiday"
+                placeholder="e.g., Barcelona Holiday, Sarah's 30th Birthday, Festival Weekend"
               />
             </div>
 
             <div className="form-group">
-              <label className="form-label">What is this trip for?</label>
+              <label className="form-label">Description</label>
               <textarea
                 className="form-input"
                 value={formData.description}
@@ -301,7 +422,7 @@ const EventCountdown: React.FC = () => {
 
             <div className="grid grid-2">
               <div className="form-group">
-                <label className="form-label">Trip date *</label>
+                <label className="form-label">Date *</label>
                 <input
                   type="date"
                   className="form-input"
@@ -324,18 +445,39 @@ const EventCountdown: React.FC = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Destination</label>
+              <label className="form-label">Location</label>
               <input
                 type="text"
                 className="form-input"
                 value={formData.location}
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                placeholder="e.g., Amsterdam, Ibiza, Chamonix"
+                placeholder="e.g., Barcelona, the venue, or leave blank"
               />
             </div>
 
+            <div className="home-trip-money-fields">
+              <h3 style={{ marginBottom: '0.35rem', color: '#495057' }}>Target</h3>
+              <p style={{ marginTop: 0, marginBottom: '0.85rem', color: '#4a5568', fontSize: '0.9rem' }}>
+                This is the group tracking target. No money is held by SHARE.
+              </p>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" htmlFor="trip-money-target">Target</label>
+                <input
+                  id="trip-money-target"
+                  type="number"
+                  className="form-input"
+                  value={targetAmount}
+                  onChange={(e) => setTargetAmount(e.target.value)}
+                  placeholder="1000"
+                  min="0.01"
+                  step="0.01"
+                  required
+                />
+              </div>
+            </div>
+
             <div className="form-group">
-              <label className="form-label">Trip type</label>
+              <label className="form-label">Type</label>
               <select
                 className="form-input"
                 value={formData.category}
@@ -356,7 +498,7 @@ const EventCountdown: React.FC = () => {
                   checked={formData.isRecurring}
                   onChange={(e) => setFormData({ ...formData, isRecurring: e.target.checked })}
                 />
-                Recurring trip
+                Recurring
               </label>
             </div>
 
@@ -378,7 +520,7 @@ const EventCountdown: React.FC = () => {
 
             {/* Budget Planning Section */}
             <div style={{ marginTop: '2rem', padding: '1rem', background: '#f8f9fa', borderRadius: '8px', border: '1px solid #e9ecef' }}>
-              <h3 style={{ marginBottom: '1rem', color: '#495057' }}>Trip budget</h3>
+              <h3 style={{ marginBottom: '1rem', color: '#495057' }}>Personal budget</h3>
               
               <div className="form-group">
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -393,7 +535,7 @@ const EventCountdown: React.FC = () => {
                       } 
                     })}
                   />
-                  Enable trip budget planning
+                  Enable budget planning
                 </label>
               </div>
 
@@ -588,107 +730,70 @@ const EventCountdown: React.FC = () => {
               className="btn btn-primary"
               disabled={submitting}
             >
-              {submitting ? <span className="spinner"></span> : 'Save trip'}
+              {submitting ? <span className="spinner"></span> : 'Create Shared Account'}
             </button>
           </form>
         </div>
       )}
 
-      {/* Trips List */}
       <div className="card">
-        <h2 style={{ marginBottom: '1rem' }}>Your trips</h2>
-        
-        {events.length === 0 ? (
+        <h2 style={{ marginTop: 0, marginBottom: '1rem' }}>Active Shared Accounts</h2>
+        {activeEvents.length === 0 ? (
           <div style={{ color: '#4a5568', textAlign: 'center', padding: '2rem' }}>
             <p style={{ marginTop: 0, fontSize: '1.05rem' }}>
-              No trips yet. Create your first group trip to get started.
+              No shared accounts yet. Create one to start collecting toward a target.
             </p>
             <p style={{ marginBottom: 0, fontSize: '0.9rem' }}>
-              Try an Amsterdam weekend, Ibiza trip, ski holiday, stag/hen trip, or friends group holiday.
+              Holidays, birthdays, festivals, group bookings, or any shared cost.
             </p>
           </div>
         ) : (
           <div className="grid grid-1">
-            {events.map((event) => {
-              const recorded = Number(event.tripMoney?.recordedTotal) || 0;
-              const target = Number(event.tripMoney?.targetAmount) || 0;
-              const yourRemaining = event.tripMoney && !event.tripMoney.isDeleted
-                ? personalRemaining(
-                    equalShareAmount(
-                      target,
-                      tripMoneyParticipantCount(event.tripMoney.owner, event.tripMoney.members)
-                    ),
-                    Number(event.tripMoney.yourContribution) || 0
-                  )
-                : null;
-              const destination = tripMoneyPrimaryAction(
-                event._id || '',
-                event.title,
-                event.tripMoney
-              ).to;
-
-              const openTrip = () => {
-                if (destination) {
-                  navigate(destination);
-                }
-              };
-
-              return (
-                <div
-                  key={event._id || event.title}
-                  className="card trip-list-card"
-                  role="link"
-                  tabIndex={0}
-                  aria-label={`Open ${event.title}`}
-                  onClick={(e) => {
-                    if ((e.target as HTMLElement).closest('.trip-list-remove')) {
-                      return;
-                    }
-                    openTrip();
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.target !== e.currentTarget) {
-                      return;
-                    }
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      openTrip();
-                    }
-                  }}
-                >
-                  <div className="trip-list-card-header">
-                    <div>
-                      <h3 className="trip-list-title">{event.title}</h3>
-                      <p className="trip-list-countdown">
-                        {tripCountdownLabel(event.eventDate, event.eventTime)}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(event._id || '')}
-                      className="btn btn-secondary trip-list-remove"
-                    >
-                      Remove trip
-                    </button>
-                  </div>
-
-                  {event.tripMoney?.isDeleted && (
-                    <p className="trip-list-money">Trip Money closed</p>
-                  )}
-                  {event.tripMoney && !event.tripMoney.isDeleted && target > 0 && (
-                    <p className="trip-list-money">
-                      {formatGbp(recorded)} of {formatGbp(target)} contributed
-                      {yourRemaining !== null && (
-                        <> · Your remaining: {formatGbp(yourRemaining)}</>
-                      )}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
+            {activeEvents.map(renderAccountCard)}
           </div>
         )}
       </div>
+
+      {archivedEvents.length > 0 && (
+        <div className="card">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setShowArchived((open) => !open)}
+          >
+            {showArchived ? 'Hide archived accounts' : 'Show archived accounts'}
+          </button>
+          {showArchived && (
+            <div className="grid grid-1" style={{ marginTop: '1rem' }}>
+              {archivedEvents.map(renderAccountCard)}
+            </div>
+          )}
+        </div>
+      )}
+
+      {legacyPots.length > 0 && (
+        <div className="card legacy-trip-money">
+          <h2 className="legacy-trip-money-title">Older Accounts</h2>
+          <p className="legacy-trip-money-note">
+            Older shared accounts that are not linked from the main list. They stay available here.
+          </p>
+          <div className="grid grid-1">
+            {legacyPots.map((pot) => (
+              <button
+                key={pot._id}
+                type="button"
+                className="legacy-trip-money-item"
+                onClick={() => navigate(`/shared-accounts/${pot._id}`)}
+              >
+                <span>{pot.name}</span>
+                <span className="legacy-trip-money-meta">
+                  {pot.isDeleted ? 'Closed' : pot.targetAmount ? formatGbp(pot.targetAmount) : 'Open'}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -147,14 +147,12 @@ const Accommodations: React.FC = () => {
         </p>
         <h1 className="card-title" style={{ marginBottom: '0.35rem' }}>Places to stay</h1>
         <p style={{ color: '#4a5568', marginBottom: '0.5rem' }}>
-          Find stays near your trip destination. Keep shared deposits and group costs in Trip Money; invite travellers from Invitations.
+          Find stays near a location. Keep shared deposits and group costs in a Shared Account; invite members from Notifications.
         </p>
         <p style={{ margin: 0, fontSize: '0.9rem' }}>
-          <Link to="/events" style={{ color: '#2b6cb0' }}>Trips</Link>
+          <Link to="/events" style={{ color: '#2b6cb0' }}>Shared Accounts</Link>
           {' · '}
-          <Link to="/shared-accounts" style={{ color: '#2b6cb0' }}>Trip Money</Link>
-          {' · '}
-          <Link to="/invitations" style={{ color: '#2b6cb0' }}>Invitations</Link>
+          <Link to="/invitations" style={{ color: '#2b6cb0' }}>Notifications</Link>
         </p>
       </div>
 
@@ -170,7 +168,7 @@ const Accommodations: React.FC = () => {
         
         <div className="grid grid-2" style={{ marginBottom: '1rem' }}>
           <div className="form-group">
-            <label className="form-label">Select trip (Optional)</label>
+            <label className="form-label">Select Shared Account (Optional)</label>
             <select
               className="form-input"
               value={selectedEvent?._id || ''}
@@ -179,7 +177,7 @@ const Accommodations: React.FC = () => {
                 if (event) handleEventSelect(event);
               }}
             >
-              <option value="">No trip selected</option>
+              <option value="">No Shared Account selected</option>
               {events.map(event => (
                 <option key={event._id} value={event._id}>
                   {event.title} - {new Date(event.eventDate).toLocaleDateString()}
@@ -303,7 +301,7 @@ const Accommodations: React.FC = () => {
       {accommodations.length === 0 && !searching && (
         <div className="card">
           <p style={{ color: '#4a5568', textAlign: 'center' }}>
-            Enter a destination and search for nearby places to stay — then track any shared deposit in Trip Money.
+            Enter a destination and search for nearby places to stay — then track any shared deposit in a Shared Account.
           </p>
         </div>
       )}

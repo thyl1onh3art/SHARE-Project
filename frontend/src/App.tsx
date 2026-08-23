@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import Login from './components/Login';
 import Register from './components/Register';
@@ -9,6 +9,7 @@ import SharedAccounts from './components/SharedAccounts';
 import SharedAccountDetail from './components/SharedAccountDetail';
 import Invitations from './components/Invitations';
 import Friends from './components/Friends';
+import Home from './components/Home';
 import EventCountdown from './components/EventCountdown';
 import TripHome from './components/TripHome';
 import Calendar from './components/Calendar';
@@ -31,7 +32,14 @@ function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              <Route path="/" element={<Navigate to="/events" replace />} />
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <Home />
+                  </ProtectedRoute>
+                }
+              />
               <Route 
                 path="/financial-records" 
                 element={

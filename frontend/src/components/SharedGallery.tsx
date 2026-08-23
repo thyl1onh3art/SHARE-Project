@@ -217,14 +217,12 @@ const SharedGallery: React.FC = () => {
             <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#718096' }}>
               Secondary · More menu
             </p>
-            <h1 className="card-title" style={{ marginBottom: '0.35rem' }}>Trip photos</h1>
+            <h1 className="card-title" style={{ marginBottom: '0.35rem' }}>Photos</h1>
             <p style={{ margin: 0, color: '#4a5568', fontSize: '0.95rem' }}>
-              Optional group memories from your trips. The core product is organising Trips, Trip Money, and Invitations.
+              Optional group memories. The core product is Shared Accounts.
             </p>
             <p style={{ margin: '0.65rem 0 0', fontSize: '0.9rem' }}>
-              <Link to="/events" style={{ color: '#2b6cb0' }}>Trips</Link>
-              {' · '}
-              <Link to="/shared-accounts" style={{ color: '#2b6cb0' }}>Trip Money</Link>
+              <Link to="/events" style={{ color: '#2b6cb0' }}>Shared Accounts</Link>
             </p>
           </div>
           <button 
@@ -273,7 +271,7 @@ const SharedGallery: React.FC = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Filter by Trip Money pot</label>
+            <label className="form-label">Filter by Shared Account</label>
             <select
               className="form-input"
               value={filterSharedAccount}
@@ -304,13 +302,13 @@ const SharedGallery: React.FC = () => {
       {/* Images Grid */}
       <div className="card">
         <h2 style={{ marginBottom: '1rem' }}>
-          Trip photos ({filteredImages.length} {filteredImages.length === 1 ? 'photo' : 'photos'})
+          Photos ({filteredImages.length} {filteredImages.length === 1 ? 'photo' : 'photos'})
         </h2>
         
         {filteredImages.length === 0 ? (
           <p style={{ color: '#4a5568', textAlign: 'center', padding: '2rem' }}>
-            No trip photos yet. Upload a group memory when you are ready — or head back to{' '}
-            <Link to="/events">Trips</Link>.
+            No photos yet. Upload a group memory when you are ready — or head back to{' '}
+            <Link to="/events">Shared Accounts</Link>.
           </p>
         ) : (
           <div style={{ 
@@ -391,7 +389,7 @@ const SharedGallery: React.FC = () => {
                   
                   {image.sharedAccountName && (
                     <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: '#667eea', fontWeight: '500' }}>
-                      Trip Money: {image.sharedAccountName}
+                      Shared Account: {image.sharedAccountName}
                     </p>
                   )}
                   
@@ -515,13 +513,13 @@ const SharedGallery: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Trip Money pot (Optional)</label>
+                <label className="form-label">Shared Account (Optional)</label>
                 <select
                   className="form-input"
                   value={uploadData.sharedAccountId}
                   onChange={(e) => setUploadData({ ...uploadData, sharedAccountId: e.target.value })}
                 >
-                  <option value="">No Trip Money pot</option>
+                  <option value="">No Shared Account</option>
                   {sharedAccounts.map(account => (
                     <option key={account._id} value={account._id}>
                       {account.name}
@@ -529,7 +527,7 @@ const SharedGallery: React.FC = () => {
                   ))}
                 </select>
                 <p style={{ fontSize: '0.85rem', color: '#4a5568', marginTop: '0.25rem' }}>
-                  Link this photo to a Trip Money pot so travellers can see it
+                  Link this photo to a Shared Account so members can see it
                 </p>
               </div>
 
