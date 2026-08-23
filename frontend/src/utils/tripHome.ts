@@ -2,6 +2,7 @@ export interface PersonSummary {
   _id: string;
   firstName?: string;
   lastName?: string;
+  email?: string;
 }
 
 export interface TripMoneySummary {
@@ -134,6 +135,40 @@ export function personalRemaining(
     return null;
   }
   return Math.max(0, Math.round((equalShare - Math.max(0, Number(yourContribution) || 0)) * 100) / 100);
+}
+
+export function resolveLedgerTraveller(
+  recordUser: PersonSummary | string | null | undefined,
+  owner?: PersonSummary | string | null,
+  members?: Array<PersonSummary | string> | null
+): PersonSummary {
+  if (recordUser && typeof recordUser === 'object') {
+    return {
+      _id: String(recordUser._id || ''),
+      firstName: recordUser.firstName || '',
+      lastName: recordUser.lastName || '',
+      email: recordUser.email || ''
+    };
+  }
+
+  const id = String(recordUser || '');
+  const people = [owner, ...(members || [])].filter(Boolean) as Array<PersonSummary | string>;
+  const match = people.find((person) => String(typeof person === 'string' ? person : person._id) === id);
+  if (match && typeof match === 'object') {
+    return {
+      _id: String(match._id),
+      firstName: match.firstName || '',
+      lastName: match.lastName || '',
+      email: match.email || ''
+    };
+  }
+
+  return { _id: id, firstName: '', lastName: '', email: '' };
+}
+
+export function travellerDisplayName(person: PersonSummary): string {
+  const name = `${person.firstName || ''} ${person.lastName || ''}`.trim();
+  return name || person.email || 'Traveller';
 }
 
 export function tripGroupMembers(event: TripHomeEvent): TripGroupMember[] {

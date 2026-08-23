@@ -1680,4 +1680,26 @@ Branch is ready for a later GitHub push + PR into `main` when explicitly request
 
 **Tests:** frontend 8 suites / 28 tests PASS (was 7/23). `tripEventLink` 6/6 PASS. Frontend production build PASS.
 
+---
+
+## Task 4 — Direct prototype contribution (Pay account)
+
+**Why Personal Account was a prerequisite:** “Record contribution” posted a personal `FinanceRecord` `output` and a Trip Money `input`, then blocked if the personal tracked total was too low. Backend `POST /api/finance` never required a personal balance — only auth, amount > 0, and `canMutateSharedAccount` (current member, not archived).
+
+**After:** Trip Money **Pay account** posts a single pot `input`. No personal output. No personal-balance check. Personal Account pages remain but are not required for this journey.
+
+**Journey:** Trip Money → Pay account → enter amount (partial or full remaining allowed) → ledger input. Context: Your share / Already contributed / Remaining (Task 3 helpers).
+
+**Wording:** customer action **Pay account**. Disclaimer: “Prototype: this records your contribution for testing. No money is transferred.” No card/deposit/held-by-SHARE/safeguarding claims.
+
+**Kept:** auth, membership, archived read-only, contribution history, target progress, Task 3 remaining. Frontend still refuses contributions that would exceed the **group target** (existing rule; reported, not removed). Equal share is not a hard cap.
+
+**Deferred:** debit cards, saved payment methods, Stripe/PayPal/wallets. SHARE must never store PAN/CVV. Task 5 settlement “Pay single payment” not started.
+
+**Schema/data:** unchanged. Recovered Mongo data not modified.
+
+**Tests:** frontend 9 suites / 34 tests PASS (was 8/28). Frontend build PASS. `directContribution` 4/4; `tripEventLink` 6/6; `sharedAccountArchive` 19/19; `sharedAccountAccess` included in that 41/41 combined run. No new regressions. Legacy `sharedAccount.test.js` not run (known flaky; unchanged).
+
+**Activity history follow-up:** `GET /finance?sharedAccount=` now populates `user` (`firstName lastName email`). The detail page no longer calls non-existent `GET /users/:id` (that produced “Unknown User”). Activity rows use name, or email as fallback. Frontend still maps a string user id to pot owner/members if history is not populated.
+
 

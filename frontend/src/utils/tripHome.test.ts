@@ -4,7 +4,9 @@ import {
   tripGroupMembers,
   tripMoneyParticipantCount,
   equalShareAmount,
-  personalRemaining
+  personalRemaining,
+  resolveLedgerTraveller,
+  travellerDisplayName
 } from './tripHome';
 
 describe('tripCountdownLabel', () => {
@@ -86,6 +88,24 @@ describe('equal share and remaining', () => {
   it('does not show a negative remaining after the share is reached', () => {
     expect(personalRemaining(600, 600)).toBe(0);
     expect(personalRemaining(600, 800)).toBe(0);
+  });
+});
+
+describe('ledger traveller display', () => {
+  it('uses a populated finance user', () => {
+    expect(travellerDisplayName(resolveLedgerTraveller(
+      { _id: 'u2', firstName: 'Alex', lastName: 'Friend', email: 'alex@example.com' },
+      { _id: 'u1', firstName: 'Sam' },
+      []
+    ))).toBe('Alex Friend');
+  });
+
+  it('falls back to pot membership or email when the user is only an id', () => {
+    expect(travellerDisplayName(resolveLedgerTraveller(
+      'u2',
+      { _id: 'u1', firstName: 'Sam', lastName: 'Organiser' },
+      [{ _id: 'u2', firstName: '', lastName: '', email: 'test222@example.com' }]
+    ))).toBe('test222@example.com');
   });
 });
 

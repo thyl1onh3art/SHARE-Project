@@ -5,6 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   equalShareAmount,
   personalRemaining,
+  resolveLedgerTraveller,
+  travellerDisplayName,
   tripMoneyParticipantCount
 } from '../utils/tripHome';
 
@@ -111,26 +113,13 @@ const SharedAccountDetail: React.FC = () => {
       const recordsResponse = await axios.get(`/finance?sharedAccount=${accountId}`);
       const records = recordsResponse.data;
 
-      // Populate user details for each record
-      const populatedRecords = await Promise.all(
-        records.map(async (record: any) => {
-          try {
-            const userResponse = await axios.get(`/users/${record.user}`);
-            return {
-              ...record,
-              user: userResponse.data
-            };
-          } catch {
-            return {
-              ...record,
-              user: { _id: record.user, firstName: 'Unknown', lastName: 'User', email: '' }
-            };
-          }
-        })
-      );
+      const populatedRecords: FinanceRecord[] = (records || []).map((record: any) => ({
+        ...record,
+        user: resolveLedgerTraveller(record.user, accountData.owner, accountData.members)
+      }));
 
       setAccount(accountData);
-      setTransactions(populatedRecords.sort((a, b) => 
+      setTransactions(populatedRecords.sort((a, b) =>
         new Date(b.date).getTime() - new Date(a.date).getTime()
       ));
 
@@ -293,7 +282,6 @@ const SharedAccountDetail: React.FC = () => {
     setTransferForm({ amount: '', description: '' });
     setError('');
     setShowTransferModal(true);
-    await fetchPersonalBalance();
   };
 
   const handleTransferSubmit = async (e: React.FormEvent) => {
@@ -303,11 +291,6 @@ const SharedAccountDetail: React.FC = () => {
     const amount = parseFloat(transferForm.amount);
     if (isNaN(amount) || amount <= 0) {
       setError('Please enter a valid amount greater than 0');
-      return;
-    }
-
-    if (personalBalance !== null && amount > personalBalance) {
-      setError('Amount exceeds your personal tracked total');
       return;
     }
 
@@ -331,12 +314,6 @@ const SharedAccountDetail: React.FC = () => {
 
     try {
       await axios.post('/finance', {
-        type: 'output',
-        amount,
-        date,
-        description: transferDescription
-      });
-      await axios.post('/finance', {
         type: 'input',
         amount,
         date,
@@ -346,7 +323,6 @@ const SharedAccountDetail: React.FC = () => {
       setShowTransferModal(false);
       setTransferForm({ amount: '', description: '' });
       await fetchAccountDetails();
-      await fetchPersonalBalance();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to record contribution');
     } finally {
@@ -796,7 +772,7 @@ const SharedAccountDetail: React.FC = () => {
           {!isArchived && !isCloseOutFocus && (
             <>
               <button className="btn btn-primary" onClick={handleTransferClick}>
-                Record contribution
+                Pay account
               </button>
               <button
                 className="btn btn-secondary"
@@ -831,7 +807,7 @@ const SharedAccountDetail: React.FC = () => {
             <p className="trip-money-more-actions-label">Collection and admin</p>
             <div className="trip-money-actions" style={{ marginTop: 0, paddingTop: 0, borderTop: 'none' }}>
               <button type="button" className="btn btn-secondary" onClick={handleTransferClick}>
-                Record contribution
+                Pay account
               </button>
               <button
                 type="button"
@@ -966,10 +942,10 @@ const SharedAccountDetail: React.FC = () => {
         {transactions.length === 0 ? (
           <div className="trip-money-empty-panel">
             <p className="trip-money-empty-title">Nothing recorded yet</p>
-            <p>Use Record contribution when someone has committed money toward these shared trip costs.</p>
+            <p>Use Pay account when someone has committed money toward these shared trip costs.</p>
             {!isArchived && !isCloseOutFocus && (
               <button className="btn btn-primary" onClick={handleTransferClick}>
-                Record contribution
+                Pay account
               </button>
             )}
           </div>
@@ -1009,7 +985,7 @@ const SharedAccountDetail: React.FC = () => {
                       {transaction.description || 'No description'}
                     </td>
                     <td style={{ padding: '0.75rem', color: '#4a5568' }}>
-                      {transaction.user.firstName} {transaction.user.lastName}
+                      {travellerDisplayName(transaction.user)}
                     </td>
                     <td style={{
                       padding: '0.75rem',
@@ -1310,7 +1286,7 @@ const SharedAccountDetail: React.FC = () => {
               )}
               {closeOutStatus === 'still_collecting' && (
                 <button className="btn btn-primary" onClick={handleTransferClick}>
-                  Record contribution
+                  Pay account
                 </button>
               )}
               <button
@@ -1548,7 +1524,7 @@ const SharedAccountDetail: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>Record contribution</h2>
+              <h2 style={{ margin: 0 }}>Pay account</h2>
               <button
                 onClick={() => setShowTransferModal(false)}
                 style={{
@@ -1563,19 +1539,21 @@ const SharedAccountDetail: React.FC = () => {
               </button>
             </div>
 
-            {loadingPersonalBalance ? (
-              <p style={{ color: '#4a5568' }}>Loading personal tracked total...</p>
-            ) : personalBalance !== null ? (
+            {suggestedEqualShare !== null && (
               <p style={{ color: '#4a5568', marginTop: 0 }}>
-                Personal tracked total: <strong>£{personalBalance.toFixed(2)}</strong>
-              </p>
-            ) : (
-              <p style={{ color: '#4a5568', marginTop: 0 }}>
-                Personal tracked total unavailable.
+                Your share: <strong>£{suggestedEqualShare.toFixed(2)}</strong>
+                {' · '}
+                Already contributed: <strong>£{userContribution.toFixed(2)}</strong>
+                {yourRemainingAmount !== null && (
+                  <>
+                    {' · '}
+                    Remaining: <strong>£{yourRemainingAmount.toFixed(2)}</strong>
+                  </>
+                )}
               </p>
             )}
-            <p style={{ color: '#4a5568', fontSize: '0.85rem' }}>
-              This updates the group ledger only — SHARE does not move bank funds.
+            <p style={{ color: '#718096', fontSize: '0.85rem' }}>
+              Prototype: this records your contribution for testing. No money is transferred.
             </p>
 
             {error && (
@@ -1586,8 +1564,9 @@ const SharedAccountDetail: React.FC = () => {
 
             <form onSubmit={handleTransferSubmit}>
               <div className="form-group">
-                <label className="form-label">Contribution amount (£)</label>
+                <label className="form-label" htmlFor="pay-account-amount">Amount (£)</label>
                 <input
+                  id="pay-account-amount"
                   type="number"
                   step="0.01"
                   min="0.01"
@@ -1596,17 +1575,6 @@ const SharedAccountDetail: React.FC = () => {
                   onChange={(e) => setTransferForm({ ...transferForm, amount: e.target.value })}
                   required
                   placeholder="0.00"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Description (Optional)</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={transferForm.description}
-                  onChange={(e) => setTransferForm({ ...transferForm, description: e.target.value })}
-                  placeholder="e.g., Accommodation deposit share"
                 />
               </div>
 
@@ -1625,7 +1593,7 @@ const SharedAccountDetail: React.FC = () => {
                   disabled={transferSubmitting}
                   style={{ flex: 1 }}
                 >
-                  {transferSubmitting ? <span className="spinner"></span> : 'Record contribution'}
+                  {transferSubmitting ? <span className="spinner"></span> : 'Pay account'}
                 </button>
               </div>
             </form>

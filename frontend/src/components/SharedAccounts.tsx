@@ -324,8 +324,8 @@ const SharedAccounts: React.FC = () => {
   };
 
   /**
-   * Record a contribution from personal tracked activity onto a Trip Money pot ledger.
-   * Creates two FinanceRecord rows (personal output + pot input). SHARE does not move bank funds.
+   * Record a prototype contribution onto a Trip Money pot ledger.
+   * Creates one FinanceRecord input on the pot. SHARE does not move bank funds.
    */
   const transferFundsToSharedAccount = async (
     account: SharedAccount,
@@ -336,11 +336,6 @@ const SharedAccounts: React.FC = () => {
       throw new Error('Invalid shared account');
     }
 
-    if (personalBalance !== null && amount > personalBalance) {
-      throw new Error('Amount exceeds your personal tracked total');
-    }
-
-    // Check if contribution would exceed contribution target
     if (account.targetAmount && account.targetAmount > 0) {
       const currentBalance = calculateAccountBalance(account);
       const newBalance = currentBalance + amount;
@@ -356,15 +351,6 @@ const SharedAccounts: React.FC = () => {
     const date = new Date().toISOString();
     const transferDescription = description || `Contribution to ${account.name}`;
 
-    // Create output record in personal account (deduct from personal)
-    await axios.post('/finance', {
-      type: 'output',
-      amount: amount,
-      date: date,
-      description: transferDescription
-    });
-
-    // Create input record in shared account (add to shared account)
     await axios.post('/finance', {
       type: 'input',
       amount: amount,
@@ -1124,7 +1110,7 @@ const SharedAccounts: React.FC = () => {
               alignItems: 'center', 
               marginBottom: '1rem' 
             }}>
-              <h2 style={{ margin: 0 }}>Record contribution to {selectedAccount.name}</h2>
+              <h2 style={{ margin: 0 }}>Pay account</h2>
               <button
                 onClick={() => {
                   setShowTransferModal(false);
@@ -1342,7 +1328,7 @@ const SharedAccounts: React.FC = () => {
                   disabled={transferSubmitting}
                   style={{ flex: 1 }}
                 >
-                  {transferSubmitting ? <span className="spinner"></span> : 'Record contribution'}
+                  {transferSubmitting ? <span className="spinner"></span> : 'Pay account'}
                 </button>
               </div>
             </form>

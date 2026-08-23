@@ -77,7 +77,8 @@ exports.getUserRecords = async (req, res) => {
       }
 
       // Trip Money pot ledger (group activity for this SharedAccount), not personal-only rows
-      const records = await FinanceRecord.find({ sharedAccount });
+      const records = await FinanceRecord.find({ sharedAccount })
+        .populate('user', 'firstName lastName email');
       return res.json(records);
     }
 

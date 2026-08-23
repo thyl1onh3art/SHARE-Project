@@ -106,7 +106,7 @@ describe('SharedAccountDetail close-out flow', () => {
 
     renderDetail();
 
-    expect(await screen.findAllByRole('button', { name: /record contribution/i })).not.toHaveLength(0);
+    expect(await screen.findAllByRole('button', { name: /pay account/i })).not.toHaveLength(0);
     expect(screen.getAllByRole('button', { name: /invite traveller/i }).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: /review trip close-out/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^close trip money$/i })).not.toBeInTheDocument();
@@ -142,11 +142,11 @@ describe('SharedAccountDetail close-out flow', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(/contribution target reached/i);
     expect(screen.getByRole('button', { name: /review trip close-out/i })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /^close trip money$/i }).length).toBeGreaterThan(0);
-    expect(screen.queryByRole('button', { name: /^record contribution$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^pay account$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^invite traveller$/i })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /more actions/i }));
-    expect(await screen.findByRole('button', { name: /^record contribution$/i })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /^pay account$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^invite traveller$/i })).toBeInTheDocument();
   });
 
@@ -168,6 +168,7 @@ describe('SharedAccountDetail close-out flow', () => {
 
     expect(await screen.findByRole('heading', { name: /this trip money is closed/i })).toBeInTheDocument();
     expect(screen.getByText(/new contributions, invitations and settlement requests cannot be added/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /pay account/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /record contribution/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /invite traveller/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /request settlement record/i })).not.toBeInTheDocument();
