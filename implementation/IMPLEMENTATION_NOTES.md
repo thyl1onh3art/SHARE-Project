@@ -1659,4 +1659,25 @@ Branch is ready for a later GitHub push + PR into `main` when explicitly request
 
 **Risks:** Group on recovered trips may only show the organiser if `sharedWith` and pot `members` are empty. List still has a money CTA (same lifecycle as home) so Task 1 one-click Open remains. Photos/Map are global, not trip-filtered.
 
+---
+
+## Task 3 — Equal share and your remaining
+
+**Purpose:** After Task 2, users could see group recorded vs target, but not a safe personal remaining figure. Task 3 adds equal per-member share and **Your remaining** from existing Trip Money membership only.
+
+**Behaviour:**
+- Participants = unique pot `owner` + `members` (not Event.sharedWith, not invented travellers).
+- Equal share = target ÷ participant count, rounded to 2 decimals. No target or no participants → no share and no remaining.
+- Your remaining = max(0, equal share − your recorded contribution). Never negative. Never faked.
+- Shown on Trip Money detail (working experience) and as compact text on the trip card when a live pot has enough data.
+- Copy: guidance only; unequal contributions still allowed. Not a binding debt.
+
+**Not in this task:** individual overrides, saving guidance, lock-after-first-contribution, approval mode, schema changes, relinking recovered pots.
+
+**Files:** `frontend/src/utils/tripHome.ts`, `SharedAccountDetail.tsx`, `EventCountdown.tsx`, focused tests, these notes.
+
+**Backend/schema/data:** unchanged. Existing `perPersonAmount` field is not written by this task; the UI calculates live from current members.
+
+**Tests:** frontend 8 suites / 28 tests PASS (was 7/23). `tripEventLink` 6/6 PASS. Frontend production build PASS.
+
 

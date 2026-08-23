@@ -67,14 +67,23 @@ describe('EventCountdown trip cards', () => {
           name: 'Canada costs',
           isDeleted: false,
           targetAmount: 2400,
-          recordedTotal: 1800
+          recordedTotal: 1800,
+          yourContribution: 250,
+          owner: { _id: 'u1', firstName: 'Sam' },
+          members: [
+            { _id: 'u2', firstName: 'Alex' },
+            { _id: 'u3', firstName: 'Jo' },
+            { _id: 'u4', firstName: 'Pat' }
+          ]
         }
       }]
     });
 
     renderTrips();
 
-    fireEvent.click(await screen.findByText('£1,800 of £2,400 contributed'));
+    expect(await screen.findByText(/£1,800 of £2,400 contributed/)).toBeInTheDocument();
+    expect(screen.getByText(/your remaining: £350/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByText(/£1,800 of £2,400 contributed/));
     expect(screen.getByText('Opened pot pot-canada')).toBeInTheDocument();
     expect(screen.queryByText('Unexpected Trip Home')).not.toBeInTheDocument();
   });

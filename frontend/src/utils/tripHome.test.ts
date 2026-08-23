@@ -1,7 +1,10 @@
 import {
   tripCountdownLabel,
   tripMoneyPrimaryAction,
-  tripGroupMembers
+  tripGroupMembers,
+  tripMoneyParticipantCount,
+  equalShareAmount,
+  personalRemaining
 } from './tripHome';
 
 describe('tripCountdownLabel', () => {
@@ -61,6 +64,28 @@ describe('tripMoneyPrimaryAction', () => {
     });
     expect(action.label).toBe('View closed Trip Money');
     expect(action.to).toBe('/shared-accounts/pot-1');
+  });
+});
+
+describe('equal share and remaining', () => {
+  it('splits the target across owner plus members', () => {
+    expect(tripMoneyParticipantCount(
+      { _id: 'u1', firstName: 'Sam' },
+      [{ _id: 'u2', firstName: 'Alex' }, { _id: 'u3', firstName: 'Jo' }]
+    )).toBe(3);
+    expect(equalShareAmount(2400, 4)).toBe(600);
+    expect(personalRemaining(600, 250)).toBe(350);
+  });
+
+  it('does not invent a remaining amount without a target or travellers', () => {
+    expect(equalShareAmount(0, 4)).toBeNull();
+    expect(equalShareAmount(2400, 0)).toBeNull();
+    expect(personalRemaining(null, 250)).toBeNull();
+  });
+
+  it('does not show a negative remaining after the share is reached', () => {
+    expect(personalRemaining(600, 600)).toBe(0);
+    expect(personalRemaining(600, 800)).toBe(0);
   });
 });
 

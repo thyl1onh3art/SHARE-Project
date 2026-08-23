@@ -102,6 +102,40 @@ export function tripMoneyPrimaryAction(
   return { label: 'Open Trip Money', to: potPath };
 }
 
+export function tripMoneyParticipantCount(
+  owner?: PersonSummary | string | null,
+  members?: Array<PersonSummary | string> | null
+): number {
+  const ids = new Set<string>();
+  const add = (person: PersonSummary | string | null | undefined) => {
+    if (!person) return;
+    const id = String(typeof person === 'string' ? person : person._id);
+    if (id && id !== 'undefined') {
+      ids.add(id);
+    }
+  };
+  add(owner);
+  (members || []).forEach(add);
+  return ids.size;
+}
+
+export function equalShareAmount(targetAmount: number, participantCount: number): number | null {
+  if (!(Number(targetAmount) > 0) || !(participantCount > 0)) {
+    return null;
+  }
+  return Math.round((Number(targetAmount) / participantCount) * 100) / 100;
+}
+
+export function personalRemaining(
+  equalShare: number | null,
+  yourContribution: number
+): number | null {
+  if (equalShare === null) {
+    return null;
+  }
+  return Math.max(0, Math.round((equalShare - Math.max(0, Number(yourContribution) || 0)) * 100) / 100);
+}
+
 export function tripGroupMembers(event: TripHomeEvent): TripGroupMember[] {
   const people = new Map<string, TripGroupMember>();
 

@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import {
+  equalShareAmount,
   formatGbp,
+  personalRemaining,
   tripCountdownLabel,
+  tripMoneyParticipantCount,
   tripMoneyPrimaryAction,
   TripMoneySummary
 } from '../utils/tripHome';
@@ -608,6 +611,15 @@ const EventCountdown: React.FC = () => {
             {events.map((event) => {
               const recorded = Number(event.tripMoney?.recordedTotal) || 0;
               const target = Number(event.tripMoney?.targetAmount) || 0;
+              const yourRemaining = event.tripMoney && !event.tripMoney.isDeleted
+                ? personalRemaining(
+                    equalShareAmount(
+                      target,
+                      tripMoneyParticipantCount(event.tripMoney.owner, event.tripMoney.members)
+                    ),
+                    Number(event.tripMoney.yourContribution) || 0
+                  )
+                : null;
               const destination = tripMoneyPrimaryAction(
                 event._id || '',
                 event.title,
@@ -665,6 +677,9 @@ const EventCountdown: React.FC = () => {
                   {event.tripMoney && !event.tripMoney.isDeleted && target > 0 && (
                     <p className="trip-list-money">
                       {formatGbp(recorded)} of {formatGbp(target)} contributed
+                      {yourRemaining !== null && (
+                        <> · Your remaining: {formatGbp(yourRemaining)}</>
+                      )}
                     </p>
                   )}
                 </div>

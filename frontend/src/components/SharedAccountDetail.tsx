@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import {
+  equalShareAmount,
+  personalRemaining,
+  tripMoneyParticipantCount
+} from '../utils/tripHome';
 
 interface FinanceRecord {
   _id: string;
@@ -538,12 +543,11 @@ const SharedAccountDetail: React.FC = () => {
   const percentComplete = hasTarget
     ? Math.min(100, Math.max(0, (recordedTotal / (account.targetAmount as number)) * 100))
     : 0;
-  const suggestedEqualShare =
-    hasTarget
-      ? (account.perPersonAmount && account.perPersonAmount > 0
-          ? account.perPersonAmount
-          : (account.targetAmount as number) / Math.max(1, allParticipants.length))
-      : null;
+  const suggestedEqualShare = equalShareAmount(
+    hasTarget ? (account.targetAmount as number) : 0,
+    tripMoneyParticipantCount(account.owner, account.members)
+  );
+  const yourRemainingAmount = personalRemaining(suggestedEqualShare, userContribution);
   const contributionCount = transactions.filter((t) => t.type === 'input').length;
   const activityCount = transactions.length;
   const amountAboveTarget = hasTarget
@@ -704,9 +708,9 @@ const SharedAccountDetail: React.FC = () => {
                 Target date: {new Date(account.targetDate).toLocaleDateString()}
               </p>
             )}
-            {!isCloseOutFocus && suggestedEqualShare !== null && (
+            {suggestedEqualShare !== null && (
               <p className="trip-money-equal-share">
-                Suggested equal share (illustrative, not mandatory): £{suggestedEqualShare.toFixed(2)} each
+                Equal share: £{suggestedEqualShare.toFixed(2)} each
               </p>
             )}
           </div>
@@ -750,10 +754,18 @@ const SharedAccountDetail: React.FC = () => {
 
         {user && (
           <p className="trip-money-your-contribution">
-            Your recorded contribution: <strong>£{userContribution.toFixed(2)}</strong>
+            Your contribution: <strong>£{userContribution.toFixed(2)}</strong>
+            {yourRemainingAmount !== null && (
+              <> · Your remaining: <strong>£{yourRemainingAmount.toFixed(2)}</strong></>
+            )}
             {availableWithdrawal > 0 && !isCloseOutFocus && (
               <> · Available to reverse (recorded): <strong>£{availableWithdrawal.toFixed(2)}</strong></>
             )}
+          </p>
+        )}
+        {suggestedEqualShare !== null && (
+          <p className="trip-money-equal-share">
+            Equal share is guidance for this group. Unequal contributions are allowed.
           </p>
         )}
 
@@ -877,10 +889,10 @@ const SharedAccountDetail: React.FC = () => {
             {allParticipants.map((participant) => {
               const participantId = participant._id;
               const netRecorded = calculateUserNetRecorded(participantId);
-              const remainingForPerson =
-                suggestedEqualShare !== null
-                  ? Math.max(0, suggestedEqualShare - Math.max(0, netRecorded))
-                  : null;
+              const remainingForPerson = personalRemaining(
+                suggestedEqualShare,
+                Math.max(0, netRecorded)
+              );
               const isComplete =
                 suggestedEqualShare !== null && netRecorded >= suggestedEqualShare - 0.001;
               const isSelf = String(participantId) === String(userId);
@@ -1099,13 +1111,6 @@ const SharedAccountDetail: React.FC = () => {
         {account.targetDate && (
           <p className="trip-money-target-date">
             Target date: {new Date(account.targetDate).toLocaleDateString()}
-          </p>
-        )}
-
-        {suggestedEqualShare !== null && (
-          <p className="trip-money-equal-share">
-            Suggested equal share (illustrative, not a binding debt): £{suggestedEqualShare.toFixed(2)} each,
-            based on the current target and traveller count.
           </p>
         )}
 
