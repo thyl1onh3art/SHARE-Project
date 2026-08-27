@@ -238,10 +238,11 @@ exports.getSharedAccountDetails = async (req, res) => {
       return res.status(404).json({ message: 'Shared account not found' });
     }
     const account = await SharedAccount.findById(id)
-      .populate('members', 'name email')
+      .populate('owner', 'firstName lastName email')
+      .populate('members', 'firstName lastName email')
       .populate({
         path: 'financeRecords',
-        populate: { path: 'user', select: 'name email' }
+        populate: { path: 'user', select: 'firstName lastName email' }
       });
     if (!account) {
       return res.status(404).json({ message: 'Shared account not found' });

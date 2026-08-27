@@ -194,22 +194,200 @@ export function parsePaymentDetails(description?: string | null): {
   };
 }
 
+function matchesCompletedPaymentOutput(
+  record: { amount?: number; description?: string },
+  completedPayments: Array<{ status?: string; amount?: number; description?: string }> | null | undefined
+): boolean {
+  const completed = (completedPayments || []).filter((payment) => isCompletedPaymentStatus(payment.status));
+  return completed.some((payment) => (
+    toPence(payment.amount) === toPence(record.amount) &&
+    String(payment.description || '') === String(record.description || '')
+  ));
+}
+
 export function contributionProgressTotal(
   records: Array<{ type?: string; amount?: number; description?: string }> | null | undefined,
   completedPayments: Array<{ status?: string; amount?: number; description?: string }> | null | undefined = []
 ): number {
-  const completed = (completedPayments || []).filter((payment) => isCompletedPaymentStatus(payment.status));
   return (records || []).reduce((sum, record) => {
     if (!record) return sum;
     const amount = Number(record.amount) || 0;
     if (record.type === 'input') return sum + amount;
     if (record.type !== 'output') return sum;
-    const isFinalPaymentOutput = completed.some((payment) => (
-      toPence(payment.amount) === toPence(amount) &&
-      String(payment.description || '') === String(record.description || '')
-    ));
-    return isFinalPaymentOutput ? sum : sum - amount;
+    return matchesCompletedPaymentOutput(record, completedPayments) ? sum : sum - amount;
   }, 0);
+}
+
+export function contributionExceedsPersonalShare(
+  amount: number,
+  remainingShare: number | null
+): boolean {
+  if (remainingShare === null) return false;
+  return Number(amount) > remainingShare + 0.001;
+}
+
+export function formatMoneyAmount(amount: number): string {
+  return `£${(Number(amount) || 0).toFixed(2)}`;
+}
+
+export function formatHistoryWhen(value: string | Date | null | undefined): string {
+  if (!value) return '';
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  const date = parsed.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
+  const time = parsed.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+  return `${date} · ${time}`;
+}
+
+const OBJECT_ID_PATTERN = /^[a-f0-9]{24}$/i;
+
+export function customerFacingPersonName(
+  person: PersonSummary | string | null | undefined,
+  owner?: PersonSummary | string | null,
+  members?: Array<PersonSummary | string> | null
+): string {
+  const resolved = resolveLedgerTraveller(person, owner, members);
+  const name = `${resolved.firstName || ''} ${resolved.lastName || ''}`.trim();
+  if (name && !OBJECT_ID_PATTERN.test(name)) return name;
+  const email = (resolved.email || '').trim();
+  if (email.includes('@') && !OBJECT_ID_PATTERN.test(email)) return email;
+  return 'Account activity';
+}
+
+export interface SharedAccountHistoryEntry {
+  id: string;
+  at: string;
+  person: string;
+  action: string;
+  amount?: number | null;
+}
+
+type HistoryPaymentPerson = PersonSummary | string | null | undefined;
+
+interface HistoryPaymentRequest {
+  _id?: string;
+  status?: string;
+  amount?: number;
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  requestedBy?: HistoryPaymentPerson;
+  approvals?: Array<{ user?: HistoryPaymentPerson; timestamp?: string }>;
+  rejections?: Array<{ user?: HistoryPaymentPerson; timestamp?: string }>;
+}
+
+function historyTimestamp(...values: Array<string | Date | null | undefined>): string {
+  for (const value of values) {
+    if (!value) continue;
+    const parsed = value instanceof Date ? value : new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
+  }
+  return '';
+}
+
+export function buildSharedAccountHistory(
+  records: Array<{
+    _id?: string;
+    type?: string;
+    amount?: number;
+    date?: string;
+    description?: string;
+    user?: PersonSummary | string | null;
+  }> | null | undefined,
+  paymentRequests: HistoryPaymentRequest[] | null | undefined,
+  owner?: PersonSummary | string | null,
+  members?: Array<PersonSummary | string> | null
+): SharedAccountHistoryEntry[] {
+  const entries: SharedAccountHistoryEntry[] = [];
+  const payments = paymentRequests || [];
+
+  (records || []).forEach((record, index) => {
+    if (!record) return;
+    if (record.type === 'output' && matchesCompletedPaymentOutput(record, payments)) {
+      return;
+    }
+    const amount = Number(record.amount) || 0;
+    const money = formatMoneyAmount(amount);
+    const action = record.type === 'output'
+      ? `Reversed contribution ${money}`
+      : `Contributed ${money}`;
+    entries.push({
+      id: String(record._id || `record-${index}`),
+      at: historyTimestamp(record.date),
+      person: customerFacingPersonName(record.user, owner, members),
+      action,
+      amount
+    });
+  });
+
+  payments.forEach((request, requestIndex) => {
+    const requestId = String(request._id || `payment-${requestIndex}`);
+    const amount = Number(request.amount) || 0;
+    const money = formatMoneyAmount(amount);
+    const details = parsePaymentDetails(request.description);
+    const toPayee = details.payee ? ` to ${details.payee}` : '';
+    const proposer = customerFacingPersonName(request.requestedBy, owner, members);
+
+    entries.push({
+      id: `${requestId}-proposed`,
+      at: historyTimestamp(request.createdAt, request.updatedAt),
+      person: proposer,
+      action: `Proposed final payment of ${money}${toPayee}`,
+      amount
+    });
+
+    (request.approvals || []).forEach((approval, approvalIndex) => {
+      entries.push({
+        id: `${requestId}-approval-${approvalIndex}`,
+        at: historyTimestamp(approval.timestamp, request.updatedAt, request.createdAt),
+        person: customerFacingPersonName(approval.user, owner, members),
+        action: 'Approved final payment'
+      });
+    });
+
+    (request.rejections || []).forEach((rejection, rejectionIndex) => {
+      entries.push({
+        id: `${requestId}-rejection-${rejectionIndex}`,
+        at: historyTimestamp(rejection.timestamp, request.updatedAt, request.createdAt),
+        person: customerFacingPersonName(rejection.user, owner, members),
+        action: 'Rejected final payment'
+      });
+    });
+
+    if (request.status === 'cancelled') {
+      entries.push({
+        id: `${requestId}-cancelled`,
+        at: historyTimestamp(request.updatedAt, request.createdAt),
+        person: proposer,
+        action: 'Cancelled final payment'
+      });
+    }
+
+    if (isCompletedPaymentStatus(request.status)) {
+      const lastApproval = (request.approvals || [])[(request.approvals || []).length - 1];
+      entries.push({
+        id: `${requestId}-completed`,
+        at: historyTimestamp(request.updatedAt, lastApproval?.timestamp, request.createdAt),
+        person: 'Final payment',
+        action: details.payee ? `${money} to ${details.payee}` : money,
+        amount
+      });
+    }
+  });
+
+  return entries.sort((a, b) => {
+    const aTime = a.at ? new Date(a.at).getTime() : 0;
+    const bTime = b.at ? new Date(b.at).getTime() : 0;
+    return aTime - bTime;
+  });
 }
 
 export function resolveLedgerTraveller(
@@ -242,8 +420,7 @@ export function resolveLedgerTraveller(
 }
 
 export function travellerDisplayName(person: PersonSummary): string {
-  const name = `${person.firstName || ''} ${person.lastName || ''}`.trim();
-  return name || person.email || 'Member';
+  return customerFacingPersonName(person);
 }
 
 export function tripGroupMembers(event: TripHomeEvent): TripGroupMember[] {
@@ -277,4 +454,28 @@ export function tripGroupMembers(event: TripHomeEvent): TripGroupMember[] {
   }
 
   return Array.from(people.values());
+}
+
+export const EXTRA_CLOSED_ACCOUNTS = 4;
+
+export function accountClosedAtMs(account: {
+  deletedAt?: string | Date | null;
+  updatedAt?: string | Date | null;
+}): number {
+  const raw = account.deletedAt || account.updatedAt || '';
+  const parsed = new Date(raw).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function sortClosedNewestFirst<T extends {
+  deletedAt?: string | Date | null;
+  updatedAt?: string | Date | null;
+}>(accounts: T[]): T[] {
+  return [...accounts].sort((a, b) => accountClosedAtMs(b) - accountClosedAtMs(a));
+}
+
+export function visibleClosedAccounts<T>(sorted: T[], expanded: boolean, extra = EXTRA_CLOSED_ACCOUNTS): T[] {
+  if (sorted.length === 0) return [];
+  if (!expanded) return sorted.slice(0, 1);
+  return sorted.slice(0, 1 + extra);
 }

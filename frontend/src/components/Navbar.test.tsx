@@ -53,6 +53,13 @@ describe('Navbar primary entry point', () => {
     expect(screen.queryByRole('link', { name: 'Trips' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Trip Money' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Invitations' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /more/i }));
+    expect(screen.getByRole('link', { name: 'Friends' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Photos' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Map' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Places to stay' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Accommodation' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Accommodations' })).not.toBeInTheDocument();
   });
 
   it('returns to Home when the SHARE logo is clicked', () => {

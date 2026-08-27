@@ -14,10 +14,32 @@ jest.mock('axios', () => ({
   }
 }));
 
+jest.mock('../contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: { id: 'user-1', name: 'Sam Brown', firstName: 'Sam', lastName: 'Brown', email: 'sam@example.com' },
+    token: 'test-token',
+    loading: false,
+    login: jest.fn(),
+    register: jest.fn(),
+    logout: jest.fn(),
+    sendVerificationCode: jest.fn(),
+    verifyEmail: jest.fn(),
+    updateProfile: jest.fn(),
+    refreshUser: jest.fn(),
+    deleteAccount: jest.fn()
+  })
+}));
+
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
-function mockListGets(events: unknown[] = [], pots: unknown[] = []) {
+function mockListGets(events: unknown[] = [], pots: unknown[] = [], archived: unknown[] = []) {
   (mockedAxios.get as jest.Mock).mockImplementation((url: string) => {
+    if (typeof url === 'string' && url.startsWith('/payment-requests')) {
+      return Promise.resolve({ data: [] });
+    }
+    if (typeof url === 'string' && url.includes('archived=true')) {
+      return Promise.resolve({ data: archived });
+    }
     if (typeof url === 'string' && url.startsWith('/shared-accounts')) {
       return Promise.resolve({ data: pots });
     }

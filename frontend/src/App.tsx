@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import Login from './components/Login';
 import Register from './components/Register';
@@ -13,9 +13,6 @@ import Home from './components/Home';
 import EventCountdown from './components/EventCountdown';
 import TripHome from './components/TripHome';
 import Calendar from './components/Calendar';
-import SharedGallery from './components/SharedGallery';
-import EventMap from './components/EventMap';
-import Accommodations from './components/Accommodations';
 import Profile from './components/Profile';
 import Settings from './components/Settings';
 import Navbar from './components/Navbar';
@@ -112,29 +109,29 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
-              <Route 
-                path="/gallery" 
+              <Route
+                path="/gallery"
                 element={
                   <ProtectedRoute>
-                    <SharedGallery />
+                    <Navigate to="/events" replace />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/map" 
+              <Route
+                path="/map"
                 element={
                   <ProtectedRoute>
-                    <EventMap />
+                    <Navigate to="/events" replace />
                   </ProtectedRoute>
-                } 
+                }
               />
-              <Route 
-                path="/accommodations" 
+              <Route
+                path="/accommodations"
                 element={
                   <ProtectedRoute>
-                    <Accommodations />
+                    <Navigate to="/events" replace />
                   </ProtectedRoute>
-                } 
+                }
               />
               <Route 
                 path="/profile" 

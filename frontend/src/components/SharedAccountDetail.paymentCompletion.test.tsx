@@ -158,7 +158,7 @@ describe('SharedAccountDetail payment completion', () => {
     renderDetail();
 
     expect(await screen.findByRole('button', { name: /back to shared accounts/i })).toBeInTheDocument();
-    expect(await screen.findByText('Example Hotel')).toBeInTheDocument();
+    expect((await screen.findAllByText('Example Hotel')).length).toBeGreaterThan(0);
     expect(screen.getByText(/reference:\s*ABC123/i)).toBeInTheDocument();
     expect(screen.getAllByText('Payment completed').length).toBeGreaterThan(0);
     expect(screen.getByText(/proposed by sam brown/i)).toBeInTheDocument();
@@ -242,7 +242,7 @@ describe('SharedAccountDetail payment completion', () => {
     expect(screen.getByRole('progressbar', { name: 'Contribution progress' })).toHaveAttribute('aria-valuenow', '100');
     expect(screen.getAllByText('Contributed').length).toBeGreaterThan(0);
     expect(screen.getAllByText('£2000.00').length).toBeGreaterThan(0);
-    expect(screen.getByText('Example Hotel')).toBeInTheDocument();
+    expect(screen.getAllByText('Example Hotel').length).toBeGreaterThan(0);
     expect(screen.getByText(/reference:\s*ABC123/i)).toBeInTheDocument();
     expect(screen.getAllByText('Payment completed').length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
@@ -331,9 +331,34 @@ describe('SharedAccountDetail payment completion', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText('Example Hotel')).toBeInTheDocument();
+    expect((await screen.findAllByText('Example Hotel')).length).toBeGreaterThan(0);
     expect(screen.queryByLabelText(/^amount$/i)).not.toBeInTheDocument();
     expect(mockedAxios.post).not.toHaveBeenCalled();
+  });
+
+  it('opens the existing close confirmation from close=now', async () => {
+    mockAccountFetch(baseAccount, fundedRecords, [{
+      _id: 'pr-1',
+      status: 'executed',
+      amount: 2000,
+      description: 'Payee: Example Hotel · Ref: ABC123',
+      requiredApprovals: 1,
+      requestedBy: owner,
+      approvals: [{ user: member, status: 'approved' }],
+      sharedAccount: 'pot-1'
+    }]);
+
+    render(
+      <MemoryRouter initialEntries={['/shared-accounts/pot-1?close=now']}>
+        <Routes>
+          <Route path="/shared-accounts/:accountId" element={<SharedAccountDetail />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Close Shared Account?' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^keep open$/i })).toBeInTheDocument();
+    expect(mockedAxios.delete).not.toHaveBeenCalled();
   });
 
   it('ignores a legacy matching output when showing funding progress', async () => {

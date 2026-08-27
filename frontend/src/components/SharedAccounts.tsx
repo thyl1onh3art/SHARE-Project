@@ -1061,7 +1061,7 @@ const SharedAccounts: React.FC = () => {
 
       {showArchived && (
         <div className="card" style={{ marginTop: '1.5rem' }}>
-          <h2 style={{ marginTop: 0, marginBottom: '0.35rem' }}>Archived Shared Accounts</h2>
+          <h2 style={{ marginTop: 0, marginBottom: '0.35rem' }}>Closed Shared Accounts</h2>
           <p style={{ color: '#718096', fontSize: '0.9rem', marginTop: 0 }}>
             Kept for history. New contribution activity cannot be recorded on these accounts.
           </p>

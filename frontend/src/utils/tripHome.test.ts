@@ -8,11 +8,18 @@ import {
   canPaySinglePayment,
   singlePaymentAmount,
   contributionProgressTotal,
+  contributionExceedsPersonalShare,
   paymentApprovalProgress,
   paymentRequestStatusLabel,
   parsePaymentDetails,
   resolveLedgerTraveller,
-  travellerDisplayName
+  travellerDisplayName,
+  customerFacingPersonName,
+  formatHistoryWhen,
+  buildSharedAccountHistory,
+  formatMoneyAmount,
+  sortClosedNewestFirst,
+  visibleClosedAccounts
 } from './tripHome';
 
 describe('tripCountdownLabel', () => {
@@ -181,6 +188,14 @@ describe('ledger traveller display', () => {
       [{ _id: 'u2', firstName: '', lastName: '', email: 'test222@example.com' }]
     ))).toBe('test222@example.com');
   });
+
+  it('does not display Member or an ObjectId when identity is missing', () => {
+    expect(travellerDisplayName(resolveLedgerTraveller(
+      '507f1f77bcf86cd799439011',
+      { _id: 'u1', firstName: 'Sam', lastName: 'Brown' },
+      []
+    ))).toBe('Account activity');
+  });
 });
 
 describe('tripGroupMembers', () => {
@@ -203,5 +218,123 @@ describe('tripGroupMembers', () => {
       { id: 'u1', name: 'Sam', isOrganiser: true },
       { id: 'u2', name: 'Alex', isOrganiser: false }
     ]);
+  });
+});
+
+describe('personal share confirmation helper', () => {
+  it('does not warn at or below remaining share', () => {
+    expect(contributionExceedsPersonalShare(50, 50)).toBe(false);
+    expect(contributionExceedsPersonalShare(49.99, 50)).toBe(false);
+    expect(contributionExceedsPersonalShare(10, null)).toBe(false);
+  });
+
+  it('warns when the amount is above remaining share', () => {
+    expect(contributionExceedsPersonalShare(50.01, 50)).toBe(true);
+    expect(contributionExceedsPersonalShare(25, 0)).toBe(true);
+  });
+});
+
+describe('transaction history helpers', () => {
+  const owner = { _id: 'u1', firstName: 'Sam', lastName: 'Brown', email: 'sam@example.com' };
+  const member = { _id: 'u2', firstName: 'Richard', lastName: 'Brown', email: 'richard@example.com' };
+
+  it('formats a readable local date and time instead of ISO', () => {
+    const formatted = formatHistoryWhen('2026-08-27T13:10:00.000Z');
+    expect(formatted).toMatch(/^\d{1,2} \w{3} \d{4} · \d{2}:\d{2}$/);
+    expect(formatted).not.toMatch(/T\d{2}:/);
+    expect(formatted).not.toContain('Z');
+  });
+
+  it('uses Account activity instead of an ObjectId', () => {
+    expect(customerFacingPersonName('507f1f77bcf86cd799439011', owner, [member])).toBe('Account activity');
+  });
+
+  it('builds one chronological history with customer wording', () => {
+    const history = buildSharedAccountHistory(
+      [
+        {
+          _id: 'r1',
+          type: 'input',
+          amount: 50,
+          date: '2026-08-27T13:10:00.000Z',
+          user: owner
+        },
+        {
+          _id: 'r2',
+          type: 'input',
+          amount: 150,
+          date: '2026-08-27T13:22:00.000Z',
+          user: member
+        },
+        {
+          _id: 'r-out',
+          type: 'output',
+          amount: 200,
+          date: '2026-08-27T13:35:00.000Z',
+          description: 'Payee: Test Hotel · Ref: ABC',
+          user: owner
+        }
+      ],
+      [{
+        _id: 'pr-1',
+        status: 'executed',
+        amount: 200,
+        description: 'Payee: Test Hotel · Ref: ABC',
+        createdAt: '2026-08-27T13:25:00.000Z',
+        updatedAt: '2026-08-27T13:35:00.000Z',
+        requestedBy: owner,
+        approvals: [{ user: owner, timestamp: '2026-08-27T13:30:00.000Z' }]
+      }],
+      owner,
+      [member]
+    );
+
+    expect(history.map((entry) => entry.action)).toEqual([
+      'Contributed £50.00',
+      'Contributed £150.00',
+      'Proposed final payment of £200.00 to Test Hotel',
+      'Approved final payment',
+      '£200.00 to Test Hotel'
+    ]);
+    expect(history.filter((entry) => entry.action.startsWith('Contributed £50.00'))).toHaveLength(1);
+    expect(history.some((entry) => /FinanceRecord|PaymentRequest|ledger|input|output|executed|settlement/i.test(`${entry.person} ${entry.action}`))).toBe(false);
+    expect(history[history.length - 1].person).toBe('Final payment');
+    expect(formatMoneyAmount(50)).toBe('£50.00');
+  });
+
+  it('uses simple wording for rejection and cancellation', () => {
+    const rejected = buildSharedAccountHistory([], [{
+      _id: 'pr-rej',
+      status: 'rejected',
+      amount: 100,
+      description: 'Payee: Cafe · Ref: 1',
+      createdAt: '2026-08-27T10:00:00.000Z',
+      requestedBy: owner,
+      rejections: [{ user: member, timestamp: '2026-08-27T10:05:00.000Z' }]
+    }], owner, [member]);
+    expect(rejected.some((entry) => entry.action === 'Rejected final payment')).toBe(true);
+
+    const cancelled = buildSharedAccountHistory([], [{
+      _id: 'pr-can',
+      status: 'cancelled',
+      amount: 100,
+      createdAt: '2026-08-27T10:00:00.000Z',
+      updatedAt: '2026-08-27T10:08:00.000Z',
+      requestedBy: owner
+    }], owner, [member]);
+    expect(cancelled.some((entry) => entry.action === 'Cancelled final payment')).toBe(true);
+  });
+});
+
+describe('closed account dashboard helpers', () => {
+  it('sorts closed accounts by deletedAt newest first and slices the preview', () => {
+    const sorted = sortClosedNewestFirst([
+      { _id: 'old', deletedAt: '2026-01-01T00:00:00.000Z' },
+      { _id: 'newest', deletedAt: '2026-08-27T12:00:00.000Z' },
+      { _id: 'mid', deletedAt: '2026-06-01T00:00:00.000Z' }
+    ]);
+    expect(sorted.map((account) => account._id)).toEqual(['newest', 'mid', 'old']);
+    expect(visibleClosedAccounts(sorted, false).map((account) => account._id)).toEqual(['newest']);
+    expect(visibleClosedAccounts(sorted, true).map((account) => account._id)).toEqual(['newest', 'mid', 'old']);
   });
 });

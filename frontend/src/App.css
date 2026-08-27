@@ -782,6 +782,41 @@ body {
   font-size: 0.85rem;
 }
 
+.trip-money-history-item {
+  display: block;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.trip-money-history-item:last-child {
+  border-bottom: none;
+}
+
+.trip-money-history-person {
+  display: block;
+  font-weight: 700;
+  color: #1a202c;
+}
+
+.trip-money-history-action {
+  display: block;
+  margin-top: 0.15rem;
+  color: #2d3748;
+}
+
+.trip-money-history-when {
+  display: block;
+  margin-top: 0.15rem;
+  color: #718096;
+  font-size: 0.85rem;
+}
+
+.trip-money-over-share-note {
+  color: #718096;
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
 .trip-money-empty-panel {
   padding: 1rem;
   background: #f7fafc;
@@ -886,7 +921,8 @@ body {
   color: #276749;
 }
 
-.pay-now-cta {
+.pay-now-cta,
+.close-shared-account-cta {
   font-weight: 700;
   font-size: 1rem;
   padding: 14px 28px;
@@ -1211,6 +1247,14 @@ body {
 .trip-list-money {
   margin: 0 0 0.85rem;
   color: #4a5568;
+}
+
+.trip-list-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 0 0.25rem;
 }
 
 .trip-list-remove {

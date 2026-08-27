@@ -2080,4 +2080,91 @@ The legacy root API tree (`controllers/`, `models/`, `routes/`, root `app.js`) w
 
 No commit / no push / stash@{0} untouched. Recovered DB untouched.
 
+### Task 12 — One Transaction history + warn before contributing over share
+
+Customer-facing Shared Account activity is now a single **Transaction history**. Personal share is a soft contribution limit with confirmation; the Shared Account target remains the hard cap.
+
+**Transaction history**
+- Replaced the 24-hour **Recent activity** list on Shared Account detail.
+- One chronological list (oldest first) answering who / what / how much / when.
+- Presentation-layer merge of `FinanceRecord` contributions/reversals and `PaymentRequest` events (proposed, approved, rejected, cancelled, completed).
+- Matching completed-payment ledger outputs are not shown as reversals, so a contribution is not listed twice.
+- Customer wording only. Unresolved people show **Account activity**, never ObjectIds or Unknown User.
+- Readable local date/time (`27 Aug 2026 · 14:10`).
+- **Who has contributed** remains a per-member snapshot, not a second transaction log. **Final payment** remains the operational approve/reject panel.
+
+**Personal share (soft limit)**
+- `memberShare = target / (owner + accepted members)`. Pending/cancelled/rejected invites are not counted. A £0 accepted member still counts.
+- Amount ≤ remaining share submits immediately.
+- Amount > remaining share opens a confirmation (still-has-share vs already-at-share copy). Cancel does not submit; **Contribute £X anyway** does.
+- Neutral wording: suggested share / your share. Optional subtle “£X above suggested share” when contribution exceeds share. Remaining never goes negative.
+- Group target hard cap is unchanged and is checked before the personal-share warning.
+- Frontend-only warning. Backend still allows unequal contributions. No per-member backend cap.
+
+**Internal data sources retained:** `FinanceRecord` and `PaymentRequest`. No schema change. No Mongo data modified.
+
+**Tests:** Frontend `20` suites / `114` tests passed. Production build compiled successfully. Backend suites requested (`directContribution`, `sharedAccountAccess`, `sharedAccountArchive`, `paymentRequestSettlement`, `inviteHelpers`, `tripEventLink`) could not run: local MongoDB on `localhost:27017` timed out (`mongoose.connect` in `beforeAll`). No backend files were changed in this task.
+
+No commit / no push / stash@{0} untouched.
+
+### Task 12 fix — Who has contributed names
+
+Root cause: `GET /shared-accounts/:id` did not populate `owner`, and populated `members` with `name email` even though User stores `firstName` / `lastName`. The member list rendered empty names, so the role label **Member** looked like the person’s name. Transaction history was fine because `GET /finance?sharedAccount=` already populates `user` with `firstName lastName email`.
+
+Fix: populate `owner` and `members` (and nested finance users) with `firstName lastName email`. Who has contributed and payment proposer displays now use `customerFacingPersonName`. Share/contribution math unchanged. No schema or Mongo data changes.
+
+**Tests:** Frontend `20` suites / `117` tests passed. Production build compiled successfully. `sharedAccountAccess` could not run: local MongoDB on `localhost:27017` timed out (`mongoose.connect` in `beforeAll`).
+
+No commit / no push / stash@{0} untouched.
+
+### Task 12 follow-up — Active vs Closed dashboard; remove Photos/Map/Places to Stay
+
+SHARE’s current product is group pooled funding through Shared Accounts.
+
+**Dashboard:** Active Shared Accounts now lists every open account the user owns or has joined, including unlinked/legacy accounts, without exposing linking. Duplicates are removed by Shared Account ID. **Older Accounts** is gone. **Recently Closed** shows the newest closed account (`deletedAt`) first, with Show more / Show fewer for a few more, and **View all closed accounts** reuses `/shared-accounts?archived=1`. Closed accounts stay read-only. Presentation only — no relinking, migration, or Mongo edits.
+
+**Removed from the live customer app:** Photos (`/gallery`), Map (`/map`), Places to Stay (`/accommodations`). Nav links gone; those routes redirect to Shared Accounts. Frontend components and backend gallery/accommodation APIs kept dormant (data preserved). More menu still has Friends, Personal tracking, Activity history, Calendar.
+
+**Tests:** Frontend `21` suites / `125` tests passed. Production build compiled successfully. No additional backend files in this follow-up.
+
+No commit / no push / stash@{0} untouched.
+
+### Task 12 UI fix — Pay now on fully funded Active Shared Account cards
+
+**Why it disappeared:** Task 12 dashboard simplification rebuilt Active Shared Account cards in `EventCountdown.tsx` (`/events`) as summary-only clickable cards. The existing green **Pay now** CTA lived on the older `/shared-accounts` list (`SharedAccounts.tsx`) and was not carried over.
+
+**Restored rule (existing helpers, no payment-rule changes):** show **Pay now** on an active card when `canPaySinglePayment` is true (target > 0 and contributed ≥ target, not archived) and `GET /payment-requests` has no pending or completed/executed final payment for that account. Hidden below target, with no target, when archived/closed, when waiting for approval, and after payment completed.
+
+**Behaviour:** the button uses `btn-success pay-now-cta`, `stopPropagation`, and navigates to `/shared-accounts/:id?pay=now`, which already opens the Final payment form. It does not create a payment. Other card clicks still open normal detail. Pending shows **Waiting for approval**; completed shows **Payment completed**. Any accepted member or owner who can see the card sees Pay now (same as the detail page / `isAccountParticipant` create rule — not organiser-only). Active unlinked/legacy fully funded accounts also show it; no Event link required.
+
+**Unchanged:** contribution/target math, share warning, group cap, PaymentRequest lifecycle, archive, Transaction history, schema, Mongo data.
+
+**Tests:** Frontend `21` suites / `137` tests passed. Production build compiled successfully. No backend changes.
+
+No commit / no push / stash@{0} untouched.
+
+### Task 12 UI fix — Remove dashboard Remove button from Shared Account cards
+
+**Root cause:** Dashboard cards in `EventCountdown.tsx` still showed a leftover **Remove** control from the old Event/trip list. It called `DELETE /events/:id` and only appeared when the card had an Event (`eventId`) and `ownedByCurrentUser !== false`. Linked owner cards showed it; unlinked/legacy cards and accepted-member cards did not.
+
+**After:** No Shared Account dashboard card shows **Remove**. Cards are view/open/Pay now/payment-status only. Destructive actions stay inside Shared Account detail: header delete/leave (`×`), **Archive Shared Account**, **Close Shared Account**, **Transfer organiser role**, and secondary **Delete permanently** on archived pots. Sole-owner delete and multi-member ownership-transfer safeguards are unchanged. The Event DELETE API was not removed.
+
+**Tests:** Frontend `21` suites / `138` tests passed. Production build compiled successfully. No backend changes.
+
+No commit / no push / stash@{0} untouched.
+
+### Task 12 UI fix — Close Shared Account after Payment completed
+
+**Root cause:** After payment completion, dashboard cards only showed a **Payment completed** badge. **Close Shared Account** existed on the detail page (organiser only, existing `DELETE /shared-accounts/:id` archive) but was not on the Active Shared Accounts cards, so the lifecycle looked stuck at Payment completed.
+
+**Dashboard after:** Pending → Waiting for approval (no Pay now, no Close). Completed + organiser → Payment completed + **Close Shared Account**. Completed + accepted member → Payment completed only. Closed cards → Closed, no Close. The button uses `stopPropagation` and `/shared-accounts/:id?close=now`, which opens the existing Close Shared Account confirmation (Keep open / Close Shared Account). Confirm still archives via the existing organiser-only endpoint.
+
+**Detail:** For an active account with a completed final payment, **Close Shared Account** is the primary next action for the organiser. Same confirmation reused. `close=now` auto-opens it. Permissions unchanged: only the organiser can archive.
+
+**Unchanged:** Pay now gating, PaymentRequest lifecycle, contribution math, share warning, Transaction history, sole-owner delete, ownership transfer, schema, Mongo data.
+
+**Tests:** Frontend `21` suites / `142` tests passed. Production build compiled successfully. No backend changes.
+
+No commit / no push / stash@{0} untouched.
+
 

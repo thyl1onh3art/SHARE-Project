@@ -6,15 +6,19 @@ import {
   equalShareAmount,
   personalRemaining,
   resolveLedgerTraveller,
-  travellerDisplayName,
+  customerFacingPersonName,
   tripMoneyParticipantCount,
   canPaySinglePayment,
   singlePaymentAmount,
   contributionProgressTotal,
+  contributionExceedsPersonalShare,
   parsePaymentDetails,
   isCompletedPaymentStatus,
   paymentRequestStatusLabel,
-  paymentApprovalProgress
+  paymentApprovalProgress,
+  buildSharedAccountHistory,
+  formatHistoryWhen,
+  formatMoneyAmount
 } from '../utils/tripHome';
 import { userFacingError } from '../utils/userFacingError';
 
@@ -62,6 +66,7 @@ const SharedAccountDetail: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const autoOpenedPayForm = useRef(false);
+  const autoOpenedCloseForm = useRef(false);
   const { user } = useAuth();
   const [account, setAccount] = useState<SharedAccount | null>(null);
   const [transactions, setTransactions] = useState<FinanceRecord[]>([]);
@@ -86,6 +91,12 @@ const SharedAccountDetail: React.FC = () => {
     description: ''
   });
   const [transferSubmitting, setTransferSubmitting] = useState(false);
+  const [shareConfirm, setShareConfirm] = useState<{
+    amount: number;
+    remaining: number;
+    suggestedShare: number;
+    alreadyContributed: number;
+  } | null>(null);
   const [showPayModal, setShowPayModal] = useState(false);
   const [paySubmitting, setPaySubmitting] = useState(false);
   const [payForm, setPayForm] = useState({ payee: '', reference: '', note: '' });
@@ -180,6 +191,26 @@ const SharedAccountDetail: React.FC = () => {
   const getCurrentUserId = () => {
     return (user as any)?._id || (user as any)?.id || '';
   };
+
+  useEffect(() => {
+    if (loading || !account || autoOpenedCloseForm.current) return;
+    if (searchParams.get('close') !== 'now') return;
+    autoOpenedCloseForm.current = true;
+
+    const completed = pendingSettlementRequests.some((req) => isCompletedPaymentStatus(req.status));
+    const ownerId = typeof account.owner === 'object' ? account.owner?._id : account.owner;
+    const currentUserId = (user as { _id?: string; id?: string } | null)?._id
+      || (user as { _id?: string; id?: string } | null)?.id
+      || '';
+    const isOrganiser = String(ownerId) === String(currentUserId);
+    if (!account.isDeleted && completed && isOrganiser) {
+      setShowArchiveModal(true);
+    }
+
+    const next = new URLSearchParams(searchParams);
+    next.delete('close');
+    setSearchParams(next, { replace: true });
+  }, [loading, account, pendingSettlementRequests, searchParams, setSearchParams, user]);
 
   const calculateUserContribution = (userId: string) => {
     return transactions
@@ -282,8 +313,36 @@ const SharedAccountDetail: React.FC = () => {
 
   const handleTransferClick = async () => {
     setTransferForm({ amount: '', description: '' });
+    setShareConfirm(null);
     setError('');
     setShowTransferModal(true);
+  };
+
+  const recordContribution = async (amount: number) => {
+    if (!account || !accountId || transferSubmitting) return;
+
+    setTransferSubmitting(true);
+    setError('');
+    const date = new Date().toISOString();
+    const transferDescription = transferForm.description || `Contribution to ${account.name}`;
+
+    try {
+      await axios.post('/finance', {
+        type: 'input',
+        amount,
+        date,
+        description: transferDescription,
+        sharedAccount: accountId
+      });
+      setShareConfirm(null);
+      setShowTransferModal(false);
+      setTransferForm({ amount: '', description: '' });
+      await fetchAccountDetails();
+    } catch (err: any) {
+      setError(userFacingError(err, 'Failed to record contribution'));
+    } finally {
+      setTransferSubmitting(false);
+    }
   };
 
   const handleTransferSubmit = async (e: React.FormEvent) => {
@@ -309,27 +368,28 @@ const SharedAccountDetail: React.FC = () => {
       }
     }
 
-    setTransferSubmitting(true);
-    setError('');
-    const date = new Date().toISOString();
-    const transferDescription = transferForm.description || `Contribution to ${account.name}`;
-
-    try {
-      await axios.post('/finance', {
-        type: 'input',
+    const suggestedShare = equalShareAmount(
+      account.targetAmount && account.targetAmount > 0 ? account.targetAmount : 0,
+      tripMoneyParticipantCount(account.owner, account.members)
+    );
+    const alreadyContributed = calculateUserContribution(getCurrentUserId());
+    const remainingShare = personalRemaining(suggestedShare, alreadyContributed);
+    if (
+      suggestedShare !== null
+      && remainingShare !== null
+      && contributionExceedsPersonalShare(amount, remainingShare)
+    ) {
+      setError('');
+      setShareConfirm({
         amount,
-        date,
-        description: transferDescription,
-        sharedAccount: accountId
+        remaining: remainingShare,
+        suggestedShare,
+        alreadyContributed
       });
-      setShowTransferModal(false);
-      setTransferForm({ amount: '', description: '' });
-      await fetchAccountDetails();
-    } catch (err: any) {
-      setError(userFacingError(err, 'Failed to record contribution'));
-    } finally {
-      setTransferSubmitting(false);
+      return;
     }
+
+    await recordContribution(amount);
   };
 
   const handlePayClick = () => {
@@ -594,11 +654,15 @@ const SharedAccountDetail: React.FC = () => {
     tripMoneyParticipantCount(account.owner, account.members)
   );
   const yourRemainingAmount = personalRemaining(suggestedEqualShare, userContribution);
-  const last24HoursCutoff = Date.now() - 24 * 60 * 60 * 1000;
-  const recentTransactions = transactions.filter((transaction) => {
-    const transactionTime = new Date(transaction.date).getTime();
-    return Number.isFinite(transactionTime) && transactionTime >= last24HoursCutoff;
-  });
+  const aboveSuggestedShare = suggestedEqualShare !== null
+    ? Math.max(0, Math.round((userContribution - suggestedEqualShare) * 100) / 100)
+    : 0;
+  const transactionHistory = buildSharedAccountHistory(
+    transactions,
+    pendingSettlementRequests,
+    account.owner,
+    account.members
+  );
 
   const targetReached =
     hasTarget && remainingToContribute !== null && remainingToContribute <= 0.001;
@@ -624,12 +688,7 @@ const SharedAccountDetail: React.FC = () => {
           !isArchived && !isRequester && !hasApproved && !hasRejected && req.status === 'pending';
         const details = parsePaymentDetails(req.description);
         const proposer = req.requestedBy
-          ? travellerDisplayName({
-              _id: String(requesterId || ''),
-              firstName: req.requestedBy.firstName,
-              lastName: req.requestedBy.lastName,
-              email: req.requestedBy.email
-            })
+          ? customerFacingPersonName(req.requestedBy, account.owner, account.members)
           : 'a member';
         const approvalProgress = paymentApprovalProgress(req);
         const statusLabel = paymentRequestStatusLabel(req.status);
@@ -858,6 +917,11 @@ const SharedAccountDetail: React.FC = () => {
             {yourRemainingAmount !== null && (
               <> · Your remaining: <strong>£{yourRemainingAmount.toFixed(2)}</strong></>
             )}
+            {aboveSuggestedShare > 0.001 && (
+              <span className="trip-money-over-share-note">
+                {' '}· {formatMoneyAmount(aboveSuggestedShare)} above suggested share
+              </span>
+            )}
           </p>
         )}
         {suggestedEqualShare !== null && (
@@ -873,7 +937,7 @@ const SharedAccountDetail: React.FC = () => {
         )}
 
         <div className="trip-money-actions">
-          {!isArchived && isCloseOutFocus && hasCompletedFinalPayment && (
+          {!isArchived && hasCompletedFinalPayment && (
             <>
               {isOwner && (
                 <button type="button" className="btn btn-primary" onClick={() => setShowArchiveModal(true)}>
@@ -918,7 +982,7 @@ const SharedAccountDetail: React.FC = () => {
               </button>
             </>
           )}
-          {!isArchived && !isCloseOutFocus && (
+          {!isArchived && !isCloseOutFocus && !hasCompletedFinalPayment && (
             <>
               <button className="btn btn-primary" onClick={handleTransferClick}>
                 Pay account
@@ -1027,7 +1091,17 @@ const SharedAccountDetail: React.FC = () => {
         ) : (
           <div className="trip-money-member-list">
             {allParticipants.map((participant) => {
-              const participantId = participant._id;
+              const resolved = resolveLedgerTraveller(
+                participant,
+                account.owner,
+                account.members
+              );
+              const participantId = resolved._id;
+              const displayName = customerFacingPersonName(
+                participant,
+                account.owner,
+                account.members
+              );
               const recordedForPerson = calculateUserContribution(participantId);
               const remainingForPerson = personalRemaining(
                 suggestedEqualShare,
@@ -1043,7 +1117,7 @@ const SharedAccountDetail: React.FC = () => {
                   <div className="trip-money-member-main">
                     <div>
                       <strong>
-                        {participant.firstName} {participant.lastName}
+                        {displayName}
                         {isSelf ? ' (you)' : ''}
                       </strong>
                       <div className="trip-money-member-meta">
@@ -1091,33 +1165,25 @@ const SharedAccountDetail: React.FC = () => {
         )}
       </div>
 
-      {/* Recent activity */}
-      <div className="card" id="group-activity" style={{ marginBottom: '1.5rem' }}>
-        <h2 className="card-title">Recent activity</h2>
-        {transactions.length === 0 ? (
+      {/* Transaction history */}
+      <div className="card" id="transaction-history" style={{ marginBottom: '1.5rem' }}>
+        <h2 className="card-title">Transaction history</h2>
+        {transactionHistory.length === 0 ? (
           <div className="trip-money-empty-panel">
             <p className="trip-money-empty-title">Nothing yet</p>
             <p>Contributions will show up here.</p>
           </div>
-        ) : recentTransactions.length === 0 ? (
-          <p style={{ color: '#4a5568' }}>No activity in the last 24 hours.</p>
         ) : (
           <ul className="trip-money-activity-list">
-            {recentTransactions.map((transaction) => {
-              const name = travellerDisplayName(transaction.user);
-              const amount = `£${transaction.amount.toFixed(2)}`;
-              const line = transaction.type === 'input'
-                ? `${name} contributed ${amount}`
-                : `${name} reversed ${amount}`;
-              return (
-                <li key={transaction._id} className="trip-money-activity-item">
-                  <span>{line}</span>
-                  <span className="trip-money-activity-date">
-                    {new Date(transaction.date).toLocaleString()}
-                  </span>
-                </li>
-              );
-            })}
+            {transactionHistory.map((entry) => (
+              <li key={entry.id} className="trip-money-history-item">
+                <span className="trip-money-history-person">{entry.person}</span>
+                <span className="trip-money-history-action">{entry.action}</span>
+                {entry.at && (
+                  <span className="trip-money-history-when">{formatHistoryWhen(entry.at)}</span>
+                )}
+              </li>
+            ))}
           </ul>
         )}
       </div>
@@ -1346,7 +1412,10 @@ const SharedAccountDetail: React.FC = () => {
             }}>
               <h2 style={{ margin: 0 }}>Pay account</h2>
               <button
-                onClick={() => setShowTransferModal(false)}
+                onClick={() => {
+                  setShareConfirm(null);
+                  setShowTransferModal(false);
+                }}
                 style={{
                   background: 'none',
                   border: 'none',
@@ -1401,7 +1470,10 @@ const SharedAccountDetail: React.FC = () => {
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
                 <button
                   type="button"
-                  onClick={() => setShowTransferModal(false)}
+                  onClick={() => {
+                    setShareConfirm(null);
+                    setShowTransferModal(false);
+                  }}
                   className="btn btn-secondary"
                   style={{ flex: 1 }}
                 >
@@ -1417,6 +1489,84 @@ const SharedAccountDetail: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {shareConfirm && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="share-confirm-title"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1100
+          }}
+        >
+          <div className="card" style={{
+            width: '90%',
+            maxWidth: '480px',
+            position: 'relative'
+          }}>
+            {shareConfirm.remaining > 0.001 ? (
+              <>
+                <h2 id="share-confirm-title" style={{ marginTop: 0 }}>
+                  You’re contributing more than your share
+                </h2>
+                <p>
+                  Your remaining share is {formatMoneyAmount(shareConfirm.remaining)}.
+                </p>
+                <p>
+                  You’re about to contribute {formatMoneyAmount(shareConfirm.amount)}, which will take you{' '}
+                  {formatMoneyAmount(shareConfirm.amount - shareConfirm.remaining)} above your suggested share.
+                </p>
+                <p>Are you sure?</p>
+              </>
+            ) : (
+              <>
+                <h2 id="share-confirm-title" style={{ marginTop: 0 }}>
+                  You’ve already contributed your share
+                </h2>
+                <p>
+                  Your suggested share is {formatMoneyAmount(shareConfirm.suggestedShare)} and you have already
+                  contributed {formatMoneyAmount(shareConfirm.alreadyContributed)}.
+                </p>
+                <p>
+                  Adding {formatMoneyAmount(shareConfirm.amount)} will take your total contribution to{' '}
+                  {formatMoneyAmount(shareConfirm.alreadyContributed + shareConfirm.amount)}.
+                </p>
+                <p>Are you sure you want to contribute more?</p>
+              </>
+            )}
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ flex: 1 }}
+                onClick={() => setShareConfirm(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ flex: 1 }}
+                disabled={transferSubmitting}
+                onClick={() => recordContribution(shareConfirm.amount)}
+              >
+                {transferSubmitting
+                  ? <span className="spinner"></span>
+                  : `Contribute ${formatMoneyAmount(shareConfirm.amount)} anyway`}
+              </button>
+            </div>
           </div>
         </div>
       )}

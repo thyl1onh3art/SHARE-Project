@@ -13,9 +13,6 @@ const moreLinks = [
   { to: '/personal-finance', label: 'Personal tracking' },
   { to: '/financial-records', label: 'Activity history' },
   { to: '/calendar', label: 'Calendar' },
-  { to: '/gallery', label: 'Photos' },
-  { to: '/map', label: 'Map' },
-  { to: '/accommodations', label: 'Places to stay' },
 ];
 
 const dropdownLinkStyle: React.CSSProperties = {

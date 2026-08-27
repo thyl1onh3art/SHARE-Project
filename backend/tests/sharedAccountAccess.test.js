@@ -86,6 +86,19 @@ describe('SharedAccount historical read access', () => {
         .expect(200);
 
       expect(response.body.name).toBe('Trip Money Pot');
+      expect(response.body.owner).toEqual(expect.objectContaining({
+        firstName: 'Owner',
+        lastName: 'User',
+        email: 'owner-access@test.com'
+      }));
+      expect(String(response.body.owner._id)).toBe(String(ownerUser._id));
+      expect(response.body.members).toHaveLength(1);
+      expect(response.body.members[0]).toEqual(expect.objectContaining({
+        firstName: 'Member',
+        lastName: 'User',
+        email: 'member-access@test.com'
+      }));
+      expect(String(response.body.members[0]._id)).toBe(String(memberUser._id));
     });
 
     it('allows a current member to read', async () => {

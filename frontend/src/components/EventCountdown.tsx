@@ -1,13 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import {
   equalShareAmount,
   formatGbp,
   personalRemaining,
   tripCountdownLabel,
   tripMoneyParticipantCount,
-  tripMoneyPrimaryAction,
+  contributionProgressTotal,
+  canPaySinglePayment,
+  isCompletedPaymentStatus,
+  sortClosedNewestFirst,
+  visibleClosedAccounts,
   TripMoneySummary
 } from '../utils/tripHome';
 import { userFacingError } from '../utils/userFacingError';
@@ -48,6 +53,10 @@ interface Event {
 
 const EventCountdown: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const currentUserId = (user as { _id?: string; id?: string } | null)?._id
+    || (user as { _id?: string; id?: string } | null)?.id
+    || '';
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -82,15 +91,11 @@ const EventCountdown: React.FC = () => {
   });
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
-  const [legacyPots, setLegacyPots] = useState<Array<{
-    _id: string;
-    name: string;
-    isDeleted?: boolean;
-    targetAmount?: number;
-    event?: string | null;
-  }>>([]);
+  const [accountList, setAccountList] = useState<any[]>([]);
+  const [closedAccountList, setClosedAccountList] = useState<any[]>([]);
+  const [paymentRequests, setPaymentRequests] = useState<any[]>([]);
+  const [showMoreClosed, setShowMoreClosed] = useState(false);
   const [targetAmount, setTargetAmount] = useState('');
-  const [showArchived, setShowArchived] = useState(false);
 
   // Keep category values aligned with the existing Event API/model; labels are general.
   const categories = [
@@ -107,7 +112,7 @@ const EventCountdown: React.FC = () => {
 
   useEffect(() => {
     fetchEvents();
-    fetchLegacyPots();
+    fetchAccountLists();
   }, []);
 
   const fetchEvents = async () => {
@@ -128,26 +133,20 @@ const EventCountdown: React.FC = () => {
     }
   };
 
-  const fetchLegacyPots = async () => {
+  const fetchAccountLists = async () => {
     try {
-      const [activeResponse, archivedResponse] = await Promise.all([
+      const [activeResponse, archivedResponse, paymentResponse] = await Promise.all([
         axios.get('/shared-accounts'),
-        axios.get('/shared-accounts?archived=true').catch(() => ({ data: [] }))
+        axios.get('/shared-accounts?archived=true').catch(() => ({ data: [] })),
+        axios.get('/payment-requests').catch(() => ({ data: [] }))
       ]);
-      const combined = [
-        ...(Array.isArray(activeResponse.data) ? activeResponse.data : []),
-        ...(Array.isArray(archivedResponse.data) ? archivedResponse.data : [])
-      ];
-      const seen = new Set<string>();
-      setLegacyPots(combined.filter((pot: { _id?: string; event?: string | null }) => {
-        if (pot.event || !pot._id || seen.has(pot._id)) {
-          return false;
-        }
-        seen.add(pot._id);
-        return true;
-      }));
+      setAccountList(Array.isArray(activeResponse.data) ? activeResponse.data : []);
+      setClosedAccountList(Array.isArray(archivedResponse.data) ? archivedResponse.data : []);
+      setPaymentRequests(Array.isArray(paymentResponse.data) ? paymentResponse.data : []);
     } catch {
-      setLegacyPots([]);
+      setAccountList([]);
+      setClosedAccountList([]);
+      setPaymentRequests([]);
     }
   };
 
@@ -230,19 +229,6 @@ const EventCountdown: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this Shared Account?')) {
-      return;
-    }
-
-    try {
-      await axios.delete(`/events/${id}`);
-      fetchEvents();
-    } catch (err: any) {
-      setError(`Failed to delete Shared Account: ${err.response?.data?.message || err.message}`);
-    }
-  };
-
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '2rem' }}>
@@ -252,46 +238,161 @@ const EventCountdown: React.FC = () => {
     );
   }
 
-  const isArchivedAccount = (event: Event) => !!event.tripMoney?.isDeleted;
-  const activeEvents = events.filter((event) => !isArchivedAccount(event));
-  const archivedEvents = events.filter(isArchivedAccount);
+  type DashboardCard = {
+    id: string;
+    name: string;
+    isClosed: boolean;
+    targetAmount?: number | null;
+    recordedTotal?: number;
+    yourContribution?: number;
+    memberCount: number;
+    location?: string;
+    eventDate?: string;
+    eventTime?: string;
+    ownedByCurrentUser?: boolean;
+    eventId?: string;
+    deletedAt?: string | null;
+    updatedAt?: string | null;
+    owner?: TripMoneySummary['owner'];
+    members?: TripMoneySummary['members'];
+  };
 
-  const renderAccountCard = (event: Event) => {
-    const recorded = Number(event.tripMoney?.recordedTotal) || 0;
-    const target = Number(event.tripMoney?.targetAmount) || 0;
-    const yourRemaining = event.tripMoney && !event.tripMoney.isDeleted
+  const eventByPotId = new Map<string, Event>();
+  events.forEach((event) => {
+    if (event.tripMoney?._id) {
+      eventByPotId.set(String(event.tripMoney._id), event);
+    }
+  });
+
+  const paymentsForAccount = (accountId: string) =>
+    paymentRequests.filter((pr: any) => {
+      const requestAccountId =
+        typeof pr.sharedAccount === 'object' ? pr.sharedAccount?._id : pr.sharedAccount;
+      return String(requestAccountId) === String(accountId);
+    });
+
+  const cardFromAccount = (account: any, isClosed: boolean): DashboardCard => {
+    const event = eventByPotId.get(String(account._id));
+    const tripMoney = event?.tripMoney;
+    const owner = tripMoney?.owner || account.owner;
+    const members = tripMoney?.members || account.members;
+    const recorded = tripMoney?.recordedTotal != null
+      ? Number(tripMoney.recordedTotal)
+      : contributionProgressTotal(account.financeRecords || [], paymentsForAccount(account._id));
+    const target = Number(tripMoney?.targetAmount ?? account.targetAmount) || 0;
+    return {
+      id: String(account._id),
+      name: event?.title || account.name,
+      isClosed,
+      targetAmount: target > 0 ? target : null,
+      recordedTotal: recorded,
+      yourContribution: Number(tripMoney?.yourContribution) || 0,
+      memberCount: tripMoneyParticipantCount(owner, members),
+      location: event?.location,
+      eventDate: event?.eventDate,
+      eventTime: event?.eventTime,
+      ownedByCurrentUser: event ? event.ownedByCurrentUser !== false : undefined,
+      eventId: event?._id,
+      deletedAt: account.deletedAt || null,
+      updatedAt: account.updatedAt || null,
+      owner,
+      members
+    };
+  };
+
+  const cardFromEvent = (event: Event, isClosed: boolean): DashboardCard => {
+    const tripMoney = event.tripMoney;
+    return {
+      id: String(tripMoney?._id),
+      name: event.title,
+      isClosed,
+      targetAmount: Number(tripMoney?.targetAmount) || null,
+      recordedTotal: Number(tripMoney?.recordedTotal) || 0,
+      yourContribution: Number(tripMoney?.yourContribution) || 0,
+      memberCount: tripMoneyParticipantCount(tripMoney?.owner, tripMoney?.members),
+      location: event.location,
+      eventDate: event.eventDate,
+      eventTime: event.eventTime,
+      ownedByCurrentUser: event.ownedByCurrentUser !== false,
+      eventId: event._id,
+      owner: tripMoney?.owner,
+      members: tripMoney?.members
+    };
+  };
+
+  const activeById = new Map<string, DashboardCard>();
+  accountList.forEach((account) => {
+    if (account?.isDeleted || !account?._id) return;
+    activeById.set(String(account._id), cardFromAccount(account, false));
+  });
+  events.forEach((event) => {
+    if (!event.tripMoney?._id || event.tripMoney.isDeleted) return;
+    const id = String(event.tripMoney._id);
+    if (!activeById.has(id)) {
+      activeById.set(id, cardFromEvent(event, false));
+    }
+  });
+  const activeCards = Array.from(activeById.values());
+
+  const closedById = new Map<string, DashboardCard>();
+  closedAccountList.forEach((account) => {
+    if (!account?._id) return;
+    closedById.set(String(account._id), cardFromAccount(account, true));
+  });
+  events.forEach((event) => {
+    if (!event.tripMoney?._id || !event.tripMoney.isDeleted) return;
+    const id = String(event.tripMoney._id);
+    if (!closedById.has(id)) {
+      closedById.set(id, cardFromEvent(event, true));
+    }
+  });
+  const closedCards = sortClosedNewestFirst(Array.from(closedById.values()));
+  const closedPreview = visibleClosedAccounts(closedCards, showMoreClosed);
+
+  const renderAccountCard = (card: DashboardCard) => {
+    const recorded = Number(card.recordedTotal) || 0;
+    const target = Number(card.targetAmount) || 0;
+    const yourRemaining = !card.isClosed
       ? personalRemaining(
-          equalShareAmount(
-            target,
-            tripMoneyParticipantCount(event.tripMoney.owner, event.tripMoney.members)
-          ),
-          Number(event.tripMoney.yourContribution) || 0
+          equalShareAmount(target, card.memberCount),
+          Number(card.yourContribution) || 0
         )
       : null;
-    const destination = tripMoneyPrimaryAction(
-      event._id || '',
-      event.title,
-      event.tripMoney
-    ).to;
-    const memberCount = event.tripMoney
-      ? tripMoneyParticipantCount(event.tripMoney.owner, event.tripMoney.members)
-      : 0;
+    const accountPayments = paymentsForAccount(card.id);
+    const hasPendingPayment = accountPayments.some((pr: any) => pr.status === 'pending');
+    const hasCompletedPayment = accountPayments.some((pr: any) => isCompletedPaymentStatus(pr.status));
+    const showPayNow =
+      !card.isClosed &&
+      canPaySinglePayment(recorded, target, card.isClosed) &&
+      !hasPendingPayment &&
+      !hasCompletedPayment;
+    const ownerId = typeof card.owner === 'object' && card.owner
+      ? card.owner._id
+      : card.owner;
+    const isOrganiser = !!currentUserId && !!ownerId && String(ownerId) === String(currentUserId);
+    const showCloseAccount = !card.isClosed && hasCompletedPayment && isOrganiser;
 
-    const openAccount = () => {
-      if (destination) {
-        navigate(destination);
-      }
+    const openAccount = () => navigate(`/shared-accounts/${card.id}`);
+    const openPayNow = (e: React.MouseEvent | React.KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      navigate(`/shared-accounts/${card.id}?pay=now`);
+    };
+    const openCloseAccount = (e: React.MouseEvent | React.KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      navigate(`/shared-accounts/${card.id}?close=now`);
     };
 
     return (
       <div
-        key={event._id || event.title}
+        key={card.id}
         className="card trip-list-card"
         role="link"
         tabIndex={0}
-        aria-label={`Open ${event.title}`}
+        aria-label={`Open ${card.name}`}
         onClick={(e) => {
-          if ((e.target as HTMLElement).closest('.trip-list-remove')) {
+          if ((e.target as HTMLElement).closest('.pay-now-cta, .close-shared-account-cta')) {
             return;
           }
           openAccount();
@@ -308,45 +409,71 @@ const EventCountdown: React.FC = () => {
       >
         <div className="trip-list-card-header">
           <div>
-            <h3 className="trip-list-title">{event.title}</h3>
-            <p className="trip-list-countdown">
-              {tripCountdownLabel(event.eventDate, event.eventTime)}
-            </p>
-            {event.location && (
-              <p className="trip-list-location">{event.location}</p>
+            <h3 className="trip-list-title">{card.name}</h3>
+            {card.isClosed && (
+              <p className="trip-list-countdown">Closed</p>
+            )}
+            {!card.isClosed && card.eventDate && (
+              <p className="trip-list-countdown">
+                {tripCountdownLabel(card.eventDate, card.eventTime)}
+              </p>
+            )}
+            {card.location && (
+              <p className="trip-list-location">{card.location}</p>
             )}
           </div>
-          {event.ownedByCurrentUser !== false && (
-            <button
-              type="button"
-              onClick={() => handleDelete(event._id || '')}
-              className="btn btn-secondary trip-list-remove"
-            >
-              Remove
-            </button>
-          )}
         </div>
 
-        {event.tripMoney?.isDeleted && (
+        {card.isClosed && (
           <p className="trip-list-money">Shared Account closed</p>
         )}
-        {event.tripMoney && !event.tripMoney.isDeleted && target > 0 && (
+        {!card.isClosed && target > 0 && (
           <p className="trip-list-money">
             Target {formatGbp(target)}
             {' · '}
             {formatGbp(recorded)} contributed
             {' · Still needed '}
             {formatGbp(Math.max(0, target - recorded))}
-            {memberCount > 0 && (
-              <> · {memberCount} {memberCount === 1 ? 'member' : 'members'}</>
+            {card.memberCount > 0 && (
+              <> · {card.memberCount} {card.memberCount === 1 ? 'member' : 'members'}</>
             )}
             {yourRemaining !== null && (
               <> · Your remaining: {formatGbp(yourRemaining)}</>
             )}
           </p>
         )}
-        {!event.tripMoney && (
-          <p className="trip-list-money">Shared Account not set up yet</p>
+        {!card.isClosed && !(target > 0) && recorded > 0 && (
+          <p className="trip-list-money">
+            {formatGbp(recorded)} contributed
+          </p>
+        )}
+        {!card.isClosed && (hasPendingPayment || hasCompletedPayment || showPayNow || showCloseAccount) && (
+          <div className="trip-list-card-actions">
+            {hasPendingPayment && (
+              <span className="trip-money-pending-badge">Waiting for approval</span>
+            )}
+            {hasCompletedPayment && (
+              <span className="trip-money-pending-badge">Payment completed</span>
+            )}
+            {showPayNow && (
+              <button
+                type="button"
+                className="btn btn-success pay-now-cta"
+                onClick={openPayNow}
+              >
+                Pay now
+              </button>
+            )}
+            {showCloseAccount && (
+              <button
+                type="button"
+                className="btn btn-primary close-shared-account-cta"
+                onClick={openCloseAccount}
+              >
+                Close Shared Account
+              </button>
+            )}
+          </div>
         )}
       </div>
     );
@@ -418,7 +545,7 @@ const EventCountdown: React.FC = () => {
                 className="form-input"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Accommodation deposit, tickets, shared costs — whatever the group needs to track"
+                placeholder="Tickets, shared meals, or whatever the group needs to track"
                 rows={3}
               />
             </div>
@@ -628,106 +755,6 @@ const EventCountdown: React.FC = () => {
               )}
             </div>
 
-            {/* Accommodation Section */}
-            <div style={{ marginTop: '2rem', padding: '1rem', background: '#f8f9fa', borderRadius: '8px', border: '1px solid #e9ecef' }}>
-              <h3 style={{ marginBottom: '1rem', color: '#495057' }}>Accommodation</h3>
-              
-              <div className="grid grid-2">
-                <div className="form-group">
-                  <label className="form-label">Accommodation Name</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={formData.accommodation?.name || ''}
-                    onChange={(e) => setFormData({ 
-                      ...formData, 
-                      accommodation: { 
-                        ...formData.accommodation!, 
-                        name: e.target.value 
-                      } 
-                    })}
-                    placeholder="e.g., Marriott Hotel"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Type</label>
-                  <select
-                    className="form-input"
-                    value={formData.accommodation?.type || 'hotel'}
-                    onChange={(e) => setFormData({ 
-                      ...formData, 
-                      accommodation: { 
-                        ...formData.accommodation!, 
-                        type: e.target.value as any 
-                      } 
-                    })}
-                  >
-                    <option value="hotel">Hotel</option>
-                    <option value="airbnb">Airbnb</option>
-                    <option value="hostel">Hostel</option>
-                    <option value="resort">Resort</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-2">
-                <div className="form-group">
-                  <label className="form-label">Price per Night</label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    value={formData.accommodation?.price || ''}
-                    onChange={(e) => setFormData({ 
-                      ...formData, 
-                      accommodation: { 
-                        ...formData.accommodation!, 
-                        price: parseFloat(e.target.value) || 0 
-                      } 
-                    })}
-                    placeholder="0.00"
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Booking Link</label>
-                  <input
-                    type="url"
-                    className="form-input"
-                    value={formData.accommodation?.bookingLink || ''}
-                    onChange={(e) => setFormData({ 
-                      ...formData, 
-                      accommodation: { 
-                        ...formData.accommodation!, 
-                        bookingLink: e.target.value 
-                      } 
-                    })}
-                    placeholder="https://booking.com/..."
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Notes</label>
-                <textarea
-                  className="form-input"
-                  value={formData.accommodation?.notes || ''}
-                  onChange={(e) => setFormData({ 
-                    ...formData, 
-                    accommodation: { 
-                      ...formData.accommodation!, 
-                      notes: e.target.value 
-                    } 
-                  })}
-                  placeholder="Any special requirements or notes..."
-                  rows={2}
-                />
-              </div>
-            </div>
-
             <button
               type="submit"
               className="btn btn-primary"
@@ -741,7 +768,7 @@ const EventCountdown: React.FC = () => {
 
       <div className="card">
         <h2 style={{ marginTop: 0, marginBottom: '1rem' }}>Active Shared Accounts</h2>
-        {activeEvents.length === 0 ? (
+        {activeCards.length === 0 ? (
           <div style={{ color: '#4a5568', textAlign: 'center', padding: '2rem' }}>
             <p style={{ marginTop: 0, fontSize: '1.05rem' }}>
               No shared accounts yet. Create one to start collecting toward a target.
@@ -752,49 +779,35 @@ const EventCountdown: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-1">
-            {activeEvents.map(renderAccountCard)}
+            {activeCards.map(renderAccountCard)}
           </div>
         )}
       </div>
 
-      {archivedEvents.length > 0 && (
+      {closedCards.length > 0 && (
         <div className="card">
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => setShowArchived((open) => !open)}
-          >
-            {showArchived ? 'Hide archived accounts' : 'Show archived accounts'}
-          </button>
-          {showArchived && (
-            <div className="grid grid-1" style={{ marginTop: '1rem' }}>
-              {archivedEvents.map(renderAccountCard)}
-            </div>
-          )}
-        </div>
-      )}
-
-      {legacyPots.length > 0 && (
-        <div className="card legacy-trip-money">
-          <h2 className="legacy-trip-money-title">Older Accounts</h2>
-          <p className="legacy-trip-money-note">
-            Older shared accounts that are not linked from the main list. They stay available here.
+          <h2 style={{ marginTop: 0, marginBottom: '0.35rem' }}>Recently Closed</h2>
+          <p style={{ color: '#718096', fontSize: '0.9rem', marginTop: 0 }}>
+            Read-only history. Closed accounts stay available here.
           </p>
           <div className="grid grid-1">
-            {legacyPots.map((pot) => (
-              <button
-                key={pot._id}
-                type="button"
-                className="legacy-trip-money-item"
-                onClick={() => navigate(`/shared-accounts/${pot._id}`)}
-              >
-                <span>{pot.name}</span>
-                <span className="legacy-trip-money-meta">
-                  {pot.isDeleted ? 'Closed' : pot.targetAmount ? formatGbp(pot.targetAmount) : 'Open'}
-                </span>
-              </button>
-            ))}
+            {closedPreview.map(renderAccountCard)}
           </div>
+          {closedCards.length > 1 && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ marginTop: '0.75rem' }}
+              onClick={() => setShowMoreClosed((open) => !open)}
+            >
+              {showMoreClosed ? 'Show fewer closed accounts ▲' : 'Show more closed accounts ▼'}
+            </button>
+          )}
+          <p style={{ margin: '0.85rem 0 0' }}>
+            <Link to="/shared-accounts?archived=1" style={{ color: '#2b6cb0' }}>
+              View all closed accounts
+            </Link>
+          </p>
         </div>
       )}
     </div>
