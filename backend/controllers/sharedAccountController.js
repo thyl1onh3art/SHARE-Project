@@ -10,6 +10,13 @@ const {
   canMutateSharedAccount,
   isArchivedSharedAccount
 } = require('../utils/sharedAccountAccess');
+const { parsePlannedContributors } = require('../utils/plannedContributors');
+const {
+  parseContributionFrequency,
+  parseContributionAgreement,
+  buildCreatorContributionPlan,
+  upsertUserContributionPlan
+} = require('../utils/contributionPlan');
 
 // Helper: Send SMS via Twilio
 const sendSMS = (to, body) => {
@@ -30,7 +37,7 @@ const calculatePerPersonAmount = (targetAmount, memberCount) => {
 // Create a shared account
 exports.createSharedAccount = async (req, res) => {
   try {
-    const { name, description, targetAmount, targetDate, memberIds, invites, eventId } = req.body;
+    const { name, description, targetAmount, targetDate, memberIds, invites, eventId, plannedContributors, contributionFrequency, contributionPlanAgreed } = req.body;
     const senderId = req.user.userId;
     
     // Validate required fields
@@ -47,6 +54,19 @@ exports.createSharedAccount = async (req, res) => {
     }
     if (targetDateObj <= new Date()) {
       return res.status(400).json({ message: 'Target date must be in the future' });
+    }
+
+    const planned = parsePlannedContributors(plannedContributors);
+    if (planned.error) {
+      return res.status(400).json({ message: planned.error });
+    }
+    const frequency = parseContributionFrequency(contributionFrequency);
+    if (frequency.error) {
+      return res.status(400).json({ message: frequency.error });
+    }
+    const agreement = parseContributionAgreement(contributionPlanAgreed);
+    if (agreement.error) {
+      return res.status(400).json({ message: agreement.error });
     }
 
     // Prepare members array (owner is automatically included, but not in members array)
@@ -78,6 +98,8 @@ exports.createSharedAccount = async (req, res) => {
       description: description.trim(),
       targetAmount: parseFloat(targetAmount),
       targetDate: targetDateObj,
+      plannedContributors: planned.value,
+      contributionPlans: [buildCreatorContributionPlan(senderId, frequency.value)],
       perPersonAmount: Math.round(perPersonAmount * 100) / 100, // Round to 2 decimal places
       members,
       financeRecords: [],
@@ -269,7 +291,7 @@ exports.updateSharedAccount = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
-    const { name, description, targetAmount, targetDate, memberIds, action } = req.body;
+    const { name, description, targetAmount, targetDate, memberIds, action, plannedContributors } = req.body;
 
     // Find the shared account
     const account = await SharedAccount.findById(id);
@@ -316,6 +338,14 @@ exports.updateSharedAccount = async (req, res) => {
         return res.status(400).json({ message: 'Target date must be in the future' });
       }
       account.targetDate = targetDateObj;
+    }
+
+    if (plannedContributors !== undefined) {
+      const planned = parsePlannedContributors(plannedContributors);
+      if (planned.error) {
+        return res.status(400).json({ message: planned.error });
+      }
+      account.plannedContributors = planned.value;
     }
 
     // Handle member management
@@ -659,6 +689,52 @@ exports.withdrawFunds = async (req, res) => {
       withdrawalRecord,
       availableAmount: availableAmount - amount
     });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+// Logged-in participant updates only their own prototype contribution schedule.
+exports.upsertContributionPlan = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({ message: 'Shared account not found' });
+    }
+
+    const account = await SharedAccount.findById(id);
+    if (!account) {
+      return res.status(404).json({ message: 'Shared account not found' });
+    }
+    if (!canMutateSharedAccount(account, userId)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const frequency = parseContributionFrequency(req.body.frequency);
+    if (frequency.error) {
+      return res.status(400).json({ message: frequency.error });
+    }
+
+    const existing = (account.contributionPlans || []).find((plan) => String(plan.user) === String(userId));
+    const alreadyAgreed = !!(existing && existing.agreed);
+    const agreement = alreadyAgreed
+      ? { value: true }
+      : parseContributionAgreement(req.body.agreed);
+    if (agreement.error) {
+      return res.status(400).json({ message: agreement.error });
+    }
+
+    const result = upsertUserContributionPlan(account, userId, frequency.value, true);
+    if (result.error) {
+      return res.status(400).json({ message: result.error });
+    }
+
+    await account.save();
+    const populated = await SharedAccount.findById(account._id)
+      .populate('owner', 'firstName lastName email')
+      .populate('members', 'firstName lastName email');
+    res.json(populated);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

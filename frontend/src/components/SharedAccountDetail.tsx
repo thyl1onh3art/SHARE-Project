@@ -25,7 +25,8 @@ import {
   formatHistoryWhen,
   formatMoneyAmount,
   calendarDateKey,
-  startOfLocalCalendarDayIso
+  startOfLocalCalendarDayIso,
+  parsePlannedContributors
 } from '../utils/tripHome';
 import { userFacingError } from '../utils/userFacingError';
 
@@ -62,6 +63,7 @@ interface SharedAccount {
   financeRecords: FinanceRecord[];
   targetAmount?: number;
   targetDate?: string;
+  plannedContributors?: number;
   perPersonAmount?: number;
   isDeleted?: boolean;
   deletedAt?: string;
@@ -89,7 +91,8 @@ const SharedAccountDetail: React.FC = () => {
     name: '',
     description: '',
     targetAmount: '',
-    targetDate: ''
+    targetDate: '',
+    plannedContributors: ''
   });
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -286,7 +289,8 @@ const SharedAccountDetail: React.FC = () => {
       name: account.name || '',
       description: account.description || '',
       targetAmount: account.targetAmount ? account.targetAmount.toString() : '',
-      targetDate: calendarDateKey(account.targetDate) || ''
+      targetDate: calendarDateKey(account.targetDate) || '',
+      plannedContributors: account.plannedContributors ? String(account.plannedContributors) : ''
     });
     setShowEditModal(true);
   };
@@ -308,6 +312,15 @@ const SharedAccountDetail: React.FC = () => {
       if (editForm.targetAmount) updateData.targetAmount = parseFloat(editForm.targetAmount);
       if (editForm.targetDate) {
         updateData.targetDate = startOfLocalCalendarDayIso(editForm.targetDate) || editForm.targetDate;
+      }
+      if (editForm.plannedContributors.trim()) {
+        const planned = parsePlannedContributors(editForm.plannedContributors);
+        if ('error' in planned) {
+          setError(planned.error);
+          setEditSubmitting(false);
+          return;
+        }
+        updateData.plannedContributors = planned.value;
       }
 
       await axios.put(`/shared-accounts/${accountId}`, updateData);
@@ -1439,6 +1452,28 @@ const SharedAccountDetail: React.FC = () => {
                   onChange={(e) => setEditForm({ ...editForm, targetDate: e.target.value })}
                 />
               </div>
+
+              {isOwner && (
+                <div className="form-group">
+                  <label className="form-label" htmlFor="shared-account-planned-contributors">
+                    Planned contributors
+                  </label>
+                  <input
+                    id="shared-account-planned-contributors"
+                    type="number"
+                    className="form-input"
+                    value={editForm.plannedContributors}
+                    onChange={(e) => setEditForm({ ...editForm, plannedContributors: e.target.value })}
+                    min="1"
+                    max="50"
+                    step="1"
+                    placeholder="Total people, including you"
+                  />
+                  <p style={{ margin: '0.35rem 0 0', fontSize: '0.85rem', color: '#4a5568' }}>
+                    Include yourself. Used for personal savings planning, not the live member fair share.
+                  </p>
+                </div>
+              )}
 
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
                 <button

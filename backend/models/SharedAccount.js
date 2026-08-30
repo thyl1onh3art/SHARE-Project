@@ -7,6 +7,21 @@ const sharedAccountSchema = new mongoose.Schema({
   description: { type: String },
   targetAmount: { type: Number },
   targetDate: { type: Date },
+  /**
+   * Total people expected to contribute, including the creator.
+   * Optional on historical pots — frontend falls back to owner + accepted members.
+   */
+  plannedContributors: { type: Number, min: 1 },
+  /**
+   * Per-user prototype contribution schedules. Not a Shared Account-wide frequency.
+   * Historical pots have an empty array — never treat that as an agreed plan.
+   */
+  contributionPlans: [{
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    frequency: { type: String, enum: ['weekly', 'fortnightly', 'monthly'], required: true },
+    agreed: { type: Boolean, default: false },
+    agreedAt: { type: Date }
+  }],
   perPersonAmount: { type: Number },
   financeRecords: [{ type: mongoose.Schema.Types.ObjectId, ref: 'FinanceRecord' }],
   /**

@@ -152,6 +152,11 @@ const renderTrips = () =>
     </MemoryRouter>
   );
 
+const agreeToWeeklyPlan = () => {
+  fireEvent.click(screen.getByRole('radio', { name: /^weekly$/i }));
+  fireEvent.click(screen.getByLabelText(/i agree to this contribution plan/i));
+};
+
 describe('EventCountdown trip cards', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -436,9 +441,18 @@ describe('EventCountdown trip cards', () => {
     expect(container.querySelector('input[type="date"]')).toBeInTheDocument();
     expect(container.querySelector('input[type="time"]')).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/start time/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/how many people will contribute/i)).toBeInTheDocument();
+    expect(screen.getByText('Include yourself.')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /^weekly$/i })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /every 2 weeks/i })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /^monthly$/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/i agree to this contribution plan/i)).toBeInTheDocument();
+    expect(screen.getByText(/prototype contribution plan — no automatic bank transfer is currently made/i)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/account name/i), { target: { value: 'Ibiza' } });
     fireEvent.change(screen.getByLabelText(/^date/i), { target: { value: '2027-06-01' } });
-    fireEvent.change(screen.getByLabelText(/^target$/i), { target: { value: '1000' } });
+    fireEvent.change(screen.getByLabelText(/total goal/i), { target: { value: '1000' } });
+    fireEvent.change(screen.getByLabelText(/how many people will contribute/i), { target: { value: '4' } });
+    agreeToWeeklyPlan();
     fireEvent.click(screen.getByRole('button', { name: /^create shared account$/i }));
 
     await waitFor(() => {
@@ -448,13 +462,93 @@ describe('EventCountdown trip cards', () => {
           title: 'Ibiza',
           eventDate: '2027-06-01',
           eventTime: '00:00',
-          targetAmount: 1000
+          targetAmount: 1000,
+          plannedContributors: 4,
+          contributionFrequency: 'weekly',
+          contributionPlanAgreed: true
         })
       );
     });
     expect(mockedAxios.post).toHaveBeenCalledTimes(1);
     expect(await screen.findByText('Opened pot pot-new')).toBeInTheDocument();
     expect(screen.queryByText(/set up trip money/i)).not.toBeInTheDocument();
+  });
+
+  it('updates the planned share and recurring amount live before agreement', async () => {
+    mockListGets([]);
+    const inEightWeeks = formatLocalYmd(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + 56));
+
+    renderTrips();
+    fireEvent.click(await screen.findByRole('button', { name: /^create shared account$/i }));
+    fireEvent.change(screen.getByLabelText(/account name/i), { target: { value: 'Savings Test' } });
+    fireEvent.change(screen.getByLabelText(/^date/i), { target: { value: inEightWeeks } });
+    fireEvent.change(screen.getByLabelText(/total goal/i), { target: { value: '200' } });
+    fireEvent.change(screen.getByLabelText(/how many people will contribute/i), { target: { value: '2' } });
+
+    expect(screen.getAllByText('£100.00').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('radio', { name: /^weekly$/i }));
+    expect(screen.getAllByText(/£12.50 per week/i).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('radio', { name: /every 2 weeks/i }));
+    expect(screen.getAllByText(/£25.00 every 2 weeks/i).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('radio', { name: /^monthly$/i }));
+    expect(screen.getAllByText(/£50.00 per month/i).length).toBeGreaterThan(0);
+
+    fireEvent.change(screen.getByLabelText(/total goal/i), { target: { value: '400' } });
+    expect(screen.getAllByText('£200.00').length).toBeGreaterThan(0);
+    fireEvent.change(screen.getByLabelText(/how many people will contribute/i), { target: { value: '4' } });
+    expect(screen.getAllByText('£100.00').length).toBeGreaterThan(0);
+  });
+
+  it('does not create a Shared Account until the contribution plan is agreed', async () => {
+    mockListGets([]);
+    renderTrips();
+    fireEvent.click(await screen.findByRole('button', { name: /^create shared account$/i }));
+    fireEvent.change(screen.getByLabelText(/account name/i), { target: { value: 'Ibiza' } });
+    fireEvent.change(screen.getByLabelText(/^date/i), { target: { value: '2027-06-01' } });
+    fireEvent.change(screen.getByLabelText(/total goal/i), { target: { value: '1000' } });
+    fireEvent.change(screen.getByLabelText(/how many people will contribute/i), { target: { value: '4' } });
+    fireEvent.click(screen.getByRole('radio', { name: /^weekly$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^create shared account$/i }));
+
+    expect(await screen.findByText(/please agree to this contribution plan/i)).toBeInTheDocument();
+    expect(mockedAxios.post).not.toHaveBeenCalled();
+  });
+
+  it('requires a planned contributor count before creating an account', async () => {
+    mockListGets([]);
+    const { container } = renderTrips();
+
+    fireEvent.click(await screen.findByRole('button', { name: /^create shared account$/i }));
+    fireEvent.change(screen.getByLabelText(/account name/i), { target: { value: 'Ibiza' } });
+    fireEvent.change(screen.getByLabelText(/^date/i), { target: { value: '2027-06-01' } });
+    fireEvent.change(screen.getByLabelText(/total goal/i), { target: { value: '1000' } });
+    fireEvent.click(container.querySelector('button[type="submit"]') as HTMLButtonElement);
+
+    expect(await screen.findByText(/how many people will contribute is required/i)).toBeInTheDocument();
+    expect(mockedAxios.post).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid planned contributor count without creating an account', async () => {
+    mockListGets([]);
+    const { container } = renderTrips();
+
+    fireEvent.click(await screen.findByRole('button', { name: /^create shared account$/i }));
+    fireEvent.change(screen.getByLabelText(/account name/i), { target: { value: 'Ibiza' } });
+    fireEvent.change(screen.getByLabelText(/^date/i), { target: { value: '2027-06-01' } });
+    fireEvent.change(screen.getByLabelText(/total goal/i), { target: { value: '1000' } });
+
+    fireEvent.change(screen.getByLabelText(/how many people will contribute/i), { target: { value: '0' } });
+    fireEvent.click(container.querySelector('button[type="submit"]') as HTMLButtonElement);
+    expect(await screen.findByText(/at least 1 person must contribute/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/how many people will contribute/i), { target: { value: '-2' } });
+    fireEvent.click(container.querySelector('button[type="submit"]') as HTMLButtonElement);
+    expect(await screen.findByText(/whole number of people/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/how many people will contribute/i), { target: { value: '2.5' } });
+    fireEvent.click(container.querySelector('button[type="submit"]') as HTMLButtonElement);
+    expect(await screen.findByText(/whole number of people/i)).toBeInTheDocument();
+    expect(mockedAxios.post).not.toHaveBeenCalled();
   });
 
   it('counts down from the selected calendar day and ignores stored time', async () => {
@@ -540,7 +634,7 @@ describe('EventCountdown trip cards', () => {
     fireEvent.click(await screen.findByRole('button', { name: /^create shared account$/i }));
     fireEvent.change(screen.getByLabelText(/account name/i), { target: { value: 'Ibiza' } });
     fireEvent.change(screen.getByLabelText(/^date/i), { target: { value: '2027-06-01' } });
-    fireEvent.change(screen.getByLabelText(/^target$/i), { target: { value: '0' } });
+    fireEvent.change(screen.getByLabelText(/total goal/i), { target: { value: '0' } });
     fireEvent.click(screen.getByRole('button', { name: /^create shared account$/i }));
 
     expect(await screen.findByText(/target must be greater than 0/i)).toBeInTheDocument();
@@ -561,7 +655,9 @@ describe('EventCountdown trip cards', () => {
     fireEvent.click(await screen.findByRole('button', { name: /^create shared account$/i }));
     fireEvent.change(screen.getByLabelText(/account name/i), { target: { value: 'Ibiza' } });
     fireEvent.change(screen.getByLabelText(/^date/i), { target: { value: '2027-06-01' } });
-    fireEvent.change(screen.getByLabelText(/^target$/i), { target: { value: '1000' } });
+    fireEvent.change(screen.getByLabelText(/total goal/i), { target: { value: '1000' } });
+    fireEvent.change(screen.getByLabelText(/how many people will contribute/i), { target: { value: '4' } });
+    agreeToWeeklyPlan();
     const submit = container.querySelector('button[type="submit"]') as HTMLButtonElement;
     fireEvent.click(submit);
     fireEvent.click(submit);

@@ -9,8 +9,12 @@ import {
   isCompletedPaymentStatus,
   startOfLocalCalendarDay,
   startOfLocalCalendarDayIso,
-  formatLocalYmd
+  formatLocalYmd,
+  parsePlannedContributors,
+  parseContributionFrequency,
+  parseContributionAgreement
 } from '../utils/tripHome';
+import ContributionPlanFields from './ContributionPlanFields';
 
 const emptyCreateForm = () => {
   const defaultDate = new Date();
@@ -19,7 +23,10 @@ const emptyCreateForm = () => {
     name: '',
     description: '',
     targetAmount: '',
-    targetDate: formatLocalYmd(defaultDate)
+    targetDate: formatLocalYmd(defaultDate),
+    plannedContributors: '',
+    contributionFrequency: '',
+    planAgreed: false
   };
 };
 
@@ -29,6 +36,7 @@ interface SharedAccount {
   description?: string;
   targetAmount?: number;
   targetDate?: string;
+  plannedContributors?: number;
   perPersonAmount?: number;
   owner: string | { _id: string; firstName?: string; lastName?: string; email: string };
   members: string[] | Array<{ _id: string; firstName?: string; lastName?: string; email: string }>;
@@ -224,6 +232,21 @@ const SharedAccounts: React.FC = () => {
       setCreateError('Target date must be in the future.');
       return;
     }
+    const planned = parsePlannedContributors(createForm.plannedContributors);
+    if ('error' in planned) {
+      setCreateError(planned.error);
+      return;
+    }
+    const frequency = parseContributionFrequency(createForm.contributionFrequency);
+    if ('error' in frequency) {
+      setCreateError(frequency.error);
+      return;
+    }
+    const agreement = parseContributionAgreement(createForm.planAgreed);
+    if ('error' in agreement) {
+      setCreateError(agreement.error);
+      return;
+    }
 
     setCreateSubmitting(true);
     setCreateError('');
@@ -234,6 +257,9 @@ const SharedAccounts: React.FC = () => {
         description,
         targetAmount: amount,
         targetDate: targetDate.toISOString(),
+        plannedContributors: planned.value,
+        contributionFrequency: frequency.value,
+        contributionPlanAgreed: true,
         ...(createEventId ? { eventId: createEventId } : {})
       });
 
@@ -1471,7 +1497,7 @@ const SharedAccounts: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label" htmlFor="trip-money-target-amount">Target amount</label>
+                <label className="form-label" htmlFor="trip-money-target-amount">Total goal</label>
                 <input
                   id="trip-money-target-amount"
                   type="number"
@@ -1487,7 +1513,7 @@ const SharedAccounts: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label" htmlFor="trip-money-target-date">Date</label>
+                <label className="form-label" htmlFor="trip-money-target-date">Date money is needed</label>
                 <input
                   id="trip-money-target-date"
                   type="date"
@@ -1502,6 +1528,40 @@ const SharedAccounts: React.FC = () => {
                   Must be a future date — when you hope the group has recorded enough contributions.
                 </p>
               </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="legacy-planned-contributors">
+                  How many people will contribute?
+                </label>
+                <input
+                  id="legacy-planned-contributors"
+                  type="number"
+                  className="form-input"
+                  value={createForm.plannedContributors}
+                  onChange={(e) => setCreateForm({ ...createForm, plannedContributors: e.target.value })}
+                  required
+                  min="1"
+                  max="50"
+                  step="1"
+                  placeholder="4"
+                  disabled={createSubmitting}
+                />
+                <p style={{ margin: '0.35rem 0 0', fontSize: '0.8rem', color: '#718096' }}>
+                  Include yourself.
+                </p>
+              </div>
+
+              <ContributionPlanFields
+                targetAmount={createForm.targetAmount}
+                plannedContributors={createForm.plannedContributors}
+                deadline={createForm.targetDate}
+                frequency={createForm.contributionFrequency}
+                agreed={createForm.planAgreed}
+                onFrequencyChange={(frequency) => setCreateForm({ ...createForm, contributionFrequency: frequency })}
+                onAgreedChange={(agreed) => setCreateForm({ ...createForm, planAgreed: agreed })}
+                disabled={createSubmitting}
+                idPrefix="legacy-create"
+              />
 
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
                 <button

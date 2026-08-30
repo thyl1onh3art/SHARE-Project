@@ -55,6 +55,7 @@ const account = {
   members: [member],
   financeRecords: [],
   targetAmount: 2000,
+  plannedContributors: 4,
   createdAt: '2026-01-01T00:00:00.000Z'
 };
 
@@ -324,5 +325,28 @@ describe('SharedAccountDetail Pay account', () => {
     expect((await screen.findAllByText(/maximum you can record now: £20.00/i)).length).toBeGreaterThan(0);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(mockedAxios.post).not.toHaveBeenCalled();
+  });
+
+  it('lets the organiser change planned contributors without changing fair share', async () => {
+    (mockedAxios.put as jest.Mock).mockResolvedValue({
+      data: { ...account, plannedContributors: 6 }
+    });
+
+    renderDetail();
+
+    fireEvent.click((await screen.findAllByRole('button', { name: /^pay account$/i }))[0]);
+    expect(await screen.findByText(/your share:/i)).toHaveTextContent('£1000.00');
+
+    fireEvent.click(screen.getByRole('button', { name: /edit details/i }));
+    expect(screen.getByLabelText(/planned contributors/i)).toHaveValue(4);
+    fireEvent.change(screen.getByLabelText(/planned contributors/i), { target: { value: '6' } });
+    fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() => {
+      expect(mockedAxios.put).toHaveBeenCalledWith(
+        '/shared-accounts/pot-1',
+        expect.objectContaining({ plannedContributors: 6 })
+      );
+    });
   });
 });

@@ -14,6 +14,8 @@ router.get('/', auth, asyncHandler(sharedAccountController.getUserSharedAccounts
 // Get details of a shared account
 router.get('/:id', auth, asyncHandler(sharedAccountController.getSharedAccountDetails));
 
+router.put('/:id/contribution-plan', auth, asyncHandler(sharedAccountController.upsertContributionPlan));
+
 // Update a shared account
 router.put('/:id', auth, asyncHandler(sharedAccountController.updateSharedAccount));
 

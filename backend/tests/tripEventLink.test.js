@@ -77,11 +77,17 @@ describe('Trip ↔ Trip Money link', () => {
         description: 'Flights and cabin',
         targetAmount: 2000,
         targetDate: futureDate(),
+        plannedContributors: 4,
+        contributionFrequency: 'weekly',
+        contributionPlanAgreed: true,
         eventId: trip._id.toString()
       })
       .expect(201);
 
     expect(response.body.sharedAccount.name).toBe('Canada costs');
+    expect(response.body.sharedAccount.plannedContributors).toBe(4);
+    expect(response.body.sharedAccount.contributionPlans[0].frequency).toBe('weekly');
+    expect(response.body.sharedAccount.contributionPlans[0].agreed).toBe(true);
     expect(String(response.body.sharedAccount.event)).toBe(String(trip._id));
 
     const listed = await request(app)
@@ -144,6 +150,9 @@ describe('Trip ↔ Trip Money link', () => {
         description: 'Should fail',
         targetAmount: 50,
         targetDate: futureDate(),
+        plannedContributors: 3,
+        contributionFrequency: 'monthly',
+        contributionPlanAgreed: true,
         eventId: trip._id.toString()
       })
       .expect(400);
@@ -213,12 +222,18 @@ describe('Trip ↔ Trip Money link', () => {
         eventTime: '10:00',
         location: 'Barcelona',
         category: 'holiday',
-        targetAmount: 1000
+        targetAmount: 1000,
+        plannedContributors: 4,
+        contributionFrequency: 'weekly',
+        contributionPlanAgreed: true
       })
       .expect(201);
 
     expect(response.body.sharedAccount.name).toBe('Barcelona');
     expect(response.body.sharedAccount.targetAmount).toBe(1000);
+    expect(response.body.sharedAccount.plannedContributors).toBe(4);
+    expect(response.body.sharedAccount.contributionPlans[0].frequency).toBe('weekly');
+    expect(response.body.sharedAccount.contributionPlans[0].agreed).toBe(true);
     expect(String(response.body.sharedAccount.event)).toBe(String(response.body.event._id));
     expect(response.body.event.tripMoney._id).toBe(String(response.body.sharedAccount._id));
     expect(await Event.countDocuments()).toBe(beforeEvents + 1);
@@ -232,6 +247,21 @@ describe('Trip ↔ Trip Money link', () => {
     const created = listed.body.find((item) => item.title === 'Barcelona');
     expect(created.tripMoney._id).toBe(String(response.body.sharedAccount._id));
     expect(created.tripMoney.targetAmount).toBe(1000);
+    expect(created.tripMoney.plannedContributors).toBe(4);
+  });
+
+  it('rejects a combined create without a valid planned contributor count', async () => {
+    await request(app)
+      .post('/api/events/with-trip-money')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        title: 'No people',
+        eventDate: '2027-09-01',
+        eventTime: '10:00',
+        targetAmount: 1000,
+        plannedContributors: 0
+      })
+      .expect(400);
   });
 
   it('rejects a combined create with a £0 or missing target', async () => {
@@ -275,7 +305,10 @@ describe('Trip ↔ Trip Money link', () => {
           title: 'Rollback trip',
           eventDate: '2027-09-01',
           eventTime: '10:00',
-          targetAmount: 500
+          targetAmount: 500,
+          plannedContributors: 2,
+          contributionFrequency: 'weekly',
+          contributionPlanAgreed: true
         })
         .expect(500);
 

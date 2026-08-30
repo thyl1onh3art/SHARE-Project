@@ -2,6 +2,12 @@ const Event = require('../models/Event');
 const SharedAccount = require('../models/SharedAccount');
 const PaymentRequest = require('../models/PaymentRequest');
 const { contributionProgressTotal } = require('../utils/contributionProgress');
+const { parsePlannedContributors } = require('../utils/plannedContributors');
+const {
+  parseContributionFrequency,
+  parseContributionAgreement,
+  buildCreatorContributionPlan
+} = require('../utils/contributionPlan');
 
 const personSummary = (person) => {
   if (!person) return null;
@@ -24,6 +30,17 @@ const yourContributionFromRecords = (records, userId) =>
     return sum + (Number(record.amount) || 0);
   }, 0);
 
+const yourContributionPlanFromAccount = (account, userId) => {
+  const plans = account.contributionPlans || [];
+  const found = plans.find((plan) => String(plan.user) === String(userId));
+  if (!found) return null;
+  return {
+    frequency: found.frequency || null,
+    agreed: !!found.agreed,
+    agreedAt: found.agreedAt || null
+  };
+};
+
 const summarizeTripMoney = (account, userId, completedPayments = []) => ({
   _id: account._id,
   name: account.name,
@@ -32,6 +49,8 @@ const summarizeTripMoney = (account, userId, completedPayments = []) => ({
   targetDate: account.targetDate || null,
   recordedTotal: recordedTotalFromRecords(account.financeRecords, completedPayments),
   yourContribution: yourContributionFromRecords(account.financeRecords, userId),
+  plannedContributors: account.plannedContributors || null,
+  yourContributionPlan: yourContributionPlanFromAccount(account, userId),
   owner: personSummary(account.owner),
   members: (account.members || []).map(personSummary).filter(Boolean)
 });
@@ -44,7 +63,7 @@ const attachTripMoneyToEvents = async (events, userId) => {
   }
 
   const pots = await SharedAccount.find({ event: { $in: ids } })
-    .select('_id name isDeleted event targetAmount targetDate owner members financeRecords')
+    .select('_id name isDeleted event targetAmount targetDate plannedContributors contributionPlans owner members financeRecords')
     .populate('owner', 'firstName lastName')
     .populate('members', 'firstName lastName')
     .populate('financeRecords', 'type amount user');
@@ -120,7 +139,7 @@ exports.createEventWithTripMoney = async (req, res) => {
   let createdEventId;
   try {
     const userId = req.user.userId;
-    const { targetAmount, eventId, sharedAccount, ...tripFields } = req.body;
+    const { targetAmount, eventId, sharedAccount, plannedContributors, contributionFrequency, contributionPlanAgreed, ...tripFields } = req.body;
     const amount = parseFloat(targetAmount);
 
     if (!(amount > 0)) {
@@ -128,6 +147,18 @@ exports.createEventWithTripMoney = async (req, res) => {
     }
     if (!tripFields.title || !tripFields.eventDate || !tripFields.eventTime) {
       return res.status(400).json({ message: 'Trip name, date and start time are required' });
+    }
+    const planned = parsePlannedContributors(plannedContributors);
+    if (planned.error) {
+      return res.status(400).json({ message: planned.error });
+    }
+    const frequency = parseContributionFrequency(contributionFrequency);
+    if (frequency.error) {
+      return res.status(400).json({ message: frequency.error });
+    }
+    const agreement = parseContributionAgreement(contributionPlanAgreed);
+    if (agreement.error) {
+      return res.status(400).json({ message: agreement.error });
     }
 
     const eventData = {
@@ -162,6 +193,8 @@ exports.createEventWithTripMoney = async (req, res) => {
         description: potDescription,
         targetAmount: amount,
         targetDate,
+        plannedContributors: planned.value,
+        contributionPlans: [buildCreatorContributionPlan(userId, frequency.value)],
         perPersonAmount: amount,
         members: [],
         financeRecords: [],

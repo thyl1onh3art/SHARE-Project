@@ -55,7 +55,7 @@ Email verification exists in code but is currently unmounted / disabled. Two-fac
 Internally SHARE still has two models:
 
 - **Event** — date, location, type, optional link to a Shared Account (`tripMoney`)
-- **SharedAccount** — target, members, owner, finance records, archive flags
+- **SharedAccount** — target, members, owner, finance records, optional `plannedContributors` (total expected contributors including the creator), per-user `contributionPlans` (frequency + explicit prototype agreement; not a global Direct Debit), archive flags
 
 Customers see **one Shared Account experience**. Creating a Shared Account from `/events` uses `POST /events/with-trip-money`, which creates both records and links them. Older unlinked Shared Accounts remain reachable from the list and from `/shared-accounts/:id`.
 

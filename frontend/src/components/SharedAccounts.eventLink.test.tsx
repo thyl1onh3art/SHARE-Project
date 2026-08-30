@@ -66,7 +66,10 @@ describe('SharedAccounts trip link create', () => {
     fireEvent.change(screen.getByLabelText(/what are you collecting for/i), {
       target: { value: 'Flights' }
     });
-    fireEvent.change(screen.getByLabelText(/target amount/i), { target: { value: '500' } });
+    fireEvent.change(screen.getByLabelText(/total goal/i), { target: { value: '500' } });
+    fireEvent.change(screen.getByLabelText(/how many people will contribute/i), { target: { value: '4' } });
+    fireEvent.click(screen.getByRole('radio', { name: /^weekly$/i }));
+    fireEvent.click(screen.getByLabelText(/i agree to this contribution plan/i));
     fireEvent.click(screen.getByRole('button', { name: /^create shared account$/i }));
 
     await waitFor(() => {
@@ -75,7 +78,10 @@ describe('SharedAccounts trip link create', () => {
         expect.objectContaining({
           name: 'Canada',
           description: 'Flights',
-          eventId: 'trip-1'
+          eventId: 'trip-1',
+          plannedContributors: 4,
+          contributionFrequency: 'weekly',
+          contributionPlanAgreed: true
         })
       );
     });

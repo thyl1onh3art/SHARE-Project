@@ -2189,4 +2189,39 @@ Create Shared Account (dashboard `/events`) now asks for Account name, Target, a
 
 No commit / no push / stash@{0} untouched.
 
+### Task 14 — Agreed recurring contribution plan
+
+Creating a Shared Account now includes an **explicit prototype contribution plan**, not generic savings advice.
+
+**Create flow:** Account name → Total goal → Date money is needed → How many people will contribute? (Include yourself.) → live **Your planned contribution** (`target / plannedContributors`) → choose Weekly / Every 2 weeks / Monthly → live scheduled amount → summary → required **I agree to this contribution plan** → Create Shared Account. Start time remains absent (`eventTime: '00:00'`). The old Event “Personal budget / Enable budget planning” block was removed from this form so it does not compete with the agreed plan. Event.budget is unchanged in the API and stays inactive by default.
+
+**Disclaimer:** “Prototype contribution plan — no automatic bank transfer is currently made.” This is not Direct Debit authorisation and does not move money.
+
+**Data model**
+- `plannedContributors` (SharedAccount, optional integer min 1 max 50): total expected contributors including the creator. Required on new creates. Accept/leave does not change it. Organiser can edit it later.
+- `contributionPlans[]` on SharedAccount: **per user**, not a global frequency. Each entry: `user`, `frequency` (`weekly` | `fortnightly` | `monthly`), `agreed`, `agreedAt`.
+- Creator must agree before create completes; their plan is stored on the new account.
+- Historical pots: no `plannedContributors` → display/calc fallback `max(1, owner + accepted members)` (not written back). Empty `contributionPlans` is not treated as an agreed plan. No migration.
+
+**Two share concepts (kept separate)**
+- **Planned personal share** = `target / plannedContributors` (same 2-decimal rounding as `equalShareAmount`). Drives the contribution plan.
+- **Current-member fair share** = `target / (owner + accepted members)`. Still used by Task 12 contribution warnings, over-share confirmation, and the hard target cap. Unchanged.
+
+**Formulas**
+- `remainingPersonalAmount = max(0, plannedShare − contributed)`
+- Date-only local calendar days. Today → amount needed today. Past → Deadline passed. Past dates are rejected on create where validation already can.
+- `weeklyPeriods = max(1, ceil(daysRemaining / 7))`
+- `fortnightlyPeriods = max(1, ceil(daysRemaining / 14))`
+- `monthlyPeriods = max(1, ceil(daysRemaining / 30))` — 30-day approximation; no extra date library
+- Displayed amount = `ceil(remainingPence / periods) / 100` (does not undershoot)
+- No automatic weekly/monthly FinanceRecords. Actual contributions remain manual prototype records.
+
+**Personal tracking:** agreed plan shows frequency + suggested next recurring amount (recalculated from remaining). Historical without a plan shows **Suggested contribution plan**, not “you agreed”. The logged-in user can change **their** frequency via `PUT /shared-accounts/:id/contribution-plan` (does not change other members, target, plannedContributors, or past FinanceRecords). Covered → “Your planned contribution is covered”, no recurring suggestion.
+
+**Member onboarding:** architecture supports different frequencies per member. Invitation accept does **not** invent an agreement. Choosing a plan after accept (invite-time wizard) is the immediate next step; members can also save a plan from Personal tracking.
+
+**Unchanged:** Pay now, PaymentRequest, Approve/Reject/Cancel, Notifications, close/archive, Transaction history, hard cap, contribution soft-limit, no Start time.
+
+**Tests / build:** Frontend `24` suites / `181` tests passed. Production frontend build compiled successfully. Backend contribution-plan unit/schema tests passed (`5` tests, no Mongo). Mongo-backed suites were not run: `localhost:27017` is `ECONNREFUSED`. Production MongoDB was not used and was not modified.
+
 

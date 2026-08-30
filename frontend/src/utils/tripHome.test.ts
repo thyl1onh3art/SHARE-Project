@@ -27,7 +27,15 @@ import {
   visibleClosedAccounts,
   calendarDateKey,
   startOfLocalCalendarDay,
-  startOfLocalCalendarDayIso
+  startOfLocalCalendarDayIso,
+  parsePlannedContributors,
+  plannedContributorsForAccount,
+  plannedPersonalShare,
+  remainingPersonalAmount,
+  calendarDaysRemaining,
+  buildPersonalSavingsPlan,
+  recurringAmountForFrequency,
+  findUserContributionPlan
 } from './tripHome';
 
 describe('tripCountdownLabel', () => {
@@ -75,6 +83,156 @@ describe('calendar date helpers', () => {
     expect(calendarDateKey(storedLocalAfternoon.toISOString())).toBe('2026-09-10');
     expect(tripCountdownLabel(storedLocalAfternoon.toISOString(), '15:45', new Date(2026, 8, 10, 8, 0, 0)))
       .toBe('Today');
+  });
+});
+
+describe('planned contributors and personal savings plan', () => {
+  it('rejects zero, negative, and non-whole planned counts', () => {
+    expect(parsePlannedContributors(0)).toEqual({ error: expect.stringMatching(/at least 1/i) });
+    expect(parsePlannedContributors(-1)).toEqual({ error: expect.stringMatching(/whole number/i) });
+    expect(parsePlannedContributors(2.5)).toEqual({ error: expect.stringMatching(/whole number/i) });
+    expect(parsePlannedContributors('')).toEqual({ error: expect.stringMatching(/required/i) });
+    expect(parsePlannedContributors(4)).toEqual({ value: 4 });
+  });
+
+  it('uses £1,200 / 4 as a £300 planned personal share', () => {
+    expect(plannedPersonalShare(1200, 4)).toBe(300);
+  });
+
+  it('keeps current-member fair share separate from planned personal share', () => {
+    const accepted = tripMoneyParticipantCount({ _id: 'owner-1' }, [{ _id: 'member-1' }]);
+    expect(accepted).toBe(2);
+    expect(equalShareAmount(1200, accepted)).toBe(600);
+    expect(plannedPersonalShare(1200, 4)).toBe(300);
+  });
+
+  it('reduces remaining personal amount by contributions and never goes negative', () => {
+    expect(remainingPersonalAmount(300, 100)).toBe(200);
+    expect(remainingPersonalAmount(300, 300)).toBe(0);
+    expect(remainingPersonalAmount(300, 400)).toBe(0);
+  });
+
+  it('falls back to owner plus accepted members when historical pots have no planned count', () => {
+    expect(plannedContributorsForAccount({
+      owner: { _id: 'owner-1' },
+      members: [{ _id: 'member-1' }, { _id: 'member-1' }]
+    })).toBe(2);
+  });
+
+  it('calculates weekly, fortnightly, and monthly amounts without undershooting', () => {
+    const now = new Date(2026, 8, 1);
+    const deadline = '2026-11-10';
+    expect(calendarDaysRemaining(deadline, now)).toBe(70);
+
+    const plan = buildPersonalSavingsPlan({
+      id: 'acc-1',
+      name: 'Holiday Fund',
+      targetAmount: 1200,
+      deadline,
+      plannedContributors: 4,
+      contributed: 100,
+      now
+    });
+
+    expect(plan).not.toBeNull();
+    expect(plan?.plannedShare).toBe(300);
+    expect(plan?.contributed).toBe(100);
+    expect(plan?.remaining).toBe(200);
+    expect(plan?.weekly).toBe(20);
+    expect(plan?.fortnightly).toBe(40);
+    expect(plan?.monthly).toBe(66.67);
+    expect((plan?.weekly ?? 0) * 10).toBeGreaterThanOrEqual(200);
+    expect((plan?.fortnightly ?? 0) * 5).toBeGreaterThanOrEqual(200);
+    expect((plan?.monthly ?? 0) * 3).toBeGreaterThanOrEqual(200);
+  });
+
+  it('treats a same-day deadline as needed today rather than cadence amounts', () => {
+    const now = new Date(2026, 11, 10, 15, 0, 0);
+    const plan = buildPersonalSavingsPlan({
+      id: 'acc-1',
+      name: 'Holiday Fund',
+      targetAmount: 1200,
+      deadline: '2026-12-10',
+      plannedContributors: 4,
+      contributed: 100,
+      now
+    });
+
+    expect(plan?.deadlineState).toBe('today');
+    expect(calendarDaysRemaining('2026-12-10', now)).toBe(0);
+    expect(plan?.weekly).toBeNull();
+    expect(plan?.fortnightly).toBeNull();
+    expect(plan?.monthly).toBeNull();
+    expect(plan?.remaining).toBe(200);
+  });
+
+  it('marks a past deadline without negative periods', () => {
+    const now = new Date(2026, 11, 11);
+    const plan = buildPersonalSavingsPlan({
+      id: 'acc-1',
+      name: 'Holiday Fund',
+      targetAmount: 1200,
+      deadline: '2026-12-10',
+      plannedContributors: 4,
+      contributed: 100,
+      now
+    });
+
+    expect(plan?.deadlineState).toBe('past');
+    expect(calendarDaysRemaining('2026-12-10', now)).toBe(-1);
+    expect(plan?.weekly).toBeNull();
+    expect(plan?.fortnightly).toBeNull();
+    expect(plan?.monthly).toBeNull();
+  });
+
+  it('does not shift a date-only deadline by one calendar day', () => {
+    expect(calendarDateKey('2026-12-10')).toBe('2026-12-10');
+    expect(calendarDaysRemaining('2026-12-10', new Date(2026, 11, 10, 23, 0, 0))).toBe(0);
+    expect(calendarDaysRemaining('2026-12-10', new Date(2026, 11, 9, 1, 0, 0))).toBe(1);
+  });
+
+  it('shows a covered plan when the personal share is already met', () => {
+    const plan = buildPersonalSavingsPlan({
+      id: 'acc-1',
+      name: 'Holiday Fund',
+      targetAmount: 1200,
+      deadline: '2026-12-10',
+      plannedContributors: 4,
+      contributed: 300,
+      now: new Date(2026, 8, 1)
+    });
+
+    expect(plan?.covered).toBe(true);
+    expect(plan?.remaining).toBe(0);
+    expect(plan?.weekly).toBeNull();
+    expect(plan?.fortnightly).toBeNull();
+    expect(plan?.monthly).toBeNull();
+  });
+
+  it('calculates a weekly recurring amount for £100 over 8 weeks without undershooting', () => {
+    const now = new Date(2026, 8, 1);
+    const deadline = '2026-10-27';
+    expect(calendarDaysRemaining(deadline, now)).toBe(56);
+    expect(plannedPersonalShare(200, 2)).toBe(100);
+    expect(recurringAmountForFrequency(100, 56, 'weekly', 'future')).toBe(12.5);
+    expect(recurringAmountForFrequency(100, 56, 'fortnightly', 'future')).toBe(25);
+    expect(recurringAmountForFrequency(100, 56, 'monthly', 'future')).toBe(50);
+    expect((12.5) * 8).toBeGreaterThanOrEqual(100);
+  });
+
+  it('does not treat a historical account as an agreed plan', () => {
+    expect(findUserContributionPlan(undefined, 'user-1')).toBeNull();
+    expect(findUserContributionPlan([], 'user-1')).toBeNull();
+    expect(findUserContributionPlan([
+      { user: 'user-2', frequency: 'weekly', agreed: true }
+    ], 'user-1')).toBeNull();
+    expect(findUserContributionPlan([
+      { user: 'user-1', frequency: 'monthly', agreed: true }
+    ], 'user-1')).toEqual({
+      frequency: 'monthly',
+      agreed: true,
+      agreedAt: null
+    });
   });
 });
 

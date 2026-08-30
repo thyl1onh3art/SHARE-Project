@@ -78,13 +78,18 @@ describe('SharedAccounts create Trip Money', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /set up shared account/i })[0]);
 
     expect(await screen.findByRole('heading', { name: /set up shared account/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/how many people will contribute/i)).toBeInTheDocument();
+    expect(screen.getByText('Include yourself.')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/account name/i), { target: { value: 'Canada' } });
     fireEvent.change(screen.getByLabelText(/what are you collecting for/i), {
       target: { value: 'Flights and cabin' }
     });
-    fireEvent.change(screen.getByLabelText(/target amount/i), { target: { value: '2000' } });
-    fireEvent.change(screen.getByLabelText(/^date$/i), { target: { value: '2026-09-10' } });
+    fireEvent.change(screen.getByLabelText(/total goal/i), { target: { value: '2000' } });
+    fireEvent.change(screen.getByLabelText(/^date/i), { target: { value: '2026-09-10' } });
+    fireEvent.change(screen.getByLabelText(/how many people will contribute/i), { target: { value: '4' } });
+    fireEvent.click(screen.getByRole('radio', { name: /^weekly$/i }));
+    fireEvent.click(screen.getByLabelText(/i agree to this contribution plan/i));
 
     fireEvent.click(screen.getByRole('button', { name: /^create shared account$/i }));
 
@@ -95,7 +100,10 @@ describe('SharedAccounts create Trip Money', () => {
           name: 'Canada',
           description: 'Flights and cabin',
           targetAmount: 2000,
-          targetDate: startOfLocalCalendarDayIso('2026-09-10')
+          targetDate: startOfLocalCalendarDayIso('2026-09-10'),
+          plannedContributors: 4,
+          contributionFrequency: 'weekly',
+          contributionPlanAgreed: true
         })
       );
     });

@@ -7,6 +7,7 @@ Honest limits of the current SHARE prototype. This list is for reviewers, not a 
 - The prototype **does not hold, custody, or transfer real money**.
 - There is **no regulated payment-provider integration** on the live Shared Account path.
 - Tracked totals are MongoDB records. They are not bank balances, e-money, or FSCS-protected funds.
+- Shared Account **contribution plans** are agreed prototype schedules (weekly / every 2 weeks / monthly). They do not create bank Direct Debits, automatic transfers, or automatic FinanceRecords. Future regulated payment integration may execute those amounts.
 - Stripe / PayPal setup documents in `docs/archive/` are historical design notes. They are not live product behaviour.
 
 ## Shared Account behaviour
@@ -14,6 +15,7 @@ Honest limits of the current SHARE prototype. This list is for reviewers, not a 
 - **Sole-account final-payment approval:** a one-member account cannot complete the same multi-member approval path as a group account. The organiser still records activity and can close the account; do not describe this as a fully independent approval workflow.
 - Soft-archive is the normal close/delete path. Unarchive / restore is not a customer feature.
 - Public tokenised invite links are not implemented. Invites go to registered users.
+- Invitation accept does not yet collect a member’s own contribution plan. The data model supports a different frequency per user; invite-time agreement is not implemented so SHARE does not invent consent for another member.
 
 ## Data compatibility
 
