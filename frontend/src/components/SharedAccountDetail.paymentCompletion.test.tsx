@@ -265,10 +265,12 @@ describe('SharedAccountDetail payment completion', () => {
 
     renderDetail();
 
-    expect(await screen.findAllByText('Waiting for approval')).not.toHaveLength(0);
+    expect(await screen.findByText('Payment approval needed')).toBeInTheDocument();
+    expect(screen.getByText(/Alex Friend wants to pay £2000.00 to Example Hotel/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Reference:\s*ABC123/).length).toBeGreaterThan(0);
     expect(screen.getByText(/approvals:\s*1 of 2/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^approve payment$/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^reject payment$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^reject$/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^pay now$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^close shared account$/i })).not.toBeInTheDocument();
   });
@@ -289,6 +291,8 @@ describe('SharedAccountDetail payment completion', () => {
     renderDetail();
 
     expect(await screen.findByRole('button', { name: /^cancel payment request$/i })).toBeInTheDocument();
+    expect(screen.getAllByText('Waiting for approval').length).toBeGreaterThan(0);
+    expect(screen.getByText('Waiting for 1 more approval')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^approve payment$/i })).not.toBeInTheDocument();
   });
 

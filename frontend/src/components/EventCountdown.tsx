@@ -65,7 +65,7 @@ const EventCountdown: React.FC = () => {
     title: '',
     description: '',
     eventDate: '',
-    eventTime: '',
+    eventTime: '00:00',
     location: '',
     category: 'holiday',
     isRecurring: false,
@@ -211,6 +211,7 @@ const EventCountdown: React.FC = () => {
     try {
       const response = await axios.post('/events/with-trip-money', {
         ...formData,
+        eventTime: '00:00',
         targetAmount: amount
       });
       const potId = response.data?.sharedAccount?._id;
@@ -415,7 +416,7 @@ const EventCountdown: React.FC = () => {
             )}
             {!card.isClosed && card.eventDate && (
               <p className="trip-list-countdown">
-                {tripCountdownLabel(card.eventDate, card.eventTime)}
+                {tripCountdownLabel(card.eventDate)}
               </p>
             )}
             {card.location && (
@@ -550,28 +551,16 @@ const EventCountdown: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-2">
-              <div className="form-group">
-                <label className="form-label">Date *</label>
-                <input
-                  type="date"
-                  className="form-input"
-                  value={formData.eventDate}
-                  onChange={(e) => setFormData({ ...formData, eventDate: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Start time *</label>
-                <input
-                  type="time"
-                  className="form-input"
-                  value={formData.eventTime}
-                  onChange={(e) => setFormData({ ...formData, eventTime: e.target.value })}
-                  required
-                />
-              </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="shared-account-date">Date *</label>
+              <input
+                id="shared-account-date"
+                type="date"
+                className="form-input"
+                value={formData.eventDate}
+                onChange={(e) => setFormData({ ...formData, eventDate: e.target.value, eventTime: '00:00' })}
+                required
+              />
             </div>
 
             <div className="form-group">

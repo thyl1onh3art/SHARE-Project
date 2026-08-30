@@ -16,9 +16,16 @@ import {
   isCompletedPaymentStatus,
   paymentRequestStatusLabel,
   paymentApprovalProgress,
+  canActOnPendingPayment,
+  isPaymentProposer,
+  remainingOtherApprovals,
+  waitingForMoreApprovalsLabel,
+  hasUserVotedOnPayment,
   buildSharedAccountHistory,
   formatHistoryWhen,
-  formatMoneyAmount
+  formatMoneyAmount,
+  calendarDateKey,
+  startOfLocalCalendarDayIso
 } from '../utils/tripHome';
 import { userFacingError } from '../utils/userFacingError';
 
@@ -279,7 +286,7 @@ const SharedAccountDetail: React.FC = () => {
       name: account.name || '',
       description: account.description || '',
       targetAmount: account.targetAmount ? account.targetAmount.toString() : '',
-      targetDate: account.targetDate ? new Date(account.targetDate).toISOString().slice(0, 16) : ''
+      targetDate: calendarDateKey(account.targetDate) || ''
     });
     setShowEditModal(true);
   };
@@ -299,7 +306,9 @@ const SharedAccountDetail: React.FC = () => {
       if (editForm.name.trim()) updateData.name = editForm.name.trim();
       if (editForm.description.trim()) updateData.description = editForm.description.trim();
       if (editForm.targetAmount) updateData.targetAmount = parseFloat(editForm.targetAmount);
-      if (editForm.targetDate) updateData.targetDate = new Date(editForm.targetDate).toISOString();
+      if (editForm.targetDate) {
+        updateData.targetDate = startOfLocalCalendarDayIso(editForm.targetDate) || editForm.targetDate;
+      }
 
       await axios.put(`/shared-accounts/${accountId}`, updateData);
       setShowEditModal(false);
@@ -668,24 +677,30 @@ const SharedAccountDetail: React.FC = () => {
     hasTarget && remainingToContribute !== null && remainingToContribute <= 0.001;
   const isCloseOutFocus = !isArchived && targetReached;
   const showFinalPaymentSection = pendingSettlementRequests.length > 0;
+  const pendingFinalPayment = pendingSettlementRequests.find((req) => req.status === 'pending') || null;
+  const pendingCanAct = pendingFinalPayment
+    ? canActOnPendingPayment(pendingFinalPayment, userId, isArchived)
+    : false;
+  const pendingIsProposer = pendingFinalPayment
+    ? isPaymentProposer(pendingFinalPayment, userId)
+    : false;
+  const pendingVote = pendingFinalPayment
+    ? hasUserVotedOnPayment(pendingFinalPayment, userId)
+    : { hasApproved: false, hasRejected: false };
+  const pendingPaymentDetails = pendingFinalPayment
+    ? parsePaymentDetails(pendingFinalPayment.description)
+    : { payee: '', reference: '', raw: '' };
+  const pendingProposerName = pendingFinalPayment
+    ? customerFacingPersonName(pendingFinalPayment.requestedBy, account.owner, account.members)
+    : '';
 
-  const renderFinalPaymentRequests = () => (
+  const renderFinalPaymentRequests = (hidePrimaryActions = false) => (
     <div className="trip-money-member-list">
       {pendingSettlementRequests.map((req) => {
         const currentUserId = getCurrentUserId();
-        const requesterId =
-          typeof req.requestedBy === 'object' ? req.requestedBy?._id : req.requestedBy;
-        const isRequester = String(requesterId) === String(currentUserId);
-        const hasApproved = (req.approvals || []).some((a: any) => {
-          const approvalUserId = typeof a.user === 'object' ? a.user?._id : a.user;
-          return String(approvalUserId) === String(currentUserId);
-        });
-        const hasRejected = (req.rejections || []).some((r: any) => {
-          const rejectionUserId = typeof r.user === 'object' ? r.user?._id : r.user;
-          return String(rejectionUserId) === String(currentUserId);
-        });
-        const canAct =
-          !isArchived && !isRequester && !hasApproved && !hasRejected && req.status === 'pending';
+        const isRequester = isPaymentProposer(req, currentUserId);
+        const { hasApproved, hasRejected } = hasUserVotedOnPayment(req, currentUserId);
+        const canAct = canActOnPendingPayment(req, currentUserId, isArchived);
         const details = parsePaymentDetails(req.description);
         const proposer = req.requestedBy
           ? customerFacingPersonName(req.requestedBy, account.owner, account.members)
@@ -724,7 +739,7 @@ const SharedAccountDetail: React.FC = () => {
                 Prototype payment record — no real money was transferred.
               </p>
             )}
-            {canAct && (
+            {canAct && !hidePrimaryActions && (
               <div className="trip-money-actions" style={{ marginTop: '0.75rem' }}>
                 <button
                   type="button"
@@ -740,11 +755,11 @@ const SharedAccountDetail: React.FC = () => {
                   onClick={() => handleRejectSettlement(req._id)}
                   disabled={paymentBusy}
                 >
-                  Reject payment
+                  Reject
                 </button>
               </div>
             )}
-            {!isArchived && isRequester && req.status === 'pending' && (
+            {!isArchived && isRequester && req.status === 'pending' && !hidePrimaryActions && (
               <div className="trip-money-actions" style={{ marginTop: '0.75rem' }}>
                 <button
                   type="button"
@@ -756,7 +771,7 @@ const SharedAccountDetail: React.FC = () => {
                 </button>
               </div>
             )}
-            {hasApproved && req.status === 'pending' && (
+            {hasApproved && req.status === 'pending' && !hidePrimaryActions && (
               <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: '#22543d' }}>
                 You have approved this payment
               </p>
@@ -954,20 +969,86 @@ const SharedAccountDetail: React.FC = () => {
               </button>
             </>
           )}
-          {!isArchived && isCloseOutFocus && hasPendingFinalPayment && (
-            <>
-              <p className="trip-money-primary-status" role="status">
-                Waiting for approval
-              </p>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setShowMoreActions((open) => !open)}
-                aria-expanded={showMoreActions}
+          {!isArchived && isCloseOutFocus && hasPendingFinalPayment && pendingFinalPayment && (
+            pendingCanAct ? (
+              <div
+                className="trip-payment-approval-panel"
+                id="payment-approval"
+                role="region"
+                aria-label="Payment approval needed"
               >
-                {showMoreActions ? 'Hide more' : 'More'}
-              </button>
-            </>
+                <p className="trip-money-primary-status">Payment approval needed</p>
+                <p className="trip-payment-approval-copy">
+                  {pendingProposerName} wants to pay {formatMoneyAmount(pendingFinalPayment.amount || 0)}
+                  {pendingPaymentDetails.payee ? ` to ${pendingPaymentDetails.payee}` : ''}
+                </p>
+                {pendingPaymentDetails.reference ? (
+                  <p className="trip-payment-approval-meta">
+                    Reference: {pendingPaymentDetails.reference}
+                  </p>
+                ) : null}
+                <div className="trip-money-actions trip-payment-approval-actions">
+                  <button
+                    type="button"
+                    className="btn btn-success"
+                    onClick={() => handleApproveSettlement(pendingFinalPayment._id)}
+                    disabled={paymentBusy}
+                  >
+                    {paymentBusy ? <span className="spinner"></span> : 'Approve payment'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    onClick={() => handleRejectSettlement(pendingFinalPayment._id)}
+                    disabled={paymentBusy}
+                  >
+                    Reject
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setShowMoreActions((open) => !open)}
+                    aria-expanded={showMoreActions}
+                  >
+                    {showMoreActions ? 'Hide more' : 'More'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div id="payment-approval">
+                  <p className="trip-money-primary-status" role="status">
+                    Waiting for approval
+                  </p>
+                  {remainingOtherApprovals(pendingFinalPayment) > 0 && (
+                    <p className="trip-payment-approval-wait">
+                      {waitingForMoreApprovalsLabel(pendingFinalPayment)}
+                    </p>
+                  )}
+                  {pendingVote.hasApproved && (
+                    <p className="trip-payment-approval-meta">You have approved this payment</p>
+                  )}
+                </div>
+                {!isArchived && pendingIsProposer && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => handleCancelSettlement(pendingFinalPayment._id)}
+                    disabled={paymentBusy}
+                  >
+                    Cancel payment request
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowMoreActions((open) => !open)}
+                  aria-expanded={showMoreActions}
+                >
+                  {showMoreActions ? 'Hide more' : 'More'}
+                </button>
+              </>
+            )
           )}
           {!isArchived && isCloseOutFocus && !hasCompletedFinalPayment && !hasPendingFinalPayment && (
             <>
@@ -1196,7 +1277,7 @@ const SharedAccountDetail: React.FC = () => {
               No final payment yet.
             </p>
           ) : (
-            renderFinalPaymentRequests()
+            renderFinalPaymentRequests(isCloseOutFocus && hasPendingFinalPayment)
           )}
         </div>
       )}
@@ -1349,9 +1430,10 @@ const SharedAccountDetail: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Target Date</label>
+                <label className="form-label" htmlFor="shared-account-edit-date">Date</label>
                 <input
-                  type="datetime-local"
+                  id="shared-account-edit-date"
+                  type="date"
                   className="form-input"
                   value={editForm.targetDate}
                   onChange={(e) => setEditForm({ ...editForm, targetDate: e.target.value })}

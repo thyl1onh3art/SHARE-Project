@@ -67,7 +67,7 @@ describe('Invitations accept flow', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Notifications' })).toBeInTheDocument();
-    expect(screen.getByText('Shared Account invitations and updates')).toBeInTheDocument();
+    expect(screen.getByText('Shared Account invitations and payment approvals')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /accept invitation/i })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Invitations' })).not.toBeInTheDocument();
 

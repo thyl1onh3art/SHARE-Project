@@ -3,6 +3,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import axios from 'axios';
 import SharedAccounts from './SharedAccounts';
+import { startOfLocalCalendarDayIso } from '../utils/tripHome';
 
 jest.mock('axios', () => ({
   __esModule: true,
@@ -83,6 +84,7 @@ describe('SharedAccounts create Trip Money', () => {
       target: { value: 'Flights and cabin' }
     });
     fireEvent.change(screen.getByLabelText(/target amount/i), { target: { value: '2000' } });
+    fireEvent.change(screen.getByLabelText(/^date$/i), { target: { value: '2026-09-10' } });
 
     fireEvent.click(screen.getByRole('button', { name: /^create shared account$/i }));
 
@@ -93,7 +95,7 @@ describe('SharedAccounts create Trip Money', () => {
           name: 'Canada',
           description: 'Flights and cabin',
           targetAmount: 2000,
-          targetDate: expect.any(String)
+          targetDate: startOfLocalCalendarDayIso('2026-09-10')
         })
       );
     });

@@ -8,6 +8,10 @@ import InviteRecipientsForm, {
 } from './InviteRecipientsForm';
 import { sendInvitesForAccount } from '../utils/inviteHelpers';
 import { userFacingError } from '../utils/userFacingError';
+import {
+  canActOnPendingPayment,
+  paymentApprovalNotificationCopy
+} from '../utils/tripHome';
 
 interface SharedAccountRef {
   _id: string;
@@ -41,11 +45,22 @@ interface SharedAccount {
   description?: string;
 }
 
+interface PaymentApprovalRequest {
+  _id: string;
+  status?: string;
+  amount?: number;
+  requestedBy?: SenderRef | string;
+  sharedAccount?: string | SharedAccountRef | null;
+  approvals?: Array<{ user?: SenderRef | string }>;
+  rejections?: Array<{ user?: SenderRef | string }>;
+}
+
 const Invitations: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [accounts, setAccounts] = useState<SharedAccount[]>([]);
+  const [paymentApprovals, setPaymentApprovals] = useState<PaymentApprovalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [shareNotice, setShareNotice] = useState('');
@@ -85,13 +100,15 @@ const Invitations: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [invitesResponse, accountsResponse] = await Promise.all([
+      const [invitesResponse, accountsResponse, paymentsResponse] = await Promise.all([
         axios.get('/invites/list'),
-        axios.get('/shared-accounts')
+        axios.get('/shared-accounts'),
+        axios.get('/payment-requests').catch(() => ({ data: [] }))
       ]);
 
       setInvitations(invitesResponse.data);
       setAccounts(accountsResponse.data);
+      setPaymentApprovals(Array.isArray(paymentsResponse.data) ? paymentsResponse.data : []);
 
       // Clear recipient unread badge when opening Invitations (recipient-owned read state only)
       try {
@@ -282,6 +299,14 @@ const Invitations: React.FC = () => {
   const sentInvites = invitations.filter(isSentByMe);
   const pendingReceived = receivedInvites.filter(i => i.status === 'pending' && !isExpired(i.expiresAt));
   const pendingSent = sentInvites.filter(i => i.status === 'pending' && !isExpired(i.expiresAt));
+  const currentUserId = user ? String((user as { _id?: string; id?: string })._id || user.id || '') : '';
+  const seenApprovalIds = new Set<string>();
+  const actionablePaymentApprovals = paymentApprovals.filter((request) => {
+    if (!canActOnPendingPayment(request, currentUserId, false)) return false;
+    if (!request._id || seenApprovalIds.has(request._id)) return false;
+    seenApprovalIds.add(request._id);
+    return true;
+  });
   const selectedTripName = formData.sharedAccountId
     ? getAccountName(formData.sharedAccountId)
     : '';
@@ -417,7 +442,7 @@ const Invitations: React.FC = () => {
           <div>
             <h1 className="card-title" style={{ marginBottom: '0.35rem' }}>Notifications</h1>
             <p style={{ margin: 0, color: '#4a5568', fontSize: '0.95rem' }}>
-              Shared Account invitations and updates
+              Shared Account invitations and payment approvals
             </p>
           </div>
           <button
@@ -568,6 +593,40 @@ const Invitations: React.FC = () => {
               )}
             </button>
           </form>
+        </div>
+      )}
+
+      {actionablePaymentApprovals.length > 0 && (
+        <div className="card">
+          <h2 style={{ marginBottom: '0.35rem' }}>Payment approval needed</h2>
+          <p style={{ color: '#4a5568', marginTop: 0, fontSize: '0.9rem' }}>
+            A member wants to record a final payment. Review it on the Shared Account.
+          </p>
+          <div className="list">
+            {actionablePaymentApprovals.map((request) => {
+              const copy = paymentApprovalNotificationCopy(request);
+              return (
+                <Link
+                  key={request._id}
+                  to={copy.to}
+                  className="list-item invite-card"
+                  style={{
+                    borderLeft: '4px solid #c05621',
+                    background: '#fffaf0',
+                    textDecoration: 'none',
+                    color: 'inherit'
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <strong style={{ fontSize: '1.05rem' }}>{copy.title}</strong>
+                    <p style={{ color: '#4a5568', fontSize: '0.9rem', margin: '0.35rem 0 0' }}>
+                      {copy.body}
+                    </p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
         </div>
       )}
 

@@ -757,6 +757,34 @@ body {
   font-size: 1rem;
 }
 
+.trip-payment-approval-panel {
+  flex: 1 1 100%;
+  margin: 0;
+  padding: 1rem;
+  background: #fffbeb;
+  border: 1px solid #f6ad55;
+  border-radius: 8px;
+}
+
+.trip-payment-approval-copy {
+  margin: 0.5rem 0 0;
+  color: #2d3748;
+  font-size: 0.95rem;
+}
+
+.trip-payment-approval-meta,
+.trip-payment-approval-wait {
+  margin: 0.35rem 0 0;
+  color: #4a5568;
+  font-size: 0.9rem;
+}
+
+.trip-payment-approval-actions {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #f6e05e;
+}
+
 .trip-money-activity-list {
   list-style: none;
   margin: 0;

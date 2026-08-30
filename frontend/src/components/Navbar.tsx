@@ -175,6 +175,14 @@ const Navbar: React.FC = () => {
                         {settlementActionCount > 9 ? '9+' : settlementActionCount}
                       </span>
                     )}
+                    {link.to === '/invitations' && settlementActionCount > 0 && (
+                      <span
+                        style={settlementBadgeStyle}
+                        aria-label={`${settlementActionCount} payment requests awaiting your review`}
+                      >
+                        {settlementActionCount > 9 ? '9+' : settlementActionCount}
+                      </span>
+                    )}
                     {link.to === '/invitations' && invitationUnreadCount > 0 && (
                       <span
                         style={invitationBadgeStyle}
@@ -279,6 +287,14 @@ const Navbar: React.FC = () => {
             >
               {link.label}
               {link.to === '/events' && settlementActionCount > 0 && (
+                <span
+                  style={settlementBadgeStyle}
+                  aria-label={`${settlementActionCount} payment requests awaiting your review`}
+                >
+                  {settlementActionCount > 9 ? '9+' : settlementActionCount}
+                </span>
+              )}
+              {link.to === '/invitations' && settlementActionCount > 0 && (
                 <span
                   style={settlementBadgeStyle}
                   aria-label={`${settlementActionCount} payment requests awaiting your review`}

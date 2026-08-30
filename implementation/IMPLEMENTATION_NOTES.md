@@ -2167,4 +2167,26 @@ No commit / no push / stash@{0} untouched.
 
 No commit / no push / stash@{0} untouched.
 
+### Task 13 — Payment approval visibility and Notifications
+
+**Root cause of missing Approve:** Frontend placement, not a broken eligibility rule. For a pending final payment the hero only showed **Waiting for approval** + **More**. **Approve payment** / **Reject** lived further down in the **Final payment** card (`#final-payment`), below Transaction history. Eligible members looking at the primary status therefore saw no Approve action. Backend eligibility was already: accepted participants except the proposer; proposer counted via `approvals.length + 1`; 2-person accounts need 1 other approval (`requiredApprovals = otherParticipants.length`).
+
+**Approval UI:** Eligible non-proposers now get a primary **Payment approval needed** panel (proposer name, amount, supplier/reference when present, **Approve payment** / **Reject**) using existing `POST /payment-requests/:id/approve` and `reject`. The proposer sees **Waiting for approval** and **Waiting for 1 more approval** (from the existing other-approvals remainder) plus **Cancel payment request**. Duplicate Approve/Reject/Cancel buttons are not repeated in the lower Final payment list while that panel is showing.
+
+**Notifications:** There is no Notification collection. Pending `PaymentRequest` rows are the source of truth (same as `/payment-requests/unread-count`). The Notifications page (`/invitations`) lists actionable pending payments for other accepted members, linking to `/shared-accounts/:id`. Proposer, pending invitees (not participants), unrelated users, and completed/rejected/cancelled requests are excluded. Refresh does not create extra documents; completed/rejected/cancelled rows drop out of the pending list so they cannot keep an Approve CTA. Invitation accept/cancel is unchanged. Settlement unread badge now also appears on Notifications.
+
+**Unchanged:** Task 6 approval threshold, Task 12 Transaction history, Pay now gating, contribution/share behaviour, schema, Mongo data. No second payment or notification system.
+
+**Tests:** Frontend `23` suites / `157` tests passed. Production build compiled successfully. No backend files changed, so backend suites were not run. Isolated local Mongo (`localhost:27017` / `share_project_test`) was not used. Production MongoDB was not touched.
+
+No commit / no push / stash@{0} untouched.
+
+### Task 13 follow-up — Create Shared Account is date-only
+
+Create Shared Account (dashboard `/events`) now asks for Account name, Target, and Date. The customer-facing **Start time** input is gone. The Event API still requires `eventTime` (string `HH:MM`, no schema migration), so the frontend submits `00:00` as start of the selected calendar day without showing midnight. Shared Account `targetDate` is unchanged as a Date; new/edited values use local start-of-day. Historical Event times and stored datetimes still render. Countdown uses the calendar date only (`Today` / `N days to go` / `Completed`) and ignores stored time-of-day. Bare `YYYY-MM-DD` is not parsed as UTC midnight. No Mongo migration. Task 13 approval, notifications, Pay now, and share warnings are unchanged.
+
+**Tests:** Frontend `23` suites / `162` tests passed. Production build compiled successfully. No backend files changed.
+
+No commit / no push / stash@{0} untouched.
+
 

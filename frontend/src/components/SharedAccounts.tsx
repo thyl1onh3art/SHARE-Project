@@ -2,7 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { canPaySinglePayment, singlePaymentAmount, contributionProgressTotal, isCompletedPaymentStatus } from '../utils/tripHome';
+import {
+  canPaySinglePayment,
+  singlePaymentAmount,
+  contributionProgressTotal,
+  isCompletedPaymentStatus,
+  startOfLocalCalendarDay,
+  startOfLocalCalendarDayIso,
+  formatLocalYmd
+} from '../utils/tripHome';
 
 const emptyCreateForm = () => {
   const defaultDate = new Date();
@@ -11,7 +19,7 @@ const emptyCreateForm = () => {
     name: '',
     description: '',
     targetAmount: '',
-    targetDate: defaultDate.toISOString().split('T')[0]
+    targetDate: formatLocalYmd(defaultDate)
   };
 };
 
@@ -194,7 +202,7 @@ const SharedAccounts: React.FC = () => {
     const name = createForm.name.trim();
     const description = createForm.description.trim();
     const amount = parseFloat(createForm.targetAmount);
-    const targetDate = createForm.targetDate ? new Date(createForm.targetDate) : null;
+    const targetDate = startOfLocalCalendarDay(createForm.targetDate);
 
     if (name.length < 2) {
       setCreateError('Enter an account name (at least 2 characters).');
@@ -575,10 +583,12 @@ const SharedAccounts: React.FC = () => {
         updateData.targetAmount = parseFloat(editForm.targetAmount);
       }
       if (editForm.targetDate) {
-        const newDate = new Date(editForm.targetDate).toISOString();
-        const oldDate = selectedAccount.targetDate ? new Date(selectedAccount.targetDate).toISOString() : '';
-        if (newDate !== oldDate) {
-          updateData.targetDate = editForm.targetDate;
+        const newDate = startOfLocalCalendarDayIso(editForm.targetDate);
+        const oldDate = selectedAccount.targetDate
+          ? startOfLocalCalendarDayIso(selectedAccount.targetDate)
+          : '';
+        if (newDate && newDate !== oldDate) {
+          updateData.targetDate = newDate;
         }
       }
 
@@ -1477,7 +1487,7 @@ const SharedAccounts: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label" htmlFor="trip-money-target-date">Target date</label>
+                <label className="form-label" htmlFor="trip-money-target-date">Date</label>
                 <input
                   id="trip-money-target-date"
                   type="date"
@@ -1485,7 +1495,7 @@ const SharedAccounts: React.FC = () => {
                   value={createForm.targetDate}
                   onChange={(e) => setCreateForm({ ...createForm, targetDate: e.target.value })}
                   required
-                  min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
+                  min={formatLocalYmd(new Date(Date.now() + 86400000))}
                   disabled={createSubmitting}
                 />
                 <p style={{ margin: '0.35rem 0 0', fontSize: '0.8rem', color: '#718096' }}>
@@ -1754,16 +1764,14 @@ const SharedAccounts: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Target Date</label>
+                <label className="form-label" htmlFor="legacy-edit-date">Date</label>
                 <input
-                  type="datetime-local"
+                  id="legacy-edit-date"
+                  type="date"
                   className="form-input"
                   value={editForm.targetDate}
                   onChange={(e) => setEditForm({ ...editForm, targetDate: e.target.value })}
                 />
-                <p style={{ fontSize: '0.85rem', color: '#4a5568', marginTop: '0.25rem' }}>
-                  When is this payment needed?
-                </p>
               </div>
 
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>

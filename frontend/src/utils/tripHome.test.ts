@@ -12,6 +12,11 @@ import {
   paymentApprovalProgress,
   paymentRequestStatusLabel,
   parsePaymentDetails,
+  canActOnPendingPayment,
+  remainingOtherApprovals,
+  waitingForMoreApprovalsLabel,
+  personRecordId,
+  paymentApprovalNotificationCopy,
   resolveLedgerTraveller,
   travellerDisplayName,
   customerFacingPersonName,
@@ -19,23 +24,57 @@ import {
   buildSharedAccountHistory,
   formatMoneyAmount,
   sortClosedNewestFirst,
-  visibleClosedAccounts
+  visibleClosedAccounts,
+  calendarDateKey,
+  startOfLocalCalendarDay,
+  startOfLocalCalendarDayIso
 } from './tripHome';
 
 describe('tripCountdownLabel', () => {
   it('shows days to go for a future trip date', () => {
-    expect(tripCountdownLabel('2027-01-01', '10:00', new Date('2026-11-20T12:00:00')))
+    expect(tripCountdownLabel('2027-01-01', '10:00', new Date(2026, 10, 20, 12, 0, 0)))
       .toBe('42 days to go');
   });
 
   it('shows Today when the trip is today', () => {
-    expect(tripCountdownLabel('2026-08-22', '18:00', new Date('2026-08-22T09:00:00')))
+    expect(tripCountdownLabel('2026-08-22', '18:00', new Date(2026, 7, 22, 9, 0, 0)))
       .toBe('Today');
   });
 
   it('shows Completed after the date has passed', () => {
-    expect(tripCountdownLabel('2026-08-01', '10:00', new Date('2026-08-22T12:00:00')))
+    expect(tripCountdownLabel('2026-08-01', '10:00', new Date(2026, 7, 22, 12, 0, 0)))
       .toBe('Completed');
+  });
+
+  it('ignores stored time-of-day when counting calendar days', () => {
+    const morning = new Date(2026, 8, 10, 0, 30, 0);
+    const evening = new Date(2026, 8, 10, 23, 30, 0);
+    expect(tripCountdownLabel('2026-09-10', '23:59', morning)).toBe('Today');
+    expect(tripCountdownLabel('2026-09-10', '00:01', evening)).toBe('Today');
+  });
+
+  it('does not render a negative countdown for past dates', () => {
+    expect(tripCountdownLabel('2026-09-09', '23:00', new Date(2026, 8, 10, 1, 0, 0)))
+      .toBe('Completed');
+    expect(tripCountdownLabel('2026-01-01', undefined, new Date(2026, 8, 10, 12, 0, 0)))
+      .not.toMatch(/-/);
+  });
+});
+
+describe('calendar date helpers', () => {
+  it('keeps a selected YYYY-MM-DD date without a UTC day shift', () => {
+    expect(calendarDateKey('2026-09-10')).toBe('2026-09-10');
+    expect(calendarDateKey(startOfLocalCalendarDayIso('2026-09-10'))).toBe('2026-09-10');
+    expect(startOfLocalCalendarDay('2026-09-10')?.getFullYear()).toBe(2026);
+    expect(startOfLocalCalendarDay('2026-09-10')?.getMonth()).toBe(8);
+    expect(startOfLocalCalendarDay('2026-09-10')?.getDate()).toBe(10);
+  });
+
+  it('renders existing stored datetimes as the local calendar day', () => {
+    const storedLocalAfternoon = new Date(2026, 8, 10, 15, 45, 0);
+    expect(calendarDateKey(storedLocalAfternoon.toISOString())).toBe('2026-09-10');
+    expect(tripCountdownLabel(storedLocalAfternoon.toISOString(), '15:45', new Date(2026, 8, 10, 8, 0, 0)))
+      .toBe('Today');
   });
 });
 
@@ -169,6 +208,43 @@ describe('payment request display helpers', () => {
       current: 2,
       total: 3
     });
+  });
+
+  it('lets only other accepted members act on a pending payment', () => {
+    const pending = {
+      status: 'pending',
+      requestedBy: { _id: 'user-1', firstName: 'richard', lastName: 'brown' },
+      approvals: [],
+      rejections: [],
+      requiredApprovals: 1
+    };
+    expect(canActOnPendingPayment(pending, 'user-1')).toBe(false);
+    expect(canActOnPendingPayment(pending, 'user-2')).toBe(true);
+    expect(canActOnPendingPayment(pending, 'user-2', true)).toBe(false);
+    expect(canActOnPendingPayment({ ...pending, status: 'executed' }, 'user-2')).toBe(false);
+    expect(canActOnPendingPayment({ ...pending, status: 'rejected' }, 'user-2')).toBe(false);
+    expect(canActOnPendingPayment({ ...pending, status: 'cancelled' }, 'user-2')).toBe(false);
+    expect(canActOnPendingPayment({
+      ...pending,
+      approvals: [{ user: 'user-2' }]
+    }, 'user-2')).toBe(false);
+    expect(remainingOtherApprovals(pending)).toBe(1);
+    expect(waitingForMoreApprovalsLabel(pending)).toBe('Waiting for 1 more approval');
+    expect(personRecordId({ id: 'user-2' })).toBe('user-2');
+    expect(personRecordId({ _id: 'user-1' })).toBe('user-1');
+  });
+
+  it('builds a payment-approval notification that uses real names and the Shared Account route', () => {
+    const copy = paymentApprovalNotificationCopy({
+      amount: 1000,
+      requestedBy: { _id: 'user-1', firstName: 'richard', lastName: 'brown' },
+      sharedAccount: { _id: 'acc-3', name: 'test 3' }
+    });
+    expect(copy.title).toBe('Payment approval needed');
+    expect(copy.body).toBe('richard brown wants to pay £1000.00 from “test 3”. Review and approve the payment.');
+    expect(copy.to).toBe('/shared-accounts/acc-3');
+    expect(copy.body).not.toMatch(/unknown user/i);
+    expect(copy.body).not.toMatch(/[a-f0-9]{24}/i);
   });
 });
 

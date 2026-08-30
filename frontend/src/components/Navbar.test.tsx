@@ -78,4 +78,26 @@ describe('Navbar primary entry point', () => {
     expect(screen.getByText('Home screen')).toBeInTheDocument();
     expect(screen.queryByText('Shared Accounts screen')).not.toBeInTheDocument();
   });
+
+  it('shows payment-approval counts on Notifications as well as Shared Accounts', async () => {
+    (mockedAxios.get as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/payment-requests/unread-count')) {
+        return Promise.resolve({ data: { count: 2 } });
+      }
+      if (url.includes('/invites/unread-count')) {
+        return Promise.resolve({ data: { count: 1 } });
+      }
+      return Promise.resolve({ data: { count: 0 } });
+    });
+
+    render(
+      <MemoryRouter>
+        <Navbar />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findAllByLabelText('2 payment requests awaiting your review')).not.toHaveLength(0);
+    expect(screen.getByLabelText('1 unread invitations')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /notifications/i })).toBeInTheDocument();
+  });
 });

@@ -40,21 +40,53 @@ export interface TripGroupMember {
   isOrganiser: boolean;
 }
 
+const CALENDAR_YMD = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+export function formatLocalYmd(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/** Local calendar YYYY-MM-DD. Bare date strings are kept as-is (no UTC midnight parse). */
+export function calendarDateKey(value?: string | Date | null): string | null {
+  if (value == null || value === '') return null;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return formatLocalYmd(value);
+  }
+  const trimmed = String(value).trim();
+  if (CALENDAR_YMD.test(trimmed)) return trimmed;
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    const prefix = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+    return prefix ? prefix[1] : null;
+  }
+  return formatLocalYmd(parsed);
+}
+
+export function startOfLocalCalendarDay(value?: string | Date | null): Date | null {
+  const key = calendarDateKey(value);
+  if (!key) return null;
+  const [year, month, day] = key.split('-').map(Number);
+  return new Date(year, month - 1, day, 0, 0, 0, 0);
+}
+
+export function startOfLocalCalendarDayIso(value?: string | Date | null): string | null {
+  const local = startOfLocalCalendarDay(value);
+  return local ? local.toISOString() : null;
+}
+
 export function tripCountdownLabel(
   eventDate: string,
-  eventTime?: string,
+  _eventTime?: string,
   now: Date = new Date()
 ): string {
-  const start = new Date(`${eventDate}T${eventTime || '00:00'}`);
-  if (Number.isNaN(start.getTime())) {
-    return '';
-  }
+  const startDay = startOfLocalCalendarDay(eventDate);
+  if (!startDay) return '';
 
-  const startDay = new Date(`${eventDate}T00:00:00`);
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-  startDay.setHours(0, 0, 0, 0);
-
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const dayDiff = Math.round((startDay.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
   if (dayDiff === 0) return 'Today';
   if (dayDiff < 0) return 'Completed';
@@ -71,10 +103,9 @@ export function formatGbp(amount: number): string {
 }
 
 export function formatContributionDeadline(targetDate?: string | null): string | null {
-  if (!targetDate) return null;
-  const parsed = new Date(targetDate);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+  const startDay = startOfLocalCalendarDay(targetDate);
+  if (!startDay) return null;
+  return startDay.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
 }
 
 export function tripMoneyPrimaryAction(
@@ -179,6 +210,94 @@ export function paymentApprovalProgress(request: {
   };
 }
 
+export function personRecordId(person: unknown): string {
+  if (person == null) return '';
+  if (typeof person === 'object') {
+    const record = person as { _id?: unknown; id?: unknown };
+    if (record._id != null && record._id !== '') return String(record._id);
+    if (record.id != null && record.id !== '') return String(record.id);
+    return '';
+  }
+  return String(person);
+}
+
+export function remainingOtherApprovals(request: {
+  approvals?: unknown[] | null;
+  requiredApprovals?: number | null;
+}): number {
+  const requiredOthers = Math.max(0, Number(request.requiredApprovals) || 0);
+  const recorded = Array.isArray(request.approvals) ? request.approvals.length : 0;
+  return Math.max(0, requiredOthers - recorded);
+}
+
+export function waitingForMoreApprovalsLabel(request: {
+  approvals?: unknown[] | null;
+  requiredApprovals?: number | null;
+}): string {
+  const remaining = remainingOtherApprovals(request);
+  if (remaining <= 0) return 'Waiting for approval';
+  if (remaining === 1) return 'Waiting for 1 more approval';
+  return `Waiting for ${remaining} more approvals`;
+}
+
+function voteUserId(entry: { user?: unknown } | unknown): string {
+  if (!entry || typeof entry !== 'object') return String(entry || '');
+  return personRecordId((entry as { user?: unknown }).user);
+}
+
+export function hasUserVotedOnPayment(
+  request: {
+    approvals?: Array<{ user?: unknown }> | null;
+    rejections?: Array<{ user?: unknown }> | null;
+  },
+  currentUserId?: string | null
+): { hasApproved: boolean; hasRejected: boolean } {
+  const userId = String(currentUserId || '');
+  if (!userId) return { hasApproved: false, hasRejected: false };
+  const hasApproved = (request.approvals || []).some((entry) => voteUserId(entry) === userId);
+  const hasRejected = (request.rejections || []).some((entry) => voteUserId(entry) === userId);
+  return { hasApproved, hasRejected };
+}
+
+export function isPaymentProposer(
+  request: { requestedBy?: unknown },
+  currentUserId?: string | null
+): boolean {
+  const userId = String(currentUserId || '');
+  if (!userId) return false;
+  return personRecordId(request.requestedBy) === userId;
+}
+
+export function canActOnPendingPayment(
+  request: {
+    status?: string | null;
+    requestedBy?: unknown;
+    approvals?: Array<{ user?: unknown }> | null;
+    rejections?: Array<{ user?: unknown }> | null;
+  },
+  currentUserId?: string | null,
+  isArchived = false
+): boolean {
+  if (isArchived || request.status !== 'pending') return false;
+  if (!currentUserId) return false;
+  if (isPaymentProposer(request, currentUserId)) return false;
+  const { hasApproved, hasRejected } = hasUserVotedOnPayment(request, currentUserId);
+  return !hasApproved && !hasRejected;
+}
+
+export function paymentApprovalAccountId(request: { sharedAccount?: unknown }): string {
+  return personRecordId(request.sharedAccount);
+}
+
+export function paymentApprovalAccountName(request: { sharedAccount?: unknown }): string {
+  const account = request.sharedAccount;
+  if (account && typeof account === 'object') {
+    const name = String((account as { name?: unknown }).name || '').trim();
+    if (name) return name;
+  }
+  return 'Shared Account';
+}
+
 export function parsePaymentDetails(description?: string | null): {
   payee: string;
   reference: string;
@@ -260,6 +379,26 @@ export function customerFacingPersonName(
   const email = (resolved.email || '').trim();
   if (email.includes('@') && !OBJECT_ID_PATTERN.test(email)) return email;
   return 'Account activity';
+}
+
+export function paymentApprovalNotificationCopy(
+  request: {
+    amount?: number | null;
+    requestedBy?: unknown;
+    sharedAccount?: unknown;
+  },
+  owner?: PersonSummary | string | null,
+  members?: Array<PersonSummary | string> | null
+): { title: string; body: string; to: string } {
+  const proposer = customerFacingPersonName(request.requestedBy as PersonSummary | string | null, owner, members);
+  const amount = formatMoneyAmount(Number(request.amount) || 0);
+  const accountName = paymentApprovalAccountName(request);
+  const accountId = paymentApprovalAccountId(request);
+  return {
+    title: 'Payment approval needed',
+    body: `${proposer} wants to pay ${amount} from “${accountName}”. Review and approve the payment.`,
+    to: accountId ? `/shared-accounts/${accountId}` : '/events'
+  };
 }
 
 export interface SharedAccountHistoryEntry {

@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useParams, useSearchParams } from 'react-r
 import axios from 'axios';
 import EventCountdown from './EventCountdown';
 import SharedAccountDetail from './SharedAccountDetail';
+import { formatLocalYmd } from '../utils/tripHome';
 
 jest.mock('axios', () => ({
   __esModule: true,
@@ -431,9 +432,12 @@ describe('EventCountdown trip cards', () => {
     fireEvent.click(await screen.findByRole('button', { name: /^create shared account$/i }));
     expect(screen.getByRole('heading', { name: 'Create Shared Account' })).toBeInTheDocument();
     expect(screen.getByLabelText(/account name/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^date/i)).toBeInTheDocument();
+    expect(container.querySelector('input[type="date"]')).toBeInTheDocument();
+    expect(container.querySelector('input[type="time"]')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/start time/i)).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/account name/i), { target: { value: 'Ibiza' } });
-    fireEvent.change(container.querySelector('input[type="date"]') as HTMLInputElement, { target: { value: '2027-06-01' } });
-    fireEvent.change(container.querySelector('input[type="time"]') as HTMLInputElement, { target: { value: '10:00' } });
+    fireEvent.change(screen.getByLabelText(/^date/i), { target: { value: '2027-06-01' } });
     fireEvent.change(screen.getByLabelText(/^target$/i), { target: { value: '1000' } });
     fireEvent.click(screen.getByRole('button', { name: /^create shared account$/i }));
 
@@ -443,7 +447,7 @@ describe('EventCountdown trip cards', () => {
         expect.objectContaining({
           title: 'Ibiza',
           eventDate: '2027-06-01',
-          eventTime: '10:00',
+          eventTime: '00:00',
           targetAmount: 1000
         })
       );
@@ -451,6 +455,47 @@ describe('EventCountdown trip cards', () => {
     expect(mockedAxios.post).toHaveBeenCalledTimes(1);
     expect(await screen.findByText('Opened pot pot-new')).toBeInTheDocument();
     expect(screen.queryByText(/set up trip money/i)).not.toBeInTheDocument();
+  });
+
+  it('counts down from the selected calendar day and ignores stored time', async () => {
+    const now = new Date();
+    const today = formatLocalYmd(now);
+    const yesterday = formatLocalYmd(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1));
+    const inFiveDays = formatLocalYmd(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 5));
+
+    mockListGets([
+      {
+        ...baseTrip,
+        _id: 'trip-today',
+        title: 'Today account',
+        eventDate: today,
+        eventTime: '23:59',
+        tripMoney: { _id: 'pot-today', name: 'Today account', targetAmount: 400, recordedTotal: 0 }
+      },
+      {
+        ...baseTrip,
+        _id: 'trip-past',
+        title: 'Past account',
+        eventDate: yesterday,
+        eventTime: '10:00',
+        tripMoney: { _id: 'pot-past', name: 'Past account', targetAmount: 400, recordedTotal: 0 }
+      },
+      {
+        ...baseTrip,
+        _id: 'trip-soon',
+        title: 'Soon account',
+        eventDate: inFiveDays,
+        eventTime: '06:00',
+        tripMoney: { _id: 'pot-soon', name: 'Soon account', targetAmount: 400, recordedTotal: 0 }
+      }
+    ]);
+
+    renderTrips();
+
+    expect(await screen.findByText('Today')).toBeInTheDocument();
+    expect(screen.getByText('Completed')).toBeInTheDocument();
+    expect(screen.getByText('5 days to go')).toBeInTheDocument();
+    expect(screen.queryByText(/-\d+\s+days to go/i)).not.toBeInTheDocument();
   });
 
   it('shows unlinked legacy accounts in Active Shared Accounts, not Older Accounts', async () => {
@@ -494,8 +539,7 @@ describe('EventCountdown trip cards', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /^create shared account$/i }));
     fireEvent.change(screen.getByLabelText(/account name/i), { target: { value: 'Ibiza' } });
-    fireEvent.change(container.querySelector('input[type="date"]') as HTMLInputElement, { target: { value: '2027-06-01' } });
-    fireEvent.change(container.querySelector('input[type="time"]') as HTMLInputElement, { target: { value: '10:00' } });
+    fireEvent.change(screen.getByLabelText(/^date/i), { target: { value: '2027-06-01' } });
     fireEvent.change(screen.getByLabelText(/^target$/i), { target: { value: '0' } });
     fireEvent.click(screen.getByRole('button', { name: /^create shared account$/i }));
 
@@ -516,8 +560,7 @@ describe('EventCountdown trip cards', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /^create shared account$/i }));
     fireEvent.change(screen.getByLabelText(/account name/i), { target: { value: 'Ibiza' } });
-    fireEvent.change(container.querySelector('input[type="date"]') as HTMLInputElement, { target: { value: '2027-06-01' } });
-    fireEvent.change(container.querySelector('input[type="time"]') as HTMLInputElement, { target: { value: '10:00' } });
+    fireEvent.change(screen.getByLabelText(/^date/i), { target: { value: '2027-06-01' } });
     fireEvent.change(screen.getByLabelText(/^target$/i), { target: { value: '1000' } });
     const submit = container.querySelector('button[type="submit"]') as HTMLButtonElement;
     fireEvent.click(submit);
