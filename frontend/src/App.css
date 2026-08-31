@@ -838,6 +838,75 @@ body {
   font-weight: 600;
 }
 
+.personal-savings-plan-status {
+  margin: 0.2rem 0 0.65rem;
+  font-weight: 700;
+  color: #2b6cb0;
+}
+
+.personal-savings-plan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+  margin-top: 0.85rem;
+}
+
+.personal-savings-cancel {
+  background: none;
+  border: none;
+  color: #718096;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0.25rem 0;
+}
+
+.personal-savings-cancel-confirm {
+  width: 100%;
+  padding: 0.85rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f7fafc;
+}
+
+.personal-savings-cancel-confirm p {
+  margin: 0 0 0.5rem;
+}
+
+.personal-savings-cancel-confirm .btn {
+  margin-right: 0.5rem;
+}
+
+.personal-savings-dev-tools {
+  margin-top: 1.25rem;
+  padding: 0.85rem 1rem 1rem;
+  border: 1px dashed #c53030;
+  border-radius: 8px;
+  background: #fff5f5;
+}
+
+.personal-savings-dev-tools-title {
+  margin: 0 0 0.65rem;
+  font-weight: 700;
+  color: #c53030;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.personal-savings-dev-date {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  color: #742a2a;
+}
+
+.personal-savings-dev-date input {
+  max-width: 12rem;
+  padding: 0.4rem 0.5rem;
+}
+
 .contribution-plan-fields {
   margin: 1rem 0 1.25rem;
 }

@@ -79,6 +79,55 @@ export function startOfLocalCalendarDayIso(value?: string | Date | null): string
   return local ? local.toISOString() : null;
 }
 
+export function addCalendarDays(ymd: string | Date | null | undefined, days: number): string | null {
+  const start = startOfLocalCalendarDay(ymd);
+  if (!start) return null;
+  start.setDate(start.getDate() + days);
+  return formatLocalYmd(start);
+}
+
+export function addCalendarMonths(ymd: string | Date | null | undefined, months: number): string | null {
+  const start = startOfLocalCalendarDay(ymd);
+  if (!start) return null;
+  const day = start.getDate();
+  start.setDate(1);
+  start.setMonth(start.getMonth() + months);
+  const lastDay = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
+  start.setDate(Math.min(day, lastDay));
+  return formatLocalYmd(start);
+}
+
+export type ContributionFrequency = 'weekly' | 'fortnightly' | 'monthly';
+export type ContributionPlanStatus = 'active' | 'paused' | 'cancelled' | 'completed';
+
+/**
+ * First due date after agreement, resume, or frequency change.
+ * Weekly +7 local days, every 2 weeks +14, monthly same calendar day next month (clamped).
+ */
+export function firstDueDate(
+  frequency: ContributionFrequency,
+  startYmd?: string | Date | null
+): string | null {
+  const start = calendarDateKey(startYmd);
+  if (!start) return null;
+  if (frequency === 'weekly') return addCalendarDays(start, 7);
+  if (frequency === 'fortnightly') return addCalendarDays(start, 14);
+  return addCalendarMonths(start, 1);
+}
+
+export function advanceDueDate(
+  frequency: ContributionFrequency,
+  fromYmd?: string | Date | null
+): string | null {
+  return firstDueDate(frequency, fromYmd);
+}
+
+export function formatPlanDueDate(value?: string | Date | null): string | null {
+  const start = startOfLocalCalendarDay(value);
+  if (!start) return null;
+  return start.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
 export function tripCountdownLabel(
   eventDate: string,
   _eventTime?: string,
@@ -226,7 +275,6 @@ function amountCoveringPeriods(remainingPence: number, periods: number): number 
   return Math.ceil(remainingPence / safePeriods) / 100;
 }
 
-export type ContributionFrequency = 'weekly' | 'fortnightly' | 'monthly';
 export type SavingsDeadlineState = 'future' | 'today' | 'past';
 
 export const CONTRIBUTION_FREQUENCIES: Array<{
@@ -290,11 +338,41 @@ export function recurringAmountForFrequency(
   return amountCoveringPeriods(remainingPence, Math.ceil(daysRemaining / daySpan));
 }
 
+export function scheduledAutomaticAmount(input: {
+  remainingPersonal: number;
+  overallRemaining: number;
+  daysRemaining: number | null;
+  deadlineState: SavingsDeadlineState | null;
+  frequency: ContributionFrequency;
+  scheduledAmount?: number | null;
+}): number {
+  const remainingPersonal = Math.max(0, Number(input.remainingPersonal) || 0);
+  const overallRemaining = Math.max(0, Number(input.overallRemaining) || 0);
+  const persisted = Number(input.scheduledAmount);
+  let suggested = Number.isFinite(persisted) && persisted > 0
+    ? Math.round(persisted * 100) / 100
+    : recurringAmountForFrequency(
+      remainingPersonal,
+      input.daysRemaining,
+      input.frequency,
+      input.deadlineState
+    );
+  if (suggested == null || suggested <= 0) {
+    suggested = remainingPersonal;
+  }
+  return Math.max(0, Math.round(Math.min(suggested, remainingPersonal, overallRemaining) * 100) / 100);
+}
+
 export interface StoredContributionPlan {
   user?: { _id?: string; id?: string } | string | null;
   frequency?: string | null;
   agreed?: boolean | null;
   agreedAt?: string | Date | null;
+  status?: string | null;
+  nextContributionDate?: string | Date | null;
+  scheduledAmount?: number | null;
+  pausedAt?: string | Date | null;
+  cancelledAt?: string | Date | null;
 }
 
 export interface PersonalSavingsPlan {
@@ -304,6 +382,7 @@ export interface PersonalSavingsPlan {
   contributed: number;
   remaining: number;
   covered: boolean;
+  targetReached: boolean;
   deadline: string | null;
   deadlineLabel: string | null;
   deadlineState: SavingsDeadlineState | null;
@@ -312,8 +391,19 @@ export interface PersonalSavingsPlan {
   monthly: number | null;
   frequency: ContributionFrequency | null;
   agreed: boolean;
+  status: ContributionPlanStatus | null;
   recurringAmount: number | null;
   recurringPerLabel: string | null;
+  nextContributionDate: string | null;
+  nextDueLabel: string | null;
+  nextAutomaticAmount: number | null;
+}
+
+function normalizePlanStatus(value?: string | null, agreed?: boolean | null): ContributionPlanStatus | null {
+  if (value === 'active' || value === 'paused' || value === 'cancelled' || value === 'completed') {
+    return value;
+  }
+  return agreed ? 'active' : null;
 }
 
 /**
@@ -330,9 +420,10 @@ export function buildPersonalSavingsPlan(input: {
   owner?: PersonSummary | string | null;
   members?: Array<PersonSummary | string> | null;
   contributed?: number | null;
+  recordedTotal?: number | null;
   deadline?: string | Date | null;
   now?: Date;
-  userPlan?: { frequency?: string | null; agreed?: boolean | null } | null;
+  userPlan?: StoredContributionPlan | null;
 }): PersonalSavingsPlan | null {
   const contributors = plannedContributorsForAccount({
     plannedContributors: input.plannedContributors,
@@ -365,8 +456,29 @@ export function buildPersonalSavingsPlan(input: {
   const parsedFrequency = parseContributionFrequency(input.userPlan?.frequency);
   const frequency = 'value' in parsedFrequency ? parsedFrequency.value : null;
   const agreed = !!(input.userPlan?.agreed && frequency);
+  const recordedTotal = Math.max(0, Number(input.recordedTotal) || 0);
+  const targetAmount = Math.max(0, Number(input.targetAmount) || 0);
+  const overallRemaining = Math.max(0, Math.round((targetAmount - recordedTotal) * 100) / 100);
+  const targetReached = targetAmount > 0 && overallRemaining <= 0;
+  const storedStatus = normalizePlanStatus(input.userPlan?.status, agreed);
+  let status = storedStatus;
+  if (agreed && storedStatus !== 'cancelled') {
+    if (covered || targetReached) status = 'completed';
+  }
   const recurringAmount = frequency
     ? recurringAmountForFrequency(remaining, days, frequency, deadlineState)
+    : null;
+  const storedNext = calendarDateKey(input.userPlan?.nextContributionDate)
+    || (agreed && frequency ? firstDueDate(frequency, input.userPlan?.agreedAt) : null);
+  const nextAutomaticAmount = agreed && frequency && status === 'active' && !covered && !targetReached
+    ? scheduledAutomaticAmount({
+      remainingPersonal: remaining,
+      overallRemaining: targetAmount > 0 ? overallRemaining : remaining,
+      daysRemaining: days,
+      deadlineState,
+      frequency,
+      scheduledAmount: input.userPlan?.scheduledAmount
+    })
     : null;
 
   return {
@@ -376,6 +488,7 @@ export function buildPersonalSavingsPlan(input: {
     contributed: Math.round(contributed * 100) / 100,
     remaining,
     covered,
+    targetReached,
     deadline: calendarDateKey(input.deadline),
     deadlineLabel,
     deadlineState,
@@ -384,8 +497,12 @@ export function buildPersonalSavingsPlan(input: {
     monthly,
     frequency,
     agreed,
-    recurringAmount: covered ? null : recurringAmount,
-    recurringPerLabel: frequency ? frequencyMeta(frequency).perLabel : null
+    status,
+    recurringAmount: covered || targetReached ? null : recurringAmount,
+    recurringPerLabel: frequency ? frequencyMeta(frequency).perLabel : null,
+    nextContributionDate: status === 'active' ? storedNext : null,
+    nextDueLabel: status === 'active' ? formatPlanDueDate(storedNext) : null,
+    nextAutomaticAmount
   };
 }
 
@@ -445,13 +562,14 @@ export function personRecordId(person: unknown): string {
 export function findUserContributionPlan(
   plans: StoredContributionPlan[] | undefined,
   userId: string
-): { frequency: ContributionFrequency; agreed: boolean; agreedAt: string | Date | null } | null {
+): (StoredContributionPlan & { frequency: ContributionFrequency; agreed: boolean; agreedAt: string | Date | null }) | null {
   if (!userId || !Array.isArray(plans)) return null;
   const found = plans.find((plan) => personRecordId(plan.user) === String(userId));
   if (!found) return null;
   const frequency = parseContributionFrequency(found.frequency);
   if (!('value' in frequency)) return null;
   return {
+    ...found,
     frequency: frequency.value,
     agreed: !!found.agreed,
     agreedAt: found.agreedAt || null
@@ -676,6 +794,7 @@ export function buildSharedAccountHistory(
     amount?: number;
     date?: string;
     description?: string;
+    source?: string;
     user?: PersonSummary | string | null;
   }> | null | undefined,
   paymentRequests: HistoryPaymentRequest[] | null | undefined,
@@ -694,7 +813,9 @@ export function buildSharedAccountHistory(
     const money = formatMoneyAmount(amount);
     const action = record.type === 'output'
       ? `Reversed contribution ${money}`
-      : `Contributed ${money}`;
+      : record.source === 'automatic'
+        ? `Automatic contribution ${money}`
+        : `Contributed ${money}`;
     entries.push({
       id: String(record._id || `record-${index}`),
       at: historyTimestamp(record.date),

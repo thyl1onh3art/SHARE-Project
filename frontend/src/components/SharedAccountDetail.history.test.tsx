@@ -269,4 +269,44 @@ describe('SharedAccountDetail transaction history', () => {
     expect(within(history).getByText('Cancelled final payment')).toBeInTheDocument();
     expect(within(history).queryByText(/PaymentRequest/i)).not.toBeInTheDocument();
   });
+
+  it('shows automatic prototype contributions in the same Transaction history', async () => {
+    mockAccountFetch(
+      {
+        _id: 'pot-1',
+        name: 'Savings Test',
+        owner,
+        members: [member],
+        financeRecords: [],
+        targetAmount: 200,
+        createdAt: '2026-01-01T00:00:00.000Z'
+      },
+      [
+        {
+          _id: 'r-manual',
+          type: 'input',
+          amount: 20,
+          date: '2026-08-30T14:10:00.000Z',
+          user: owner
+        },
+        {
+          _id: 'r-auto',
+          type: 'input',
+          amount: 12.5,
+          date: '2026-08-30T09:00:00.000Z',
+          source: 'automatic',
+          user: owner,
+          description: 'Automatic contribution'
+        }
+      ]
+    );
+
+    renderDetail();
+
+    const history = (await screen.findByRole('heading', { name: 'Transaction history' })).closest('.card') as HTMLElement;
+    expect(within(history).getByText('Contributed £20.00')).toBeInTheDocument();
+    expect(within(history).getByText('Automatic contribution £12.50')).toBeInTheDocument();
+    expect(within(history).getAllByText('Sam Brown').length).toBeGreaterThan(0);
+    expect(within(history).queryByText(/Direct Debit/i)).not.toBeInTheDocument();
+  });
 });

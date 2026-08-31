@@ -7,7 +7,8 @@ Honest limits of the current SHARE prototype. This list is for reviewers, not a 
 - The prototype **does not hold, custody, or transfer real money**.
 - There is **no regulated payment-provider integration** on the live Shared Account path.
 - Tracked totals are MongoDB records. They are not bank balances, e-money, or FSCS-protected funds.
-- Shared Account **contribution plans** are agreed prototype schedules (weekly / every 2 weeks / monthly). They do not create bank Direct Debits, automatic transfers, or automatic FinanceRecords. Future regulated payment integration may execute those amounts.
+- Shared Account **contribution plans** are agreed prototype schedules (weekly / every 2 weeks / monthly). After agreement, SHARE can record **simulated automatic contributions** on due dates. These are ordinary `FinanceRecord` inputs with `source: "automatic"`. They are not bank Direct Debits, Open Banking payments, card charges, or regulated money movement.
+- The prototype scheduler is **opt-in and best-effort**. The in-process interval starts only when `ENABLE_PROTOTYPE_AUTOMATIC_CONTRIBUTIONS=true` (never in `NODE_ENV=test` or on Vercel). Railway does not set this flag, so production stays off unless it is added later on purpose. The authenticated non-production process endpoint is independent of the scheduler. Idempotency (`processorKey`) makes repeated checks safe.
 - Stripe / PayPal setup documents in `docs/archive/` are historical design notes. They are not live product behaviour.
 
 ## Shared Account behaviour

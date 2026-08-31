@@ -15,8 +15,20 @@ const {
   parseContributionFrequency,
   parseContributionAgreement,
   buildCreatorContributionPlan,
-  upsertUserContributionPlan
+  upsertUserContributionPlan,
+  pauseUserContributionPlan,
+  resumeUserContributionPlan,
+  cancelUserContributionPlan,
+  stopPlansForClosedAccount
 } = require('../utils/contributionPlan');
+const { calendarDateKey } = require('../utils/automaticContributionDates');
+const {
+  plannedContributorCount,
+  plannedPersonalShare,
+  remainingPersonalAmount,
+  userInputTotal
+} = require('../utils/automaticContributionAmounts');
+const automaticContributionService = require('../services/automaticContributionService');
 
 // Helper: Send SMS via Twilio
 const sendSMS = (to, body) => {
@@ -99,7 +111,11 @@ exports.createSharedAccount = async (req, res) => {
       targetAmount: parseFloat(targetAmount),
       targetDate: targetDateObj,
       plannedContributors: planned.value,
-      contributionPlans: [buildCreatorContributionPlan(senderId, frequency.value)],
+      contributionPlans: [buildCreatorContributionPlan(senderId, frequency.value, new Date(), {
+        targetAmount: parseFloat(targetAmount),
+        plannedContributors: planned.value,
+        targetDate: targetDateObj
+      })],
       perPersonAmount: Math.round(perPersonAmount * 100) / 100, // Round to 2 decimal places
       members,
       financeRecords: [],
@@ -495,6 +511,7 @@ exports.deleteSharedAccount = async (req, res) => {
 
     account.isDeleted = true;
     account.deletedAt = new Date();
+    stopPlansForClosedAccount(account, account.deletedAt);
     await account.save();
 
     res.json({
@@ -725,7 +742,17 @@ exports.upsertContributionPlan = async (req, res) => {
       return res.status(400).json({ message: agreement.error });
     }
 
-    const result = upsertUserContributionPlan(account, userId, frequency.value, true);
+    const records = await FinanceRecord.find({ sharedAccount: account._id });
+    const remaining = remainingPersonalAmount(
+      plannedPersonalShare(account.targetAmount, plannedContributorCount(account)),
+      userInputTotal(records, userId)
+    );
+    const result = upsertUserContributionPlan(account, userId, frequency.value, true, new Date(), {
+      remaining,
+      deadline: account.targetDate,
+      targetAmount: account.targetAmount,
+      plannedContributors: plannedContributorCount(account)
+    });
     if (result.error) {
       return res.status(400).json({ message: result.error });
     }
@@ -735,6 +762,114 @@ exports.upsertContributionPlan = async (req, res) => {
       .populate('owner', 'firstName lastName email')
       .populate('members', 'firstName lastName email');
     res.json(populated);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+function prototypeProcessEnabled() {
+  return process.env.NODE_ENV !== 'production';
+}
+
+async function respondWithAccount(res, accountId) {
+  const populated = await SharedAccount.findById(accountId)
+    .populate('owner', 'firstName lastName email')
+    .populate('members', 'firstName lastName email');
+  return res.json(populated);
+}
+
+exports.pauseContributionPlan = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({ message: 'Shared account not found' });
+    }
+    const account = await SharedAccount.findById(id);
+    if (!account) return res.status(404).json({ message: 'Shared account not found' });
+    if (!canMutateSharedAccount(account, userId)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    const result = pauseUserContributionPlan(account, userId);
+    if (result.error) return res.status(400).json({ message: result.error });
+    await account.save();
+    return respondWithAccount(res, account._id);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+exports.resumeContributionPlan = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({ message: 'Shared account not found' });
+    }
+    const account = await SharedAccount.findById(id);
+    if (!account) return res.status(404).json({ message: 'Shared account not found' });
+    if (!canMutateSharedAccount(account, userId)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    const result = resumeUserContributionPlan(account, userId);
+    if (result.error) return res.status(400).json({ message: result.error });
+    await account.save();
+    return respondWithAccount(res, account._id);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+exports.cancelContributionPlan = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({ message: 'Shared account not found' });
+    }
+    const account = await SharedAccount.findById(id);
+    if (!account) return res.status(404).json({ message: 'Shared account not found' });
+    if (!canMutateSharedAccount(account, userId)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    const result = cancelUserContributionPlan(account, userId);
+    if (result.error) return res.status(400).json({ message: result.error });
+    await account.save();
+    return respondWithAccount(res, account._id);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+exports.getAutomaticContributionCapabilities = async (req, res) => {
+  res.json({
+    processDueEnabled: prototypeProcessEnabled(),
+    prototype: true
+  });
+};
+
+exports.processDueAutomaticContributions = async (req, res) => {
+  try {
+    if (!prototypeProcessEnabled()) {
+      return res.status(404).json({ message: 'Not found' });
+    }
+    let now = new Date();
+    if (req.body && req.body.now) {
+      const key = calendarDateKey(req.body.now);
+      if (!key) {
+        return res.status(400).json({ message: 'now must be a calendar date (YYYY-MM-DD)' });
+      }
+      const [year, month, day] = key.split('-').map(Number);
+      now = new Date(year, month - 1, day, 12, 0, 0, 0);
+    }
+    const results = await automaticContributionService.processDuePlans({
+      now,
+      userId: req.user.userId
+    });
+    res.json({
+      processed: results.filter((row) => row.action === 'created').length,
+      results
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

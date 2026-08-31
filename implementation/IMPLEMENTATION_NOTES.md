@@ -2224,4 +2224,47 @@ Creating a Shared Account now includes an **explicit prototype contribution plan
 
 **Tests / build:** Frontend `24` suites / `181` tests passed. Production frontend build compiled successfully. Backend contribution-plan unit/schema tests passed (`5` tests, no Mongo). Mongo-backed suites were not run: `localhost:27017` is `ECONNREFUSED`. Production MongoDB was not used and was not modified.
 
+### Task 15 — Prototype automatic payments
+
+SHARE now records **simulated automatic contributions** when an agreed per-user plan is due. Still no real money, bank accounts, cards, Direct Debit, Open Banking, or external payment API.
+
+**Existing architecture (inspected before coding)**
+- Task 14 `contributionPlans[]`: `user`, `frequency`, `agreed`, `agreedAt` only — no status, next due date, or last processed date.
+- Manual contributions: `POST /finance` creates `FinanceRecord` `type: input` on the Shared Account. Totals = sum of those inputs (personal share) and `contributionProgressTotal` (account progress).
+- No cron, agenda, bull, or interval worker in live `backend/` (`app.js` is a normal Express process).
+- Archived pots: `isDeleted` + `deletedAt`. `canMutateSharedAccount` is false when archived.
+- Hard cap: frontend blocks contributions above remaining target; automatic processing also caps on the backend.
+- Personal tracking suggested the next amount from remaining / periods; it did not store a due date.
+
+**Data model**
+- Per-user plan adds `status` (`active` | `paused` | `cancelled` | `completed`), `nextContributionDate` (YYYY-MM-DD), `lastProcessedAt`, `pausedAt`, `cancelledAt`. Historical Task 14 plans without status are treated as active if `agreed`.
+- `FinanceRecord` optional: `source` (`manual` | `automatic`), `contributionPlanId`, `scheduledFor`, unique sparse `processorKey` (`sharedAccountId:userId:scheduledFor`).
+
+**Cadence (date-only, no Start time, no UTC midnight parse of YYYY-MM-DD)**
+- Weekly: agreement/resume/frequency-change date + 7 local calendar days.
+- Every 2 weeks: +14.
+- Monthly: same calendar day next month, clamped to the last valid day (31 Jan → 28/29 Feb).
+- Pause freezes processing and keeps the stored next date. Resume recalculates next date from the resume date using the same rule.
+
+**Amount at process time (backend only; frontend cannot choose it)**
+`scheduledAmount = min(persisted agreed instalment or legacy suggested, remainingPersonal, overallRemaining)`
+
+The agreed weekly/fortnightly/monthly instalment is stored on the per-user plan as `scheduledAmount` at agreement and when the user intentionally changes frequency. Processing must not recast that instalment just because the due date is later (e.g. £25 agreed on 31 Aug must stay £25 on 7 Sep, not £33.34). Historical plans without `scheduledAmount` fall back to the old remaining-days formula. No production data migration.
+
+Never negative. Final automatic row may be smaller than the usual installment. Personal share and account target are both caps.
+
+**Service / scheduler**
+- `automaticContributionService` creates one normal contribution `FinanceRecord` per due date, advances next date, completes when share or target is covered, skips paused/cancelled/completed/archived.
+- Background scheduler is **opt-in**. It starts only when `ENABLE_PROTOTYPE_AUTOMATIC_CONTRIBUTIONS=true`. Missing, blank, `false`, or any other value leaves it off. `NODE_ENV=test` and Vercel remain disabled even if the flag is true. The old `DISABLE_AUTOMATIC_CONTRIBUTION_SCHEDULER` opt-out was removed; it existed only for Task 15. Railway is not given this variable, so deploy stays off by default. Startup logs `Prototype automatic contribution scheduler disabled` or `... enabled`.
+- Authenticated `POST /api/shared-accounts/automatic-contributions/process` only when `NODE_ENV !== 'production'`; processes **the caller’s** due plans; optional `{ now: "YYYY-MM-DD" }`. Independent of the scheduler flag. Not a public unauthenticated endpoint.
+- Production: scheduler off unless explicitly opted in; replaceable later by a real job runner or regulated provider. Idempotency makes repeated checks safe.
+- Closed/archived accounts: remaining active/paused plans are marked `cancelled` (history kept).
+- Notifications were not added (existing Notifications page is PaymentRequests + invites). Processing works without them.
+- No payment-provider package. Dev-only `simulateFailure` exists on the service for tests, not in customer UI.
+
+**Personal tracking** is the management UI (active / paused / completed / cancelled, pause/resume/cancel with confirmation, change frequency). Shared Account detail is not duplicated. Transaction history uses “Automatic contribution” vs “Contributed”. Disclaimer: “Prototype automatic payments — no real money is moved.”
+
+**Unchanged:** plannedContributors, fair-share warning, over-share confirmation, Pay now, approval Notifications, payment completion, close/archive behaviour (except stopping plans on archive), no Start time.
+
+**Tests / build:** Frontend `24` suites / `193` tests passed. Production frontend build compiled successfully. Backend safe tests passed (`66` tests across `automaticContribution*` + `plannedContributors`; no live Mongo required except an optional uniqueness check). Isolated local Mongo (`localhost:27017` / `share_project_test`) was `ECONNREFUSED`; the optional Mongo uniqueness test skipped without failing. Production MongoDB was not used and was not modified. Nothing committed or pushed. stash@{0} untouched.
 

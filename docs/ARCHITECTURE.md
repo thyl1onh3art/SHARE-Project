@@ -55,7 +55,7 @@ Email verification exists in code but is currently unmounted / disabled. Two-fac
 Internally SHARE still has two models:
 
 - **Event** — date, location, type, optional link to a Shared Account (`tripMoney`)
-- **SharedAccount** — target, members, owner, finance records, optional `plannedContributors` (total expected contributors including the creator), per-user `contributionPlans` (frequency + explicit prototype agreement; not a global Direct Debit), archive flags
+- **SharedAccount** — target, members, owner, finance records, optional `plannedContributors` (total expected contributors including the creator), per-user `contributionPlans` (frequency, explicit prototype agreement, and prototype automatic-payment state: `status`, `nextContributionDate`, pause/cancel timestamps; not a global Direct Debit), archive flags
 
 Customers see **one Shared Account experience**. Creating a Shared Account from `/events` uses `POST /events/with-trip-money`, which creates both records and links them. Older unlinked Shared Accounts remain reachable from the list and from `/shared-accounts/:id`.
 
@@ -65,7 +65,21 @@ This split is retained for recovered and historical data. Do not collapse the mo
 
 A `FinanceRecord` is a tracked input or output against a user and optionally a Shared Account. Personal Home balance is derived from personal records. Shared Account progress is derived from records on that account.
 
-These rows are a coordination history, not a bank ledger of custodied funds.
+Manual contributions and **prototype automatic contributions** use the same input rows. Automatic rows set `source: "automatic"`, `scheduledFor` (calendar date), `contributionPlanId`, and a unique `processorKey` (`sharedAccountId:userId:scheduledFor`). Transaction history labels those rows “Automatic contribution”; manual rows stay “Contributed”. These rows are a coordination history, not a bank ledger of custodied funds.
+
+## Prototype automatic payments
+
+`backend/services/automaticContributionService.js` finds due **active** per-user plans on non-archived Shared Accounts, calculates the amount on the server, creates one simulated contribution, advances the next calendar due date, and marks the plan completed when the personal share or account target is covered.
+
+Amount at process time:
+
+`amount = min(persisted plan.scheduledAmount or legacy remaining-days suggestion, remainingPersonal, overallRemaining)`
+
+`scheduledAmount` is stored on the per-user plan when the plan is agreed and when frequency is intentionally changed. Advancing the due date does not recast the agreed instalment. Plans without the field keep the older remaining-days fallback. No production data migration.
+
+Cadence is date-only (no Start time, no UTC midnight parse of `YYYY-MM-DD`): weekly +7 local days, every 2 weeks +14, monthly same calendar day next month (clamped to the last valid day). Pause freezes processing; resume recalculates the next date from the resume date. Cancel stops future automatic rows and keeps history. Archived/closed accounts cancel remaining active/paused plans.
+
+There is no existing cron/worker framework. The in-process 60-second interval (`automaticContributionScheduler`) is **opt-in**: it starts only when `ENABLE_PROTOTYPE_AUTOMATIC_CONTRIBUTIONS=true`, and never when `NODE_ENV=test` or `VERCEL` is set. Railway does not set this flag, so deploying does not process existing plans. An authenticated `POST /api/shared-accounts/automatic-contributions/process` exists only when `NODE_ENV !== 'production'` and processes **the caller’s** due plans (optional body `now: YYYY-MM-DD` for demos). That development processor is independent of the scheduler flag. Repeated checks are safe because of `processorKey` uniqueness.
 
 ## PaymentRequest lifecycle
 

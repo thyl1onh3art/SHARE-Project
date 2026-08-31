@@ -20,7 +20,22 @@ const sharedAccountSchema = new mongoose.Schema({
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     frequency: { type: String, enum: ['weekly', 'fortnightly', 'monthly'], required: true },
     agreed: { type: Boolean, default: false },
-    agreedAt: { type: Date }
+    agreedAt: { type: Date },
+    /**
+     * Prototype automatic plan state. Historical Task 14 plans omit this;
+     * agreed plans without status are treated as active.
+     */
+    status: { type: String, enum: ['active', 'paused', 'cancelled', 'completed'] },
+    /** Calendar date YYYY-MM-DD — not a UTC instant. */
+    nextContributionDate: { type: String },
+    /**
+     * Agreed recurring instalment. Optional on historical Task 14/15 plans.
+     * Processing must not recast this just because the due date is later.
+     */
+    scheduledAmount: { type: Number, min: 0 },
+    lastProcessedAt: { type: Date },
+    pausedAt: { type: Date },
+    cancelledAt: { type: Date }
   }],
   perPersonAmount: { type: Number },
   financeRecords: [{ type: mongoose.Schema.Types.ObjectId, ref: 'FinanceRecord' }],

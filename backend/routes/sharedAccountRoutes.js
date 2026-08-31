@@ -11,10 +11,24 @@ router.post('/', auth, validateSharedAccount, asyncHandler(sharedAccountControll
 // List shared accounts for the user
 router.get('/', auth, asyncHandler(sharedAccountController.getUserSharedAccounts));
 
+router.get(
+  '/automatic-contributions/capabilities',
+  auth,
+  asyncHandler(sharedAccountController.getAutomaticContributionCapabilities)
+);
+router.post(
+  '/automatic-contributions/process',
+  auth,
+  asyncHandler(sharedAccountController.processDueAutomaticContributions)
+);
+
 // Get details of a shared account
 router.get('/:id', auth, asyncHandler(sharedAccountController.getSharedAccountDetails));
 
 router.put('/:id/contribution-plan', auth, asyncHandler(sharedAccountController.upsertContributionPlan));
+router.put('/:id/contribution-plan/pause', auth, asyncHandler(sharedAccountController.pauseContributionPlan));
+router.put('/:id/contribution-plan/resume', auth, asyncHandler(sharedAccountController.resumeContributionPlan));
+router.put('/:id/contribution-plan/cancel', auth, asyncHandler(sharedAccountController.cancelContributionPlan));
 
 // Update a shared account
 router.put('/:id', auth, asyncHandler(sharedAccountController.updateSharedAccount));

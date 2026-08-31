@@ -194,7 +194,11 @@ exports.createEventWithTripMoney = async (req, res) => {
         targetAmount: amount,
         targetDate,
         plannedContributors: planned.value,
-        contributionPlans: [buildCreatorContributionPlan(userId, frequency.value)],
+        contributionPlans: [buildCreatorContributionPlan(userId, frequency.value, new Date(), {
+          targetAmount: amount,
+          plannedContributors: planned.value,
+          targetDate
+        })],
         perPersonAmount: amount,
         members: [],
         financeRecords: [],

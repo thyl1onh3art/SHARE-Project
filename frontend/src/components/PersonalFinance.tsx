@@ -5,8 +5,10 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   buildPersonalSavingsPlan,
   CONTRIBUTION_FREQUENCIES,
+  contributionProgressTotal,
   ContributionFrequency,
   findUserContributionPlan,
+  formatLocalYmd,
   formatMoneyAmount,
   frequencyMeta,
   personRecordId,
@@ -34,6 +36,9 @@ interface SharedAccountSummary {
     frequency?: string;
     agreed?: boolean;
     agreedAt?: string;
+    status?: string;
+    nextContributionDate?: string;
+    scheduledAmount?: number;
   }>;
   isDeleted?: boolean;
   owner?: { _id?: string } | string;
@@ -55,20 +60,30 @@ const PersonalFinance: React.FC = () => {
   const [records, setRecords] = useState<FinancialRecord[]>([]);
   const [savingsPlans, setSavingsPlans] = useState<PersonalSavingsPlan[]>([]);
   const [savingPlanId, setSavingPlanId] = useState('');
+  const [cancelConfirmId, setCancelConfirmId] = useState('');
+  const [processDueEnabled, setProcessDueEnabled] = useState(false);
+  const [processingDue, setProcessingDue] = useState(false);
+  const [processAsDate, setProcessAsDate] = useState(() => formatLocalYmd(new Date()));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const currentUserId = user ? String((user as { _id?: string; id?: string })._id || user.id || '') : '';
 
-  const fetchRecords = useCallback(async () => {
+  const fetchRecords = useCallback(async (options?: { silent?: boolean }) => {
     try {
-      setLoading(true);
-      const [financeResponse, accountsResponse] = await Promise.all([
+      if (!options?.silent) {
+        setLoading(true);
+      }
+      const [financeResponse, accountsResponse, capabilitiesResponse] = await Promise.all([
         axios.get('/finance'),
-        axios.get('/shared-accounts').catch(() => ({ data: [] }))
+        axios.get('/shared-accounts').catch(() => ({ data: [] })),
+        axios.get('/shared-accounts/automatic-contributions/capabilities').catch(() => ({
+          data: { processDueEnabled: false }
+        }))
       ]);
       const allRecords = financeResponse.data;
       const personalRecords = allRecords.filter((record: FinancialRecord) => !record.sharedAccount);
       setRecords(personalRecords);
+      setProcessDueEnabled(!!capabilitiesResponse.data?.processDueEnabled);
 
       const accounts: SharedAccountSummary[] = Array.isArray(accountsResponse.data)
         ? accountsResponse.data
@@ -83,6 +98,7 @@ const PersonalFinance: React.FC = () => {
           owner: account.owner as { _id: string },
           members: account.members as Array<{ _id: string }>,
           contributed: contributionForUser(account.financeRecords, currentUserId),
+          recordedTotal: contributionProgressTotal(account.financeRecords || []),
           deadline: account.targetDate,
           userPlan: findUserContributionPlan(account.contributionPlans, currentUserId)
         }))
@@ -108,11 +124,48 @@ const PersonalFinance: React.FC = () => {
         frequency,
         ...(alreadyAgreed ? {} : { agreed: true })
       });
-      await fetchRecords();
+      await fetchRecords({ silent: true });
     } catch (err: any) {
       setError('Could not update your contribution plan');
     } finally {
       setSavingPlanId('');
+    }
+  };
+
+  const updatePlanStatus = async (accountId: string, action: 'pause' | 'resume' | 'cancel') => {
+    if (!accountId) return;
+    setSavingPlanId(accountId);
+    setError('');
+    try {
+      await axios.put(`/shared-accounts/${accountId}/contribution-plan/${action}`);
+      setCancelConfirmId('');
+      await fetchRecords({ silent: true });
+    } catch (err: any) {
+      setError('Could not update your contribution plan');
+    } finally {
+      setSavingPlanId('');
+    }
+  };
+
+  const processDueContributions = async (
+    event?: React.MouseEvent<HTMLButtonElement> | React.FormEvent<HTMLFormElement>
+  ) => {
+    event?.preventDefault();
+    event?.stopPropagation();
+    setProcessingDue(true);
+    setError('');
+    try {
+      const selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(processAsDate)
+        ? processAsDate
+        : formatLocalYmd(new Date());
+      await axios.post('/shared-accounts/automatic-contributions/process', {
+        now: selectedDate
+      });
+      await fetchRecords({ silent: true });
+    } catch (err: any) {
+      setError('Could not process due automatic contributions');
+    } finally {
+      setProcessingDue(false);
     }
   };
 
@@ -210,43 +263,155 @@ const PersonalFinance: React.FC = () => {
                   <dd>{formatMoneyAmount(plan.remaining)}</dd>
                 </div>
               </dl>
-              {plan.covered ? (
-                <p className="personal-savings-plan-covered">Your planned contribution is covered</p>
+              {plan.status === 'cancelled' ? (
+                <>
+                  <p className="personal-savings-plan-note">Automatic contribution plan cancelled</p>
+                  <p className="personal-savings-plan-note">No future automatic contributions are scheduled.</p>
+                  <p className="contribution-plan-disclaimer">
+                    Prototype automatic payments — no real money is moved.
+                  </p>
+                </>
+              ) : plan.status === 'completed' || plan.covered || plan.targetReached ? (
+                <>
+                  {plan.targetReached && !plan.covered ? (
+                    <p className="personal-savings-plan-covered">Contribution goal reached</p>
+                  ) : (
+                    <>
+                      <p className="personal-savings-plan-covered">Contribution plan completed</p>
+                      <p className="personal-savings-plan-note">Your planned contribution is covered.</p>
+                    </>
+                  )}
+                  <p className="contribution-plan-disclaimer">
+                    Prototype automatic payments — no real money is moved.
+                  </p>
+                </>
+              ) : plan.status === 'paused' ? (
+                <>
+                  <p className="personal-savings-plan-note">Automatic contribution plan</p>
+                  <p className="personal-savings-plan-status">Paused</p>
+                  <p className="personal-savings-plan-note">No automatic contributions will be recorded while paused.</p>
+                  <div className="personal-savings-plan-actions">
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={savingPlanId === plan.id}
+                      onClick={() => updatePlanStatus(plan.id || '', 'resume')}
+                    >
+                      Resume automatic contributions
+                    </button>
+                    {cancelConfirmId === plan.id ? (
+                      <div className="personal-savings-cancel-confirm">
+                        <p>Cancel automatic contribution plan?</p>
+                        <p>Future automatic prototype contributions will stop. Previous contributions will remain part of the Shared Account.</p>
+                        <button type="button" className="btn btn-secondary" onClick={() => setCancelConfirmId('')}>
+                          Keep plan
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-danger"
+                          disabled={savingPlanId === plan.id}
+                          onClick={() => updatePlanStatus(plan.id || '', 'cancel')}
+                        >
+                          Cancel plan
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-secondary personal-savings-cancel"
+                        onClick={() => setCancelConfirmId(plan.id || '')}
+                      >
+                        Cancel plan
+                      </button>
+                    )}
+                  </div>
+                  <p className="contribution-plan-disclaimer">
+                    Prototype automatic payments — no real money is moved.
+                  </p>
+                </>
+              ) : plan.agreed && plan.frequency ? (
+                <>
+                  <p className="personal-savings-plan-note">Automatic contribution plan</p>
+                  <p className="personal-savings-plan-status">Active</p>
+                  <dl className="personal-savings-plan-stats">
+                    <div>
+                      <dt>Frequency</dt>
+                      <dd>{frequencyMeta(plan.frequency).label}</dd>
+                    </div>
+                    <div>
+                      <dt>Next automatic contribution</dt>
+                      <dd>{formatMoneyAmount(plan.nextAutomaticAmount ?? plan.recurringAmount ?? 0)}</dd>
+                    </div>
+                    <div>
+                      <dt>Due</dt>
+                      <dd>{plan.nextDueLabel || '—'}</dd>
+                    </div>
+                  </dl>
+                  <form
+                    className="contribution-frequency-form"
+                    onSubmit={(event) => event.preventDefault()}
+                  >
+                    <fieldset className="contribution-frequency-options" disabled={savingPlanId === plan.id}>
+                      <legend className="form-label">Change frequency</legend>
+                      {CONTRIBUTION_FREQUENCIES.map((option) => (
+                        <label key={option.value} className="contribution-frequency-option">
+                          <input
+                            type="radio"
+                            name={`personal-plan-${plan.id}`}
+                            value={option.value}
+                            checked={plan.frequency === option.value}
+                            onChange={() => saveContributionPlan(plan.id || '', option.value, true)}
+                          />
+                          {option.label}
+                        </label>
+                      ))}
+                    </fieldset>
+                  </form>
+                  <div className="personal-savings-plan-actions">
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      disabled={savingPlanId === plan.id}
+                      onClick={() => updatePlanStatus(plan.id || '', 'pause')}
+                    >
+                      Pause
+                    </button>
+                    {cancelConfirmId === plan.id ? (
+                      <div className="personal-savings-cancel-confirm">
+                        <p>Cancel automatic contribution plan?</p>
+                        <p>Future automatic prototype contributions will stop. Previous contributions will remain part of the Shared Account.</p>
+                        <button type="button" className="btn btn-secondary" onClick={() => setCancelConfirmId('')}>
+                          Keep plan
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-danger"
+                          disabled={savingPlanId === plan.id}
+                          onClick={() => updatePlanStatus(plan.id || '', 'cancel')}
+                        >
+                          Cancel plan
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-link personal-savings-cancel"
+                        onClick={() => setCancelConfirmId(plan.id || '')}
+                      >
+                        Cancel automatic contributions
+                      </button>
+                    )}
+                  </div>
+                  <p className="contribution-plan-disclaimer">
+                    Prototype automatic payments — no real money is moved.
+                  </p>
+                </>
               ) : plan.deadlineState === 'past' ? (
                 <p className="personal-savings-plan-note">Deadline passed</p>
               ) : plan.deadlineState === 'today' ? (
                 <p className="personal-savings-plan-note">
                   Amount needed today {formatMoneyAmount(plan.remaining)}
                 </p>
-              ) : plan.agreed && plan.frequency ? (
-                <>
-                  <p className="personal-savings-plan-note">
-                    Your contribution plan {frequencyMeta(plan.frequency).label}
-                  </p>
-                  {plan.recurringAmount !== null && (
-                    <p className="personal-savings-plan-note">
-                      Suggested next recurring amount {formatMoneyAmount(plan.recurringAmount)} {plan.recurringPerLabel}
-                    </p>
-                  )}
-                  {plan.deadlineLabel && (
-                    <p className="personal-savings-plan-note">Goal date {plan.deadlineLabel}</p>
-                  )}
-                  <fieldset className="contribution-frequency-options" disabled={savingPlanId === plan.id}>
-                    <legend className="form-label">Change contribution plan</legend>
-                    {CONTRIBUTION_FREQUENCIES.map((option) => (
-                      <label key={option.value} className="contribution-frequency-option">
-                        <input
-                          type="radio"
-                          name={`personal-plan-${plan.id}`}
-                          value={option.value}
-                          checked={plan.frequency === option.value}
-                          onChange={() => saveContributionPlan(plan.id || '', option.value, true)}
-                        />
-                        {option.label}
-                      </label>
-                    ))}
-                  </fieldset>
-                </>
               ) : (
                 <>
                   <p className="personal-savings-plan-note">Suggested contribution plan</p>
@@ -267,20 +432,25 @@ const PersonalFinance: React.FC = () => {
                       <dd>{formatMoneyAmount(plan.monthly || 0)}</dd>
                     </div>
                   </dl>
-                  <fieldset className="contribution-frequency-options" disabled={savingPlanId === plan.id}>
-                    <legend className="form-label">Choose a plan</legend>
-                    {CONTRIBUTION_FREQUENCIES.map((option) => (
-                      <label key={option.value} className="contribution-frequency-option">
-                        <input
-                          type="radio"
-                          name={`personal-plan-${plan.id}`}
-                          value={option.value}
-                          onChange={() => saveContributionPlan(plan.id || '', option.value, false)}
-                        />
-                        {option.label}
-                      </label>
-                    ))}
-                  </fieldset>
+                  <form
+                    className="contribution-frequency-form"
+                    onSubmit={(event) => event.preventDefault()}
+                  >
+                    <fieldset className="contribution-frequency-options" disabled={savingPlanId === plan.id}>
+                      <legend className="form-label">Choose a plan</legend>
+                      {CONTRIBUTION_FREQUENCIES.map((option) => (
+                        <label key={option.value} className="contribution-frequency-option">
+                          <input
+                            type="radio"
+                            name={`personal-plan-${plan.id}`}
+                            value={option.value}
+                            onChange={() => saveContributionPlan(plan.id || '', option.value, false)}
+                          />
+                          {option.label}
+                        </label>
+                      ))}
+                    </fieldset>
+                  </form>
                   <p className="contribution-plan-disclaimer">
                     Prototype contribution plan — no automatic bank transfer is currently made.
                   </p>
@@ -288,6 +458,33 @@ const PersonalFinance: React.FC = () => {
               )}
             </div>
           ))}
+          {processDueEnabled && (
+            <form
+              className="personal-savings-dev-tools"
+              onSubmit={processDueContributions}
+            >
+              <p className="personal-savings-plan-note personal-savings-dev-tools-title">
+                Development only
+              </p>
+              <label className="personal-savings-dev-date" htmlFor="process-as-date">
+                Process as date
+                <input
+                  id="process-as-date"
+                  type="date"
+                  value={processAsDate}
+                  onChange={(event) => setProcessAsDate(event.target.value)}
+                />
+              </label>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={processingDue}
+                onClick={processDueContributions}
+              >
+                Process due automatic contributions
+              </button>
+            </form>
+          )}
         </div>
       )}
 

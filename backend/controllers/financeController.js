@@ -52,6 +52,15 @@ exports.createRecord = async (req, res) => {
       }
     }
 
+    if (sharedAccount && type === 'input') {
+      try {
+        const automaticContributionService = require('../services/automaticContributionService');
+        await automaticContributionService.reconcileAccountById(sharedAccount);
+      } catch (reconcileErr) {
+        console.warn('Contribution plan reconcile:', reconcileErr.message);
+      }
+    }
+
     res.status(201).json(record);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });

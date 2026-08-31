@@ -35,6 +35,9 @@ import {
   calendarDaysRemaining,
   buildPersonalSavingsPlan,
   recurringAmountForFrequency,
+  firstDueDate,
+  formatPlanDueDate,
+  scheduledAutomaticAmount,
   findUserContributionPlan
 } from './tripHome';
 
@@ -220,6 +223,70 @@ describe('planned contributors and personal savings plan', () => {
     expect((12.5) * 8).toBeGreaterThanOrEqual(100);
   });
 
+  it('sets first due dates with date-only weekly, fortnightly, and monthly cadence', () => {
+    expect(firstDueDate('weekly', '2026-08-23')).toBe('2026-08-30');
+    expect(firstDueDate('fortnightly', '2026-08-16')).toBe('2026-08-30');
+    expect(firstDueDate('monthly', '2026-07-30')).toBe('2026-08-30');
+    expect(firstDueDate('monthly', '2026-01-31')).toBe('2026-02-28');
+    expect(formatPlanDueDate('2026-09-06')).toBe('6 September 2026');
+  });
+
+  it('caps the next automatic amount by remaining personal share and overall target', () => {
+    expect(scheduledAutomaticAmount({
+      remainingPersonal: 100,
+      overallRemaining: 200,
+      daysRemaining: 56,
+      deadlineState: 'future',
+      frequency: 'weekly'
+    })).toBe(12.5);
+    expect(scheduledAutomaticAmount({
+      remainingPersonal: 10,
+      overallRemaining: 200,
+      daysRemaining: 6,
+      deadlineState: 'future',
+      frequency: 'weekly'
+    })).toBe(10);
+    expect(scheduledAutomaticAmount({
+      remainingPersonal: 100,
+      overallRemaining: 5,
+      daysRemaining: 56,
+      deadlineState: 'future',
+      frequency: 'weekly'
+    })).toBe(5);
+  });
+
+  it('keeps a persisted £25 weekly instalment instead of recasting from remaining days', () => {
+    expect(recurringAmountForFrequency(100, 28, 'weekly', 'future')).toBe(25);
+    expect(scheduledAutomaticAmount({
+      remainingPersonal: 75,
+      overallRemaining: 75,
+      daysRemaining: 28,
+      deadlineState: 'future',
+      frequency: 'weekly',
+      scheduledAmount: 25
+    })).toBe(25);
+    const plan = buildPersonalSavingsPlan({
+      id: 'acc-1',
+      name: 'Savings Test',
+      targetAmount: 100,
+      plannedContributors: 1,
+      contributed: 25,
+      recordedTotal: 25,
+      deadline: '2026-09-28',
+      now: new Date(2026, 7, 31),
+      userPlan: {
+        frequency: 'weekly',
+        agreed: true,
+        status: 'active',
+        scheduledAmount: 25,
+        nextContributionDate: '2026-09-14'
+      }
+    });
+    expect(plan?.nextAutomaticAmount).toBe(25);
+    expect(plan?.contributed).toBe(25);
+    expect(plan?.remaining).toBe(75);
+  });
+
   it('does not treat a historical account as an agreed plan', () => {
     expect(findUserContributionPlan(undefined, 'user-1')).toBeNull();
     expect(findUserContributionPlan([], 'user-1')).toBeNull();
@@ -228,11 +295,12 @@ describe('planned contributors and personal savings plan', () => {
     ], 'user-1')).toBeNull();
     expect(findUserContributionPlan([
       { user: 'user-1', frequency: 'monthly', agreed: true }
-    ], 'user-1')).toEqual({
+    ], 'user-1')).toEqual(expect.objectContaining({
       frequency: 'monthly',
       agreed: true,
-      agreedAt: null
-    });
+      agreedAt: null,
+      user: 'user-1'
+    }));
   });
 });
 
@@ -534,6 +602,37 @@ describe('transaction history helpers', () => {
     expect(history.some((entry) => /FinanceRecord|PaymentRequest|ledger|input|output|executed|settlement/i.test(`${entry.person} ${entry.action}`))).toBe(false);
     expect(history[history.length - 1].person).toBe('Final payment');
     expect(formatMoneyAmount(50)).toBe('£50.00');
+  });
+
+  it('labels automatic simulated contributions separately from manual ones', () => {
+    const history = buildSharedAccountHistory(
+      [
+        {
+          _id: 'r-manual',
+          type: 'input',
+          amount: 20,
+          date: '2026-08-30T14:10:00.000Z',
+          user: owner
+        },
+        {
+          _id: 'r-auto',
+          type: 'input',
+          amount: 12.5,
+          date: '2026-08-30T09:00:00.000Z',
+          source: 'automatic',
+          user: owner
+        }
+      ],
+      [],
+      owner,
+      [member]
+    );
+    expect(history.map((entry) => entry.action)).toEqual([
+      'Automatic contribution £12.50',
+      'Contributed £20.00'
+    ]);
+    expect(history.every((entry) => entry.person === 'Sam Brown')).toBe(true);
+    expect(history.some((entry) => /Direct Debit/i.test(entry.action))).toBe(false);
   });
 
   it('uses simple wording for rejection and cancellation', () => {

@@ -38,6 +38,7 @@ const {
 // Import services
 // const backupService = require('./services/backupService'); // Disabled - backupController missing
 const mongodbService = require('./services/mongodb');
+const automaticContributionScheduler = require('./services/automaticContributionScheduler');
 
 const app = express();
 
@@ -199,6 +200,7 @@ const startServer = async () => {
         console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
         console.log(`Health check: http://localhost:${PORT}/health`);
         console.log(`Database: MongoDB with Mongoose ODM`);
+        automaticContributionScheduler.start();
       });
 
       // Start HTTPS server (only in local development if certificates exist)
@@ -241,6 +243,7 @@ const startServer = async () => {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('🛑 SIGTERM received, shutting down gracefully');
+  automaticContributionScheduler.stop();
   await mongodbService.disconnect();
   console.log('🔌 MongoDB disconnected');
   process.exit(0);
@@ -248,6 +251,7 @@ process.on('SIGTERM', async () => {
 
 process.on('SIGINT', async () => {
   console.log('🛑 SIGINT received, shutting down gracefully');
+  automaticContributionScheduler.stop();
   await mongodbService.disconnect();
   console.log('🔌 MongoDB disconnected');
   process.exit(0);
