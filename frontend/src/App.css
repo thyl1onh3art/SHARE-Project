@@ -168,6 +168,10 @@ body {
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+.date-picker-field {
+  cursor: pointer;
+}
+
 .form-textarea {
   width: 100%;
   padding: 12px 16px;

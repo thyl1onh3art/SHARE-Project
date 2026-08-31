@@ -110,4 +110,48 @@ describe('SharedAccounts create Trip Money', () => {
 
     expect(await screen.findByText(`Trip Money detail ${createdId}`)).toBeInTheDocument();
   });
+
+  it('opens the native date picker when the date field is clicked', async () => {
+    render(
+      <MemoryRouter initialEntries={['/shared-accounts']}>
+        <Routes>
+          <Route path="/shared-accounts" element={<SharedAccounts />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.click((await screen.findAllByRole('button', { name: /set up shared account/i }))[0]);
+    expect(await screen.findByRole('heading', { name: /set up shared account/i })).toBeInTheDocument();
+
+    const dateInput = screen.getByLabelText(/^date money is needed/i) as HTMLInputElement;
+    const originalValue = dateInput.value;
+    const showPicker = jest.fn();
+    dateInput.showPicker = showPicker;
+
+    fireEvent.click(dateInput);
+
+    expect(showPicker).toHaveBeenCalledTimes(1);
+    expect(dateInput.value).toBe(originalValue);
+    expect(mockedAxios.post).not.toHaveBeenCalled();
+    expect(screen.getByRole('radio', { name: /^weekly$/i })).not.toBeChecked();
+  });
+
+  it('keeps the date field usable when showPicker is unavailable', async () => {
+    render(
+      <MemoryRouter initialEntries={['/shared-accounts']}>
+        <Routes>
+          <Route path="/shared-accounts" element={<SharedAccounts />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.click((await screen.findAllByRole('button', { name: /set up shared account/i }))[0]);
+    const dateInput = await screen.findByLabelText(/^date money is needed/i) as HTMLInputElement;
+    expect(typeof dateInput.showPicker).not.toBe('function');
+
+    expect(() => fireEvent.click(dateInput)).not.toThrow();
+    fireEvent.change(dateInput, { target: { value: '2026-09-10' } });
+    expect(dateInput).toHaveValue('2026-09-10');
+    expect(mockedAxios.post).not.toHaveBeenCalled();
+  });
 });

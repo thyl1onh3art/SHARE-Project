@@ -474,6 +474,37 @@ describe('EventCountdown trip cards', () => {
     expect(screen.queryByText(/set up trip money/i)).not.toBeInTheDocument();
   });
 
+  it('opens the native date picker from the create date field without submitting', async () => {
+    mockListGets([]);
+    renderTrips();
+
+    fireEvent.click(await screen.findByRole('button', { name: /^create shared account$/i }));
+    const dateInput = screen.getByLabelText(/^date/i) as HTMLInputElement;
+    const showPicker = jest.fn();
+    dateInput.showPicker = showPicker;
+
+    fireEvent.click(dateInput);
+
+    expect(showPicker).toHaveBeenCalledTimes(1);
+    expect(mockedAxios.post).not.toHaveBeenCalled();
+    expect(screen.getByRole('radio', { name: /^weekly$/i })).not.toBeChecked();
+    expect(screen.queryByLabelText(/start time/i)).not.toBeInTheDocument();
+  });
+
+  it('still updates the create date when the native picker API is missing', async () => {
+    mockListGets([]);
+    renderTrips();
+
+    fireEvent.click(await screen.findByRole('button', { name: /^create shared account$/i }));
+    const dateInput = screen.getByLabelText(/^date/i) as HTMLInputElement;
+    expect(typeof dateInput.showPicker).not.toBe('function');
+
+    expect(() => fireEvent.click(dateInput)).not.toThrow();
+    fireEvent.change(dateInput, { target: { value: '2027-06-01' } });
+    expect(dateInput).toHaveValue('2027-06-01');
+    expect(mockedAxios.post).not.toHaveBeenCalled();
+  });
+
   it('updates the planned share and recurring amount live before agreement', async () => {
     mockListGets([]);
     const inEightWeeks = formatLocalYmd(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + 56));

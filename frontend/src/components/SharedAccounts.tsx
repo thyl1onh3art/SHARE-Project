@@ -14,6 +14,7 @@ import {
   parseContributionFrequency,
   parseContributionAgreement
 } from '../utils/tripHome';
+import { openNativeDatePicker } from '../utils/openNativeDatePicker';
 import ContributionPlanFields from './ContributionPlanFields';
 
 const emptyCreateForm = () => {
@@ -1517,9 +1518,10 @@ const SharedAccounts: React.FC = () => {
                 <input
                   id="trip-money-target-date"
                   type="date"
-                  className="form-input"
+                  className="form-input date-picker-field"
                   value={createForm.targetDate}
                   onChange={(e) => setCreateForm({ ...createForm, targetDate: e.target.value })}
+                  onClick={(e) => openNativeDatePicker(e.currentTarget)}
                   required
                   min={formatLocalYmd(new Date(Date.now() + 86400000))}
                   disabled={createSubmitting}

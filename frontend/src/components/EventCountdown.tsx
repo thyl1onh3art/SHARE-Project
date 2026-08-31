@@ -21,6 +21,7 @@ import {
   TripMoneySummary
 } from '../utils/tripHome';
 import { userFacingError } from '../utils/userFacingError';
+import { openNativeDatePicker } from '../utils/openNativeDatePicker';
 import ContributionPlanFields from './ContributionPlanFields';
 
 interface Event {
@@ -554,9 +555,10 @@ const EventCountdown: React.FC = () => {
               <input
                 id="shared-account-date"
                 type="date"
-                className="form-input"
+                className="form-input date-picker-field"
                 value={formData.eventDate}
                 onChange={(e) => setFormData({ ...formData, eventDate: e.target.value, eventTime: '00:00' })}
+                onClick={(e) => openNativeDatePicker(e.currentTarget)}
                 min={formatLocalYmd(new Date())}
                 required
               />
