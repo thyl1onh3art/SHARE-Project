@@ -16,7 +16,7 @@ Honest limits of the current SHARE prototype. This list is for reviewers, not a 
 - **Sole-account final-payment approval:** a one-member account cannot complete the same multi-member approval path as a group account. The organiser still records activity and can close the account; do not describe this as a fully independent approval workflow.
 - Soft-archive is the normal close/delete path. Unarchive / restore is not a customer feature.
 - Public tokenised invite links are not implemented. Invites go to registered users.
-- Invitation accept does not yet collect a member’s own contribution plan. The data model supports a different frequency per user; invite-time agreement is not implemented so SHARE does not invent consent for another member.
+- Invitation accept adds membership only. It does not invent a contribution plan or copy the organiser’s frequency. After accept, and on Shared Account detail, a member without an agreed plan can optionally set one up. **Not now** leaves them as a member who can still contribute manually.
 
 ## Data compatibility
 

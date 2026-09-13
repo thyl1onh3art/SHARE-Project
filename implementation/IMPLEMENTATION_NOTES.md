@@ -2218,7 +2218,7 @@ Creating a Shared Account now includes an **explicit prototype contribution plan
 
 **Personal tracking:** agreed plan shows frequency + suggested next recurring amount (recalculated from remaining). Historical without a plan shows **Suggested contribution plan**, not “you agreed”. The logged-in user can change **their** frequency via `PUT /shared-accounts/:id/contribution-plan` (does not change other members, target, plannedContributors, or past FinanceRecords). Covered → “Your planned contribution is covered”, no recurring suggestion.
 
-**Member onboarding:** architecture supports different frequencies per member. Invitation accept does **not** invent an agreement. Choosing a plan after accept (invite-time wizard) is the immediate next step; members can also save a plan from Personal tracking.
+**Member onboarding:** invitation accept still only adds membership. It does **not** invent an agreement or copy the organiser’s frequency. After accept, the member is taken to Shared Account detail with `?setupPlan=1` to optionally set up their own plan. **Not now** keeps membership and creates no plan. Any accepted member without an agreed plan can open the same setup from Shared Account detail. Personal tracking remains available.
 
 **Unchanged:** Pay now, PaymentRequest, Approve/Reject/Cancel, Notifications, close/archive, Transaction history, hard cap, contribution soft-limit, no Start time.
 
@@ -2267,4 +2267,10 @@ Never negative. Final automatic row may be smaller than the usual installment. P
 **Unchanged:** plannedContributors, fair-share warning, over-share confirmation, Pay now, approval Notifications, payment completion, close/archive behaviour (except stopping plans on archive), no Start time.
 
 **Tests / build:** Frontend `24` suites / `193` tests passed. Production frontend build compiled successfully. Backend safe tests passed (`66` tests across `automaticContribution*` + `plannedContributors`; no live Mongo required except an optional uniqueness check). Isolated local Mongo (`localhost:27017` / `share_project_test`) was `ECONNREFUSED`; the optional Mongo uniqueness test skipped without failing. Production MongoDB was not used and was not modified. Nothing committed or pushed. stash@{0} untouched.
+
+### Task 16 — Invited member contribution plan agreement
+
+Accepting an invite still only adds membership. It does **not** copy the organiser’s frequency or invent `agreed`. After accept, the member is taken to Shared Account detail with `?setupPlan=1`, which expands **Set up your contribution plan**. **Not now** collapses the form, keeps membership, and creates no plan. Any accepted member without an agreed plan can open the same setup from Shared Account detail. An agreed plan shows a short summary (cadence, amount, next date) without pause/resume/cancel. Persist uses existing `PUT /shared-accounts/:id/contribution-plan`. No backend, scheduler, Pay Now, or Task 12 fair-share changes. No production migration.
+
+**Tests / build:** Targeted frontend suites passed (`Invitations.accept`, `SharedAccountDetail.contributionPlan`, `SharedAccounts.create`, `tripHome`). Full frontend suite `26` suites / `208` tests passed. Production frontend build compiled successfully. No backend files changed, so backend tests were not re-run. Nothing committed or pushed. stash@{0} untouched.
 

@@ -576,6 +576,14 @@ export function findUserContributionPlan(
   };
 }
 
+export function hasAgreedContributionPlan(
+  plans: StoredContributionPlan[] | undefined,
+  userId: string
+): boolean {
+  const plan = findUserContributionPlan(plans, userId);
+  return !!(plan && plan.agreed);
+}
+
 export function remainingOtherApprovals(request: {
   approvals?: unknown[] | null;
   requiredApprovals?: number | null;

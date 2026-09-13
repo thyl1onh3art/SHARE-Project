@@ -266,7 +266,7 @@ const Invitations: React.FC = () => {
           ? invitation.sharedAccount?._id
           : invitation.sharedAccount;
       if (potId) {
-        navigate(`/shared-accounts/${potId}`);
+        navigate(`/shared-accounts/${potId}?setupPlan=1`);
         return;
       }
       await fetchData();

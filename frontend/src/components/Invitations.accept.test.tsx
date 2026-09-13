@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import Invitations from './Invitations';
 
@@ -9,6 +9,7 @@ jest.mock('axios', () => ({
   default: {
     get: jest.fn(),
     post: jest.fn(),
+    put: jest.fn(),
     defaults: { headers: { common: {} } }
   }
 }));
@@ -30,6 +31,12 @@ jest.mock('../contexts/AuthContext', () => ({
 }));
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+function OpenedPot() {
+  const { accountId } = useParams();
+  const [params] = useSearchParams();
+  return <div>Opened pot {accountId} setup={params.get('setupPlan')}</div>;
+}
 
 describe('Invitations accept flow', () => {
   beforeEach(() => {
@@ -61,7 +68,10 @@ describe('Invitations accept flow', () => {
       <MemoryRouter initialEntries={['/invitations']}>
         <Routes>
           <Route path="/invitations" element={<Invitations />} />
-          <Route path="/shared-accounts/:accountId" element={<div>Opened pot pot-1</div>} />
+          <Route
+            path="/shared-accounts/:accountId"
+            element={<OpenedPot />}
+          />
         </Routes>
       </MemoryRouter>
     );
@@ -76,6 +86,9 @@ describe('Invitations accept flow', () => {
     await waitFor(() => {
       expect(mockedAxios.post).toHaveBeenCalledWith('/invites/accept', { inviteId: 'inv-1' });
     });
-    expect(await screen.findByText('Opened pot pot-1')).toBeInTheDocument();
+    expect(mockedAxios.post).toHaveBeenCalledTimes(2);
+    expect(mockedAxios.post).toHaveBeenCalledWith('/invites/mark-read');
+    expect(mockedAxios.put).not.toHaveBeenCalled();
+    expect(await screen.findByText('Opened pot pot-1 setup=1')).toBeInTheDocument();
   });
 });

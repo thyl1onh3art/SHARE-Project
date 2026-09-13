@@ -26,9 +26,11 @@ import {
   formatMoneyAmount,
   calendarDateKey,
   startOfLocalCalendarDayIso,
-  parsePlannedContributors
+  parsePlannedContributors,
+  StoredContributionPlan
 } from '../utils/tripHome';
 import { userFacingError } from '../utils/userFacingError';
+import MemberContributionPlanPanel from './MemberContributionPlanPanel';
 
 interface FinanceRecord {
   _id: string;
@@ -64,6 +66,7 @@ interface SharedAccount {
   targetAmount?: number;
   targetDate?: string;
   plannedContributors?: number;
+  contributionPlans?: StoredContributionPlan[];
   perPersonAmount?: number;
   isDeleted?: boolean;
   deletedAt?: string;
@@ -124,6 +127,7 @@ const SharedAccountDetail: React.FC = () => {
   const [showMoreActions, setShowMoreActions] = useState(false);
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentNotice, setPaymentNotice] = useState('');
+  const [setupPlanDismissed, setSetupPlanDismissed] = useState(false);
 
   useEffect(() => {
     if (accountId) {
@@ -1173,6 +1177,31 @@ const SharedAccountDetail: React.FC = () => {
         )}
 
       </div>
+
+      <MemberContributionPlanPanel
+        accountId={account._id}
+        accountName={account.name}
+        targetAmount={account.targetAmount}
+        plannedContributors={account.plannedContributors}
+        deadline={account.targetDate}
+        owner={account.owner}
+        members={account.members}
+        contributionPlans={account.contributionPlans}
+        currentUserId={getCurrentUserId()}
+        contributed={calculateUserContribution(getCurrentUserId())}
+        recordedTotal={recordedTotal}
+        archived={isArchived}
+        startExpanded={!setupPlanDismissed && searchParams.get('setupPlan') === '1'}
+        onDismissed={() => {
+          setSetupPlanDismissed(true);
+          if (searchParams.get('setupPlan') === '1') {
+            const next = new URLSearchParams(searchParams);
+            next.delete('setupPlan');
+            setSearchParams(next, { replace: true });
+          }
+        }}
+        onSaved={fetchAccountDetails}
+      />
 
       {/* Who has contributed */}
       <div className="card" style={{ marginBottom: '1.5rem' }} id="traveller-contributions">

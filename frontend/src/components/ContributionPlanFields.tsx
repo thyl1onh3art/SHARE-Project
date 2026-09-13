@@ -23,6 +23,8 @@ interface ContributionPlanFieldsProps {
   onAgreedChange: (agreed: boolean) => void;
   disabled?: boolean;
   idPrefix?: string;
+  contributed?: number;
+  disclaimer?: string;
 }
 
 const ContributionPlanFields: React.FC<ContributionPlanFieldsProps> = ({
@@ -34,13 +36,15 @@ const ContributionPlanFields: React.FC<ContributionPlanFieldsProps> = ({
   onFrequencyChange,
   onAgreedChange,
   disabled = false,
-  idPrefix = 'create'
+  idPrefix = 'create',
+  contributed = 0,
+  disclaimer = 'Prototype contribution plan — no automatic bank transfer is currently made.'
 }) => {
   const planned = parsePlannedContributors(plannedContributors);
   const contributors = 'value' in planned ? planned.value : null;
   const target = parseFloat(targetAmount);
   const plannedShare = contributors && target > 0 ? plannedPersonalShare(target, contributors) : null;
-  const remaining = remainingPersonalAmount(plannedShare, 0);
+  const remaining = remainingPersonalAmount(plannedShare, contributed);
   const days = calendarDaysRemaining(deadline);
   const deadlineState = deadlineStateFromDays(days);
   const parsedFrequency = CONTRIBUTION_FREQUENCIES.find((option) => option.value === frequency);
@@ -59,6 +63,14 @@ const ContributionPlanFields: React.FC<ContributionPlanFieldsProps> = ({
         <div className="contribution-plan-live">
           <p className="contribution-plan-live-label">Your planned contribution</p>
           <p className="contribution-plan-live-value">{formatMoneyAmount(plannedShare)}</p>
+          {contributed > 0 && (
+            <p className="contribution-plan-live-note">
+              Contributed so far {formatMoneyAmount(contributed)} · remaining {formatMoneyAmount(remaining)}
+            </p>
+          )}
+          {deadlineLabel && (
+            <p className="contribution-plan-live-note">Date money is needed {deadlineLabel}</p>
+          )}
         </div>
       )}
 
@@ -139,7 +151,7 @@ const ContributionPlanFields: React.FC<ContributionPlanFieldsProps> = ({
         I agree to this contribution plan
       </label>
       <p className="contribution-plan-disclaimer">
-        Prototype contribution plan — no automatic bank transfer is currently made.
+        {disclaimer}
       </p>
     </div>
   );

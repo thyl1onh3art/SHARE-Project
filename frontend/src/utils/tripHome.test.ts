@@ -38,7 +38,8 @@ import {
   firstDueDate,
   formatPlanDueDate,
   scheduledAutomaticAmount,
-  findUserContributionPlan
+  findUserContributionPlan,
+  hasAgreedContributionPlan
 } from './tripHome';
 
 describe('tripCountdownLabel', () => {
@@ -301,6 +302,13 @@ describe('planned contributors and personal savings plan', () => {
       agreedAt: null,
       user: 'user-1'
     }));
+    expect(hasAgreedContributionPlan(undefined, 'user-1')).toBe(false);
+    expect(hasAgreedContributionPlan([
+      { user: 'user-1', frequency: 'weekly', agreed: false }
+    ], 'user-1')).toBe(false);
+    expect(hasAgreedContributionPlan([
+      { user: 'user-1', frequency: 'weekly', agreed: true }
+    ], 'user-1')).toBe(true);
   });
 });
 

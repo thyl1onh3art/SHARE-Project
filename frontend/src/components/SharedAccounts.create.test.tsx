@@ -86,7 +86,7 @@ describe('SharedAccounts create Trip Money', () => {
       target: { value: 'Flights and cabin' }
     });
     fireEvent.change(screen.getByLabelText(/total goal/i), { target: { value: '2000' } });
-    fireEvent.change(screen.getByLabelText(/^date/i), { target: { value: '2026-09-10' } });
+    fireEvent.change(screen.getByLabelText(/^date/i), { target: { value: '2027-09-10' } });
     fireEvent.change(screen.getByLabelText(/how many people will contribute/i), { target: { value: '4' } });
     fireEvent.click(screen.getByRole('radio', { name: /^weekly$/i }));
     fireEvent.click(screen.getByLabelText(/i agree to this contribution plan/i));
@@ -100,7 +100,7 @@ describe('SharedAccounts create Trip Money', () => {
           name: 'Canada',
           description: 'Flights and cabin',
           targetAmount: 2000,
-          targetDate: startOfLocalCalendarDayIso('2026-09-10'),
+          targetDate: startOfLocalCalendarDayIso('2027-09-10'),
           plannedContributors: 4,
           contributionFrequency: 'weekly',
           contributionPlanAgreed: true
