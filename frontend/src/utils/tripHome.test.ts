@@ -33,13 +33,15 @@ import {
   plannedPersonalShare,
   remainingPersonalAmount,
   calendarDaysRemaining,
+  deadlineStateFromDays,
   buildPersonalSavingsPlan,
   recurringAmountForFrequency,
   firstDueDate,
   formatPlanDueDate,
   scheduledAutomaticAmount,
   findUserContributionPlan,
-  hasAgreedContributionPlan
+  hasAgreedContributionPlan,
+  previewAgreedScheduledAmount
 } from './tripHome';
 
 describe('tripCountdownLabel', () => {
@@ -309,6 +311,17 @@ describe('planned contributors and personal savings plan', () => {
     expect(hasAgreedContributionPlan([
       { user: 'user-1', frequency: 'weekly', agreed: true }
     ], 'user-1')).toBe(true);
+  });
+
+  it('previews a frequency change from remaining personal amount', () => {
+    const now = new Date(2026, 8, 13);
+    const deadline = '2026-10-25';
+    const days = calendarDaysRemaining(deadline, now);
+    expect(previewAgreedScheduledAmount(140, deadline, 'fortnightly', now)).toBe(
+      recurringAmountForFrequency(140, days, 'fortnightly', deadlineStateFromDays(days))
+    );
+    expect(previewAgreedScheduledAmount(140, '2026-01-01', 'weekly', now)).toBe(140);
+    expect(previewAgreedScheduledAmount(0, deadline, 'weekly', now)).toBeNull();
   });
 });
 

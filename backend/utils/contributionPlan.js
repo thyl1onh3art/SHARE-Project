@@ -55,10 +55,12 @@ function activateSchedule(plan, frequency, at, scheduleContext = {}) {
   const when = at instanceof Date ? at : new Date(at || Date.now());
   plan.frequency = frequency;
   plan.agreed = true;
-  if (!plan.agreedAt) plan.agreedAt = when;
+  if (scheduleContext.resetAgreement || !plan.agreedAt) plan.agreedAt = when;
   plan.status = 'active';
   plan.nextContributionDate = firstDueDate(frequency, calendarDateKey(when));
   plan.pausedAt = undefined;
+  plan.cancelledAt = undefined;
+  if (scheduleContext.resetAgreement) plan.lastProcessedAt = undefined;
   assignScheduledAmount(plan, frequency, when, scheduleContext);
   return plan;
 }
@@ -87,8 +89,15 @@ function upsertUserContributionPlan(account, userId, frequency, agreedNow, at = 
   const existing = account.contributionPlans.find((plan) => String(plan.user) === String(userId));
   if (existing) {
     const status = planStatus(existing);
-    if (status === 'cancelled' || status === 'completed') {
+    if (status === 'completed') {
       return { error: 'This contribution plan is no longer active' };
+    }
+    if (status === 'cancelled') {
+      if (!agreedNow) {
+        return { error: 'Please agree to this contribution plan' };
+      }
+      activateSchedule(existing, frequency, at, { ...context, resetAgreement: true });
+      return { plan: existing };
     }
     existing.frequency = frequency;
     if (!existing.agreed) {

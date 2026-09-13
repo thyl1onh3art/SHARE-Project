@@ -1179,6 +1179,7 @@ const SharedAccountDetail: React.FC = () => {
       </div>
 
       <MemberContributionPlanPanel
+        key={account._id}
         accountId={account._id}
         accountName={account.name}
         targetAmount={account.targetAmount}

@@ -14,6 +14,7 @@ const { parsePlannedContributors } = require('../utils/plannedContributors');
 const {
   parseContributionFrequency,
   parseContributionAgreement,
+  planStatus,
   buildCreatorContributionPlan,
   upsertUserContributionPlan,
   pauseUserContributionPlan,
@@ -734,7 +735,8 @@ exports.upsertContributionPlan = async (req, res) => {
     }
 
     const existing = (account.contributionPlans || []).find((plan) => String(plan.user) === String(userId));
-    const alreadyAgreed = !!(existing && existing.agreed);
+    const existingStatus = planStatus(existing);
+    const alreadyAgreed = !!(existing && existing.agreed && existingStatus !== 'cancelled');
     const agreement = alreadyAgreed
       ? { value: true }
       : parseContributionAgreement(req.body.agreed);

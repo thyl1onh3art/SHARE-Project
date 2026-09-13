@@ -338,6 +338,23 @@ export function recurringAmountForFrequency(
   return amountCoveringPeriods(remainingPence, Math.ceil(daysRemaining / daySpan));
 }
 
+/** Preview the instalment the backend will persist for a frequency change. */
+export function previewAgreedScheduledAmount(
+  remaining: number,
+  deadline: string | Date | null | undefined,
+  frequency: ContributionFrequency,
+  now?: Date
+): number | null {
+  const remainingSafe = Math.max(0, Number(remaining) || 0);
+  const days = calendarDaysRemaining(deadline, now);
+  const deadlineState = deadlineStateFromDays(days);
+  const amount = recurringAmountForFrequency(remainingSafe, days, frequency, deadlineState);
+  if (amount == null || !(amount > 0)) {
+    return remainingSafe > 0 ? Math.round(remainingSafe * 100) / 100 : null;
+  }
+  return amount;
+}
+
 export function scheduledAutomaticAmount(input: {
   remainingPersonal: number;
   overallRemaining: number;

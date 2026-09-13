@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { createAutomaticContributionService } = require('../services/automaticContributionService');
 const { firstDueDate } = require('../utils/automaticContributionDates');
+const { computeAgreedScheduledAmount } = require('../utils/automaticContributionAmounts');
 const {
   buildCreatorContributionPlan,
   upsertUserContributionPlan,
@@ -263,6 +264,42 @@ describe('automaticContributionService processing', () => {
     expect(records.filter((row) => row.source === 'automatic')[0].amount).toBe(5);
   });
 
+  it('processes a restarted cancelled plan on a new due date without colliding with the old processorKey', async () => {
+    const { addAccount, records, service } = makeMemory();
+    const userId = new mongoose.Types.ObjectId();
+    const planId = new mongoose.Types.ObjectId();
+    const account = addAccount({
+      owner: userId,
+      targetAmount: 200,
+      plannedContributors: 1,
+      contributionPlans: [activeWeeklyPlan(userId, { _id: planId, scheduledAmount: 25 })]
+    });
+    await service.processDuePlans({ now: dueNow });
+    expect(records).toHaveLength(1);
+    expect(records[0].processorKey).toMatch(/:2026-08-30$/);
+    expect(String(records[0].contributionPlanId)).toBe(String(planId));
+
+    cancelUserContributionPlan(account, userId, new Date(2026, 7, 30, 18));
+    expect(account.contributionPlans[0].status).toBe('cancelled');
+
+    upsertUserContributionPlan(account, userId, 'weekly', true, new Date(2026, 8, 6, 12), {
+      remaining: 175,
+      deadline: futureDeadline()
+    });
+    expect(account.contributionPlans[0].status).toBe('active');
+    expect(account.contributionPlans[0].nextContributionDate).toBe('2026-09-13');
+    expect(String(account.contributionPlans[0]._id)).toBe(String(planId));
+
+    await service.processDuePlans({ now: new Date(2026, 8, 13, 12) });
+    const automatic = records.filter((row) => row.source === 'automatic');
+    expect(automatic).toHaveLength(2);
+    expect(automatic[0].processorKey).toMatch(/:2026-08-30$/);
+    expect(automatic[1].processorKey).toMatch(/:2026-09-13$/);
+    expect(automatic[0].processorKey).not.toBe(automatic[1].processorKey);
+    expect(account.contributionPlans[0].status).toBe('active');
+    expect(account.contributionPlans).toHaveLength(1);
+  });
+
   it('creates only one contribution when the same due plan is processed twice', async () => {
     const { addAccount, records, service } = makeMemory();
     const userId = new mongoose.Types.ObjectId();
@@ -483,6 +520,73 @@ describe('pause resume cancel and frequency change', () => {
     expect(cancelled.plan.status).toBe('cancelled');
     expect(account.contributionPlans).toHaveLength(1);
     expect(cancelled.plan.agreed).toBe(true);
+  });
+
+  it('does not restart a cancelled plan without a fresh agreement', () => {
+    const userId = new mongoose.Types.ObjectId();
+    const account = {
+      contributionPlans: [buildCreatorContributionPlan(userId, 'weekly', new Date(2026, 7, 23, 12))]
+    };
+    cancelUserContributionPlan(account, userId, new Date(2026, 7, 30, 12));
+    const result = upsertUserContributionPlan(account, userId, 'fortnightly', false, new Date(2026, 8, 13, 12));
+    expect(result.error).toBe('Please agree to this contribution plan');
+    expect(account.contributionPlans[0].status).toBe('cancelled');
+    expect(account.contributionPlans[0].frequency).toBe('weekly');
+  });
+
+  it('restarts a cancelled plan as a new active agreement from remaining', () => {
+    const userId = new mongoose.Types.ObjectId();
+    const originalId = new mongoose.Types.ObjectId();
+    const oldAgreedAt = new Date(2026, 7, 23, 12);
+    const account = {
+      contributionPlans: [{
+        ...buildCreatorContributionPlan(userId, 'weekly', oldAgreedAt, {
+          remaining: 150,
+          deadline: new Date(2026, 9, 25)
+        }),
+        _id: originalId,
+        lastProcessedAt: new Date(2026, 7, 30, 12)
+      }]
+    };
+    cancelUserContributionPlan(account, userId, new Date(2026, 8, 1, 12));
+    const restartedAt = new Date(2026, 8, 13, 12);
+    const result = upsertUserContributionPlan(account, userId, 'fortnightly', true, restartedAt, {
+      remaining: 110,
+      deadline: new Date(2026, 9, 25)
+    });
+    expect(result.error).toBeUndefined();
+    expect(account.contributionPlans).toHaveLength(1);
+    expect(String(account.contributionPlans[0]._id)).toBe(String(originalId));
+    expect(account.contributionPlans[0].status).toBe('active');
+    expect(account.contributionPlans[0].frequency).toBe('fortnightly');
+    expect(account.contributionPlans[0].agreed).toBe(true);
+    expect(account.contributionPlans[0].agreedAt).toEqual(restartedAt);
+    expect(account.contributionPlans[0].cancelledAt).toBeUndefined();
+    expect(account.contributionPlans[0].lastProcessedAt).toBeUndefined();
+    expect(account.contributionPlans[0].scheduledAmount).toBe(computeAgreedScheduledAmount({
+      remaining: 110,
+      deadline: new Date(2026, 9, 25),
+      now: restartedAt,
+      frequency: 'fortnightly'
+    }));
+    expect(account.contributionPlans[0].nextContributionDate).toBe(firstDueDate('fortnightly', '2026-09-13'));
+  });
+
+  it('still rejects restarting a completed plan', () => {
+    const userId = new mongoose.Types.ObjectId();
+    const account = {
+      contributionPlans: [{
+        ...buildCreatorContributionPlan(userId, 'weekly', new Date(2026, 7, 23, 12)),
+        status: 'completed'
+      }]
+    };
+    const result = upsertUserContributionPlan(account, userId, 'monthly', true, new Date(2026, 8, 13, 12), {
+      remaining: 40,
+      deadline: new Date(2026, 9, 25)
+    });
+    expect(result.error).toBe('This contribution plan is no longer active');
+    expect(account.contributionPlans[0].status).toBe('completed');
+    expect(account.contributionPlans[0].frequency).toBe('weekly');
   });
 
   it('changing frequency updates next date for that user only', () => {

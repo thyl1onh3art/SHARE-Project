@@ -928,6 +928,10 @@ body {
   color: #2d3748;
 }
 
+.member-contribution-plan-manage {
+  margin: 0.85rem 0 1rem;
+}
+
 .contribution-plan-fields {
   margin: 1rem 0 1.25rem;
 }

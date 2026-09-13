@@ -3,6 +3,12 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
+  cancelContributionPlan,
+  pauseContributionPlan,
+  resumeContributionPlan,
+  saveContributionPlan as persistContributionPlan
+} from '../utils/contributionPlanApi';
+import {
   buildPersonalSavingsPlan,
   CONTRIBUTION_FREQUENCIES,
   contributionProgressTotal,
@@ -120,10 +126,7 @@ const PersonalFinance: React.FC = () => {
     setSavingPlanId(accountId);
     setError('');
     try {
-      await axios.put(`/shared-accounts/${accountId}/contribution-plan`, {
-        frequency,
-        ...(alreadyAgreed ? {} : { agreed: true })
-      });
+      await persistContributionPlan(accountId, frequency, alreadyAgreed ? undefined : { agreed: true });
       await fetchRecords({ silent: true });
     } catch (err: any) {
       setError('Could not update your contribution plan');
@@ -137,7 +140,9 @@ const PersonalFinance: React.FC = () => {
     setSavingPlanId(accountId);
     setError('');
     try {
-      await axios.put(`/shared-accounts/${accountId}/contribution-plan/${action}`);
+      if (action === 'pause') await pauseContributionPlan(accountId);
+      else if (action === 'resume') await resumeContributionPlan(accountId);
+      else await cancelContributionPlan(accountId);
       setCancelConfirmId('');
       await fetchRecords({ silent: true });
     } catch (err: any) {

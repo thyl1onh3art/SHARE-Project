@@ -2274,3 +2274,23 @@ Accepting an invite still only adds membership. It does **not** copy the organis
 
 **Tests / build:** Targeted frontend suites passed (`Invitations.accept`, `SharedAccountDetail.contributionPlan`, `SharedAccounts.create`, `tripHome`). Full frontend suite `26` suites / `208` tests passed. Production frontend build compiled successfully. No backend files changed, so backend tests were not re-run. Nothing committed or pushed. stash@{0} untouched.
 
+### Task 17 — Shared Account contribution plan management
+
+Shared Account detail now manages the current member’s own plan. Frequency, pause, resume, and cancel reuse existing Task 15 endpoints. A minimal backend amendment lets a cancelled plan restart as a fresh active agreement with explicit consent. Completed plans still cannot restart. Scheduler enablement and production configuration were not changed. Invite, Pay Now, and Task 12 fair-share behaviour are unchanged. **Who has contributed** and **Transaction history** stay separate.
+
+**Active:** cadence · amount, Next date, Change frequency, Pause automatic contributions, Cancel plan.
+
+**Frequency change:** radios do not persist. Confirmation shows current vs new instalment from remaining personal share (`target / plannedContributors − contributed`). Confirm calls `PUT /contribution-plan` `{ frequency }` only. Past contributions stay untouched.
+
+**Pause / resume / cancel:** existing `/pause`, `/resume`, `/cancel`. Pause and cancel require confirmation. Resume uses existing backend next-date semantics. Manual **Pay account** stays available.
+
+**Paused frequency change:** allowed. Existing upsert updates `frequency` and `scheduledAmount` and leaves `status` paused. It does not resume the plan.
+
+**Cancelled:** honest cancelled copy, then optional **Set up a new contribution plan**. Opening the form does not persist. Saving requires a new frequency and explicit `agreed: true`. Backend reuses the same per-user plan subdocument (one plan per user). It does not invent a second row. Fresh `agreedAt`, `status: active`, remaining-based `scheduledAmount`, Task 15 `nextContributionDate`. Completed plans still cannot be restarted.
+
+**Idempotency:** `processorKey` is `sharedAccountId:userId:scheduledFor`, not `contributionPlanId`. Historical automatic rows keep their keys. A new first due date gets a new key. Same-date replay stays unique.
+
+Personal tracking keeps its existing controls and now shares `contributionPlanApi` helpers so HTTP paths cannot drift. Detail is the primary management surface.
+
+**Tests / build:** Targeted frontend `6` suites / `79` tests passed. Full frontend `27` suites / `217` tests passed. Targeted backend automatic-contribution + plannedContributors suites passed (`69` tests; no live Mongo). `npx tsc --noEmit` clean. Production frontend build compiled successfully. Nothing committed or pushed. stash@{0} untouched.
+
