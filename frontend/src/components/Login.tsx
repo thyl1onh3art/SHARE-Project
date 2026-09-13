@@ -100,6 +100,11 @@ const Login: React.FC = () => {
                 )}
               </button>
             </div>
+            <p style={{ margin: '0.5rem 0 0', textAlign: 'right' }}>
+              <Link to="/forgot-password" style={{ color: '#667eea', textDecoration: 'none', fontSize: '0.9rem' }}>
+                Forgot password?
+              </Link>
+            </p>
           </div>
 
           <button

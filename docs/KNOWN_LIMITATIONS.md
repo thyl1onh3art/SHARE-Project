@@ -25,11 +25,24 @@ Honest limits of the current SHARE prototype. This list is for reviewers, not a 
 - The UI keeps those records reachable. It does not auto-link or rewrite them.
 - Internal field names (`tripMoney`, Event collection) remain for compatibility.
 
+## Authentication
+
+- **Password reset — prototype limitation.** The password-reset flow is suitable only for private/local prototype testing. It must not be treated as production-ready authentication. During browser testing, reset-link replay behaviour was inconsistent despite the backend’s atomic token-consumption path (`findOneAndUpdate` + `$unset`) and direct API tests rejecting same-token replay.
+- Before public beta or real-user use:
+  - password-reset token consumption must be re-audited end-to-end
+  - same-token replay must be proven impossible in supported browsers
+  - production email delivery must be configured and tested
+  - already-issued JWT/session behaviour after password reset should be reviewed
+- `developmentResetUrl` is development-only. Production responses never include the raw token or reset URL.
+- Testers should use disposable/test passwords, not passwords reused elsewhere.
+- SHARE uses stateless JWTs with no revocation list. A password reset does not invalidate already-issued sign-in tokens; they remain valid until they expire (7 days).
+
 ## Secondary features
 
 - Accommodations search can fall back to demonstration data.
 - Calendar sharing settings may be unavailable if the optional endpoint is not present.
 - Email verification is implemented but currently disabled / unmounted.
+- Password reset reuses the existing nodemailer helper. Railway/production email is not configured by this task, so public production use still needs real email delivery.
 
 ## Tests
 

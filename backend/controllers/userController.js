@@ -5,6 +5,18 @@ const SharedAccount = require('../models/SharedAccount');
 const Invite = require('../models/Invite');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const emailService = require('../services/emailService');
+const {
+  GENERIC_INVALID_MESSAGE,
+  generateResetToken,
+  hashResetToken,
+  applyResetToken,
+  resetTokenLookupQuery,
+  consumeResetTokenUpdate,
+  isResetTokenFormatValid,
+  buildResetUrl,
+  forgotPasswordResponse
+} = require('../utils/passwordReset');
 
 /** Client-safe user shape for auth/profile responses (no password, friends, or security fields). */
 const formatUserForClient = (user) => {
@@ -98,6 +110,72 @@ exports.login = async (req, res) => {
       { expiresIn: '7d' }
     );
     res.json({ token, user: formatUserForClient(user) });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+exports.forgotPassword = async (req, res) => {
+  try {
+    const email = req.body.email;
+    const rawToken = generateResetToken();
+    hashResetToken(rawToken);
+
+    const user = await User.findOne({ email });
+    let developmentResetUrl;
+    if (user) {
+      applyResetToken(user, rawToken);
+      await user.save();
+      developmentResetUrl = buildResetUrl(rawToken);
+      try {
+        await emailService.sendPasswordResetEmail(user.email, developmentResetUrl);
+      } catch (_err) {
+        // Same generic success even if the existing mailer cannot send.
+      }
+    }
+
+    res.json(forgotPasswordResponse(developmentResetUrl));
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+async function findUserForResetToken(rawToken) {
+  if (!isResetTokenFormatValid(rawToken)) {
+    return null;
+  }
+  return User.findOne(resetTokenLookupQuery(rawToken));
+}
+
+exports.getResetPassword = async (req, res) => {
+  try {
+    const user = await findUserForResetToken(req.params.token);
+    if (!user) {
+      return res.status(400).json({ message: GENERIC_INVALID_MESSAGE });
+    }
+    res.json({ valid: true });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    if (!isResetTokenFormatValid(req.params.token)) {
+      return res.status(400).json({ message: GENERIC_INVALID_MESSAGE });
+    }
+
+    const hashedPassword = await bcrypt.hash(req.body.password, 10);
+    const user = await User.findOneAndUpdate(
+      resetTokenLookupQuery(req.params.token),
+      consumeResetTokenUpdate(hashedPassword),
+      { new: true }
+    );
+    if (!user) {
+      return res.status(400).json({ message: GENERIC_INVALID_MESSAGE });
+    }
+
+    res.json({ message: 'Password updated' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

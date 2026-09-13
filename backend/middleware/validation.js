@@ -16,6 +16,14 @@ const handleValidationErrors = (req, res, next) => {
   next();
 };
 
+const passwordRules = [
+  body('password')
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters long')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number')
+];
+
 // User registration validation
 const validateUserRegistration = [
   body('name')
@@ -26,11 +34,7 @@ const validateUserRegistration = [
     .isEmail()
     .normalizeEmail()
     .withMessage('Must be a valid email address'),
-  body('password')
-    .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters long')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
+  ...passwordRules,
   body('age')
     .isInt({ min: 13, max: 120 })
     .withMessage('Age must be between 13 and 120'),
@@ -145,9 +149,27 @@ const validateAddFriend = [
   handleValidationErrors
 ];
 
+const validateForgotPassword = [
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Must be a valid email address'),
+  handleValidationErrors
+];
+
+const validateResetPassword = [
+  ...passwordRules,
+  body('confirmPassword')
+    .custom((value, { req }) => value === req.body.password)
+    .withMessage('Passwords do not match'),
+  handleValidationErrors
+];
+
 module.exports = {
   validateUserRegistration,
   validateUserLogin,
+  validateForgotPassword,
+  validateResetPassword,
   validateFinanceRecord,
   validateSharedAccount,
   validateInvite,

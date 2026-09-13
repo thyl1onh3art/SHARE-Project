@@ -8,6 +8,8 @@ const userSchema = new mongoose.Schema({
   friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
+  passwordResetTokenHash: { type: String },
+  passwordResetExpiresAt: { type: Date },
   calendarSettings: {
     privacy: { type: String, enum: ['private', 'shared'], default: 'private' },
     sharedWith: [{ type: String }] // Array of email addresses

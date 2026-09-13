@@ -28,7 +28,8 @@ const { errorHandler } = require('./middleware/errorHandler');
 const { 
   wafMiddleware, 
   globalRateLimit, 
-  loginRateLimit, 
+  loginRateLimit,
+  forgotPasswordRateLimit,
   registrationRateLimit, 
   twoFactorRateLimit,
   speedLimiter,
@@ -139,6 +140,7 @@ app.get('/', (req, res) => {
 // API routes with specific rate limiting
 app.use('/api/users/login', loginRateLimit, userRoutes);
 app.use('/api/users/register', registrationRateLimit, userRoutes);
+app.use('/api/users/forgot-password', forgotPasswordRateLimit, userRoutes);
 app.use('/api/users', userRoutes);
 
 app.use('/api/two-factor/send-code', twoFactorRateLimit, twoFactorRoutes);

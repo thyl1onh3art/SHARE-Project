@@ -118,6 +118,94 @@ class EmailService {
     }
   }
 
+  async sendPasswordResetEmail(email, resetUrl) {
+    const mailOptions = {
+      from: `"SHARE Project" <${process.env.EMAIL_USER || 'noreply@shareproject.com'}>`,
+      to: email,
+      subject: 'Reset your SHARE password',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">SHARE</h1>
+            <p style="color: white; margin: 10px 0 0 0; font-size: 16px;">Reset your password</p>
+          </div>
+          <div style="padding: 30px; background: #f8f9fa;">
+            <p style="color: #666; font-size: 16px; line-height: 1.5;">
+              We received a request to reset the password for this email address.
+            </p>
+            <p style="text-align: center; margin: 28px 0;">
+              <a href="${resetUrl}" style="background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">
+                Choose a new password
+              </a>
+            </p>
+            <p style="color: #666; font-size: 14px; line-height: 1.5;">
+              This link expires in 60 minutes. If you did not ask to reset your password, you can ignore this email.
+            </p>
+          </div>
+        </div>
+      `,
+      text: `Reset your SHARE password\n\nOpen this link to choose a new password:\n${resetUrl}\n\nThis link expires in 60 minutes. If you did not ask to reset your password, you can ignore this email.`
+    };
+
+    try {
+      const info = await this.transporter.sendMail(mailOptions);
+      return { success: true, messageId: info.messageId };
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'production') {
+        return { success: true, messageId: 'dev-simulated-' + Date.now() };
+      }
+      return { success: false, error: error.message };
+    }
+  }
+
+  async sendPasswordResetEmail(email, resetUrl) {
+    const mailOptions = {
+      from: `"SHARE" <${process.env.EMAIL_USER || 'noreply@shareproject.com'}>`,
+      to: email,
+      subject: 'Reset your SHARE password',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">SHARE</h1>
+            <p style="color: white; margin: 10px 0 0 0; font-size: 16px;">Password reset</p>
+          </div>
+          <div style="padding: 30px; background: #f8f9fa;">
+            <p style="color: #666; font-size: 16px; line-height: 1.5;">
+              We received a request to reset the password for this SHARE account.
+            </p>
+            <p style="text-align: center; margin: 28px 0;">
+              <a href="${resetUrl}" style="display: inline-block; background: #667eea; color: white; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600;">
+                Choose a new password
+              </a>
+            </p>
+            <p style="color: #666; font-size: 14px; line-height: 1.5;">
+              This link expires in 60 minutes. If you did not ask to reset your password, you can ignore this email.
+            </p>
+          </div>
+        </div>
+      `,
+      text: [
+        'SHARE — Password reset',
+        '',
+        'We received a request to reset the password for this SHARE account.',
+        '',
+        `Choose a new password: ${resetUrl}`,
+        '',
+        'This link expires in 60 minutes. If you did not ask to reset your password, you can ignore this email.'
+      ].join('\n')
+    };
+
+    try {
+      const info = await this.transporter.sendMail(mailOptions);
+      return { success: true, messageId: info.messageId };
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+        return { success: true, messageId: 'dev-simulated-' + Date.now() };
+      }
+      return { success: false, error: error.message };
+    }
+  }
+
   async testConnection() {
     try {
       await this.transporter.verify();

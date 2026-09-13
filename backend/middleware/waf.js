@@ -74,6 +74,13 @@ const registrationRateLimit = createRateLimit(
   'Too many registration attempts, please try again later'
 );
 
+// Forgot-password rate limiter
+const forgotPasswordRateLimit = createRateLimit(
+  15 * 60 * 1000, // 15 minutes
+  5, // 5 reset requests per window
+  'Too many password reset requests, please try again later'
+);
+
 // 2FA rate limiter
 const twoFactorRateLimit = createRateLimit(
   5 * 60 * 1000, // 5 minutes
@@ -251,6 +258,7 @@ module.exports = {
   globalRateLimit,
   loginRateLimit,
   registrationRateLimit,
+  forgotPasswordRateLimit,
   twoFactorRateLimit,
   speedLimiter,
   securityHeaders,

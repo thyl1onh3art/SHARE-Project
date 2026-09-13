@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { userFacingError } from '../utils/userFacingError';
+import { validateRegistrationPassword } from '../utils/passwordRules';
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -52,20 +53,9 @@ const Register: React.FC = () => {
       return;
     }
 
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters long');
-      return;
-    }
-
-    // Check password requirements
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
-    if (!passwordRegex.test(formData.password)) {
-      setError('Password must contain at least one uppercase letter, one lowercase letter, and one number');
+    const passwordError = validateRegistrationPassword(formData.password, formData.confirmPassword);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 

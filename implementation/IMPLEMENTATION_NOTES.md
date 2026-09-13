@@ -2294,3 +2294,17 @@ Personal tracking keeps its existing controls and now shares `contributionPlanAp
 
 **Tests / build:** Targeted frontend `6` suites / `79` tests passed. Full frontend `27` suites / `217` tests passed. Targeted backend automatic-contribution + plannedContributors suites passed (`69` tests; no live Mongo). `npx tsc --noEmit` clean. Production frontend build compiled successfully. Nothing committed or pushed. stash@{0} untouched.
 
+### Task 18 — Forgot password / password reset
+
+Login now has **Forgot password?** → `/forgot-password` → email → generic confirmation → `/reset-password/:token` → **Password updated** → back to sign in. Existing `/users` auth, `bcryptjs` hashing in `userController` (no User pre-save hook), and the existing nodemailer `emailService` are reused. No second auth or mail provider. Local development uses `developmentResetUrl` when needed. Temporary reset-fingerprint diagnostics used during investigation have been removed.
+
+**Request:** `POST /api/users/forgot-password` with the same `normalizeEmail` rules as login/register. Existing accounts get a 32-byte random token; only SHA-256 `passwordResetTokenHash` + 60-minute `passwordResetExpiresAt` are stored. Unknown emails return the same generic message and status. Forgot-password uses the existing WAF `express-rate-limit` helper (5 / 15 minutes).
+
+**Reset:** `GET`/`POST /api/users/reset-password/:token`. GET is read-only. POST hashes the new password with `bcrypt.hash(..., 10)` like register, then **atomically** `findOneAndUpdate`s the matching non-expired hash and `$unset`s `passwordResetTokenHash` + `passwordResetExpiresAt`. Setting those fields to `undefined` and `save()` does **not** persist a clear in Mongoose. Direct API tests reject same-token replay after a successful reset. Browser reset-link replay remained inconsistent during local testing and is documented as a known prototype limitation pending production hardening — not treated as production-secure authentication.
+
+**Email / prototype fallback:** `emailService.sendPasswordResetEmail` uses the existing transporter. Production never returns a token or reset URL. When `NODE_ENV !== "production"`, the response may include `developmentResetUrl` for local testing. Real production email configuration and delivery are still required.
+
+**Sessions:** JWTs stay stateless. Already-issued tokens remain valid until the existing 7-day expiry.
+
+**Tests / build:** Targeted frontend Task 18 + Login/App suites passed. Full frontend `30` suites / `227` tests passed. Targeted backend `passwordReset` suite passed (`16` tests; no live Mongo), including same-token replay after a successful reset. `npx tsc --noEmit` clean. Production frontend build compiled successfully. Nothing committed or pushed. stash@{0} untouched.
+
