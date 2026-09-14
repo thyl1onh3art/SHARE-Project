@@ -80,7 +80,7 @@ function renderDetail() {
 }
 
 function historyCard() {
-  return screen.getByRole('heading', { name: 'Transaction history' }).closest('.card') as HTMLElement;
+  return screen.getByRole('heading', { name: 'Account activity' }).closest('.card') as HTMLElement;
 }
 
 describe('SharedAccountDetail transaction history', () => {
@@ -88,7 +88,7 @@ describe('SharedAccountDetail transaction history', () => {
     jest.clearAllMocks();
   });
 
-  it('shows one Transaction history with each contribution once', async () => {
+  it('shows one Account activity with each contribution once', async () => {
     mockAccountFetch(
       {
         _id: 'pot-1',
@@ -121,15 +121,17 @@ describe('SharedAccountDetail transaction history', () => {
 
     renderDetail();
 
-    expect(await screen.findByRole('heading', { name: 'Transaction history' })).toBeInTheDocument();
-    expect(screen.getAllByRole('heading', { name: 'Transaction history' })).toHaveLength(1);
+    expect(await screen.findByRole('heading', { name: 'Account activity' })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { name: 'Account activity' })).toHaveLength(1);
+    expect(screen.queryByRole('heading', { name: 'Who has contributed' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Transaction history' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Recent activity' })).not.toBeInTheDocument();
 
     const history = historyCard();
     expect(within(history).getAllByText('Contributed £50.00')).toHaveLength(1);
     expect(within(history).getAllByText('Contributed £150.00')).toHaveLength(1);
-    expect(within(history).getByText('Sam Brown')).toBeInTheDocument();
-    expect(within(history).getByText('Richard Brown')).toBeInTheDocument();
+    expect(within(history).getByText('Sam Brown', { selector: '.trip-money-history-person' })).toBeInTheDocument();
+    expect(within(history).getByText('Richard Brown', { selector: '.trip-money-history-person' })).toBeInTheDocument();
     expect(within(history).getByText(formatHistoryWhen('2026-08-27T13:10:00.000Z'))).toBeInTheDocument();
     expect(within(history).getByText(formatHistoryWhen('2026-08-27T13:22:00.000Z'))).toBeInTheDocument();
     expect(history.textContent).not.toMatch(/T\d{2}:\d{2}:\d{2}/);
@@ -186,10 +188,10 @@ describe('SharedAccountDetail transaction history', () => {
 
     renderDetail();
 
-    const history = (await screen.findByRole('heading', { name: 'Transaction history' })).closest('.card') as HTMLElement;
+    const history = (await screen.findByRole('heading', { name: 'Account activity' })).closest('.card') as HTMLElement;
     expect(within(history).getByText('Proposed final payment of £200.00 to Test Hotel')).toBeInTheDocument();
     expect(within(history).getByText('Approved final payment')).toBeInTheDocument();
-    expect(within(history).getByText('Richard Brown')).toBeInTheDocument();
+    expect(within(history).getByText('Richard Brown', { selector: '.trip-money-history-person' })).toBeInTheDocument();
     expect(within(history).getByText('Final payment')).toBeInTheDocument();
     expect(within(history).getByText('£200.00 to Test Hotel')).toBeInTheDocument();
     expect(within(history).queryByText('Reversed contribution £200.00')).not.toBeInTheDocument();
@@ -197,7 +199,7 @@ describe('SharedAccountDetail transaction history', () => {
     expect(within(history).queryByText(/FinanceRecord|PaymentRequest|ledger|executed|settlement/i)).not.toBeInTheDocument();
   });
 
-  it('uses Account activity when a person cannot be resolved', async () => {
+  it('uses A member when a person cannot be resolved', async () => {
     mockAccountFetch(
       {
         _id: 'pot-1',
@@ -219,8 +221,8 @@ describe('SharedAccountDetail transaction history', () => {
 
     renderDetail();
 
-    const history = (await screen.findByRole('heading', { name: 'Transaction history' })).closest('.card') as HTMLElement;
-    expect(within(history).getByText('Account activity')).toBeInTheDocument();
+    const history = (await screen.findByRole('heading', { name: 'Account activity' })).closest('.card') as HTMLElement;
+    expect(within(history).getByText('A member', { selector: '.trip-money-history-person' })).toBeInTheDocument();
     expect(within(history).getByText('Contributed £25.00')).toBeInTheDocument();
     expect(within(history).queryByText(unresolvedId)).not.toBeInTheDocument();
     expect(screen.queryByText('Unknown User')).not.toBeInTheDocument();
@@ -264,13 +266,13 @@ describe('SharedAccountDetail transaction history', () => {
 
     renderDetail();
 
-    const history = (await screen.findByRole('heading', { name: 'Transaction history' })).closest('.card') as HTMLElement;
+    const history = (await screen.findByRole('heading', { name: 'Account activity' })).closest('.card') as HTMLElement;
     expect(within(history).getByText('Rejected final payment')).toBeInTheDocument();
     expect(within(history).getByText('Cancelled final payment')).toBeInTheDocument();
     expect(within(history).queryByText(/PaymentRequest/i)).not.toBeInTheDocument();
   });
 
-  it('shows automatic prototype contributions in the same Transaction history', async () => {
+  it('shows automatic prototype contributions in the same Account activity', async () => {
     mockAccountFetch(
       {
         _id: 'pot-1',
@@ -303,7 +305,7 @@ describe('SharedAccountDetail transaction history', () => {
 
     renderDetail();
 
-    const history = (await screen.findByRole('heading', { name: 'Transaction history' })).closest('.card') as HTMLElement;
+    const history = (await screen.findByRole('heading', { name: 'Account activity' })).closest('.card') as HTMLElement;
     expect(within(history).getByText('Contributed £20.00')).toBeInTheDocument();
     expect(within(history).getByText('Automatic contribution £12.50')).toBeInTheDocument();
     expect(within(history).getAllByText('Sam Brown').length).toBeGreaterThan(0);

@@ -211,7 +211,7 @@ describe('SharedAccountDetail close-out flow', () => {
 
     renderDetail();
 
-    expect(await screen.findByRole('heading', { name: 'Who has contributed' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Account activity' })).toBeInTheDocument();
     expect(screen.getByText('Target')).toBeInTheDocument();
     expect(screen.getAllByText('Contributed').length).toBeGreaterThan(0);
     expect(screen.getByText('Still needed')).toBeInTheDocument();
@@ -220,7 +220,8 @@ describe('SharedAccountDetail close-out flow', () => {
     expect(screen.queryByText('Suggested share')).not.toBeInTheDocument();
     expect(screen.queryByText('Remaining (vs share)')).not.toBeInTheDocument();
     expect(screen.queryByText('Recorded total')).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Transaction history' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Who has contributed' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Transaction history' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Recent activity' })).not.toBeInTheDocument();
     expect(screen.getByText('Contributed £400.00')).toBeInTheDocument();
     expect(screen.queryByText(/settlement executed/i)).not.toBeInTheDocument();

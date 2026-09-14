@@ -65,7 +65,7 @@ This split is retained for recovered and historical data. Do not collapse the mo
 
 A `FinanceRecord` is a tracked input or output against a user and optionally a Shared Account. Personal Home balance is derived from personal records. Shared Account progress is derived from records on that account.
 
-Manual contributions and **prototype automatic contributions** use the same input rows. Automatic rows set `source: "automatic"`, `scheduledFor` (calendar date), `contributionPlanId`, and a unique `processorKey` (`sharedAccountId:userId:scheduledFor`). Transaction history labels those rows “Automatic contribution”; manual rows stay “Contributed”. These rows are a coordination history, not a bank ledger of custodied funds.
+Manual contributions and **prototype automatic contributions** use the same input rows. Automatic rows set `source: "automatic"`, `scheduledFor` (calendar date), `contributionPlanId`, and a unique `processorKey` (`sharedAccountId:userId:scheduledFor`). Account activity labels those rows “Automatic contribution”; manual rows stay “Contributed”. These rows are a coordination history, not a bank ledger of custodied funds.
 
 ## Prototype automatic payments
 

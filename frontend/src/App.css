@@ -90,6 +90,17 @@ body {
   color: #2d3748;
 }
 
+.trip-money-subsection-title {
+  margin: 1.35rem 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #2d3748;
+}
+
+.trip-money-subsection-title:first-of-type {
+  margin-top: 0.65rem;
+}
+
 /* Button Styles */
 .btn {
   padding: 12px 24px;

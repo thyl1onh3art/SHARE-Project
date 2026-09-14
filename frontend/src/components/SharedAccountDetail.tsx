@@ -1204,111 +1204,110 @@ const SharedAccountDetail: React.FC = () => {
         onSaved={fetchAccountDetails}
       />
 
-      {/* Who has contributed */}
-      <div className="card" style={{ marginBottom: '1.5rem' }} id="traveller-contributions">
-        <h2 className="card-title">Who has contributed</h2>
-        {allParticipants.length <= 1 ? (
-          <div className="trip-money-empty-panel">
-            <p className="trip-money-empty-title">No other members yet</p>
-            <p>Invite friends so everyone can contribute.</p>
-          </div>
-        ) : (
-          <div className="trip-money-member-list">
-            {allParticipants.map((participant) => {
-              const resolved = resolveLedgerTraveller(
-                participant,
-                account.owner,
-                account.members
-              );
-              const participantId = resolved._id;
-              const displayName = customerFacingPersonName(
-                participant,
-                account.owner,
-                account.members
-              );
-              const recordedForPerson = calculateUserContribution(participantId);
-              const remainingForPerson = personalRemaining(
-                suggestedEqualShare,
-                recordedForPerson
-              );
-              const isComplete =
-                suggestedEqualShare !== null && recordedForPerson >= suggestedEqualShare - 0.001;
-              const isSelf = String(participantId) === String(userId);
-              const isOrganiser = String(participantId) === String(ownerId);
+      <div className="card" style={{ marginBottom: '1.5rem' }} id="account-activity">
+        <h2 className="card-title">Account activity</h2>
+        {allParticipants.length > 0 && (
+          <section aria-labelledby="contribution-summary-heading">
+            <h3 className="trip-money-subsection-title" id="contribution-summary-heading">
+              Contribution summary
+            </h3>
+            <div className="trip-money-member-list" id="traveller-contributions">
+              {allParticipants.map((participant) => {
+                const resolved = resolveLedgerTraveller(
+                  participant,
+                  account.owner,
+                  account.members
+                );
+                const participantId = resolved._id;
+                const displayName = customerFacingPersonName(
+                  participant,
+                  account.owner,
+                  account.members
+                );
+                const recordedForPerson = calculateUserContribution(participantId);
+                const remainingForPerson = personalRemaining(
+                  suggestedEqualShare,
+                  recordedForPerson
+                );
+                const isComplete =
+                  suggestedEqualShare !== null && recordedForPerson >= suggestedEqualShare - 0.001;
+                const isSelf = String(participantId) === String(userId);
+                const isOrganiser = String(participantId) === String(ownerId);
 
-              return (
-                <div key={participantId} className="trip-money-member-row">
-                  <div className="trip-money-member-main">
-                    <div>
-                      <strong>
-                        {displayName}
-                        {isSelf ? ' (you)' : ''}
-                      </strong>
-                      <div className="trip-money-member-meta">
-                        {isOrganiser ? 'Organiser' : 'Member'}
+                return (
+                  <div key={participantId} className="trip-money-member-row">
+                    <div className="trip-money-member-main">
+                      <div>
+                        <strong>
+                          {displayName}
+                          {isSelf ? ' (you)' : ''}
+                        </strong>
+                        <div className="trip-money-member-meta">
+                          {isOrganiser ? 'Organiser' : 'Member'}
+                        </div>
                       </div>
-                    </div>
-                    <span
-                      className={`trip-money-status-pill ${
-                        suggestedEqualShare === null
-                          ? 'trip-money-status-neutral'
+                      <span
+                        className={`trip-money-status-pill ${
+                          suggestedEqualShare === null
+                            ? 'trip-money-status-neutral'
+                            : isComplete
+                              ? 'trip-money-status-complete'
+                              : 'trip-money-status-pending'
+                        }`}
+                      >
+                        {suggestedEqualShare === null
+                          ? 'Tracking'
                           : isComplete
-                            ? 'trip-money-status-complete'
-                            : 'trip-money-status-pending'
-                      }`}
-                    >
-                      {suggestedEqualShare === null
-                        ? 'Tracking'
-                        : isComplete
-                          ? 'Done'
-                          : 'Still to go'}
-                    </span>
-                  </div>
-                  <div className="trip-money-member-figures">
-                    <div>
-                      <span className="trip-money-stat-label">Contributed</span>
-                      <span className="trip-money-member-amount">£{recordedForPerson.toFixed(2)}</span>
+                            ? 'Done'
+                            : 'Still to go'}
+                      </span>
                     </div>
-                    {suggestedEqualShare !== null && (
+                    <div className="trip-money-member-figures">
                       <div>
-                        <span className="trip-money-stat-label">Share</span>
-                        <span className="trip-money-member-amount">£{suggestedEqualShare.toFixed(2)}</span>
+                        <span className="trip-money-stat-label">Contributed</span>
+                        <span className="trip-money-member-amount">£{recordedForPerson.toFixed(2)}</span>
                       </div>
-                    )}
-                    {remainingForPerson !== null && (
-                      <div>
-                        <span className="trip-money-stat-label">Remaining</span>
-                        <span className="trip-money-member-amount">£{remainingForPerson.toFixed(2)}</span>
-                      </div>
-                    )}
+                      {suggestedEqualShare !== null && (
+                        <div>
+                          <span className="trip-money-stat-label">Share</span>
+                          <span className="trip-money-member-amount">£{suggestedEqualShare.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {remainingForPerson !== null && (
+                        <div>
+                          <span className="trip-money-stat-label">Remaining</span>
+                          <span className="trip-money-member-amount">£{remainingForPerson.toFixed(2)}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </section>
         )}
-      </div>
-
-      {/* Transaction history */}
-      <div className="card" id="transaction-history" style={{ marginBottom: '1.5rem' }}>
-        <h2 className="card-title">Transaction history</h2>
         {transactionHistory.length === 0 ? (
-          <div className="trip-money-empty-panel">
-            <p className="trip-money-empty-title">Nothing yet</p>
-            <p>Contributions will show up here.</p>
+          <div className="trip-money-empty-panel" style={{ marginTop: allParticipants.length > 0 ? '1rem' : 0 }}>
+            <p className="trip-money-empty-title">No activity yet.</p>
+            <p>Contributions and payment activity will appear here.</p>
           </div>
         ) : (
-          <ul className="trip-money-activity-list">
-            {transactionHistory.map((entry) => (
-              <li key={entry.id} className="trip-money-history-item">
-                <span className="trip-money-history-person">{entry.person}</span>
-                <span className="trip-money-history-action">{entry.action}</span>
-                {entry.at && (
-                  <span className="trip-money-history-when">{formatHistoryWhen(entry.at)}</span>
-                )}
-              </li>
-            ))}
-          </ul>
+          <section aria-labelledby="account-activity-list-heading">
+            <h3 className="trip-money-subsection-title" id="account-activity-list-heading">
+              Activity
+            </h3>
+            <ul className="trip-money-activity-list" id="transaction-history">
+              {transactionHistory.map((entry) => (
+                <li key={entry.id} className="trip-money-history-item">
+                  <span className="trip-money-history-person">{entry.person}</span>
+                  <span className="trip-money-history-action">{entry.action}</span>
+                  {entry.at && (
+                    <span className="trip-money-history-when">{formatHistoryWhen(entry.at)}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
       </div>
 

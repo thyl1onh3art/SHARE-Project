@@ -112,7 +112,7 @@ describe('SharedAccountDetail equal share', () => {
     expect(screen.getByText('Equal split is a guide. Contributions can be different.')).toBeInTheDocument();
   });
 
-  it('shows real participant names in Who has contributed, including a £0 member', async () => {
+  it('shows real participant names in the contribution summary, including a £0 member', async () => {
     const richard = {
       _id: 'user-2',
       firstName: 'Richard',
@@ -159,7 +159,7 @@ describe('SharedAccountDetail equal share', () => {
 
     renderDetail();
 
-    const section = (await screen.findByRole('heading', { name: 'Who has contributed' })).closest('.card') as HTMLElement;
+    const section = (await screen.findByRole('heading', { name: 'Account activity' })).closest('.card') as HTMLElement;
     const names = Array.from(section.querySelectorAll('strong')).map((el) => el.textContent?.trim());
     expect(names).toEqual(['Sam Brown (you)', 'Richard Brown', 'Jo Zero']);
     expect(names.some((name) => name === 'Member')).toBe(false);
@@ -177,9 +177,9 @@ describe('SharedAccountDetail equal share', () => {
     expect(within(rows[2] as HTMLElement).getByText('£0.00')).toBeInTheDocument();
     expect(within(rows[2] as HTMLElement).getAllByText('£200.00').length).toBeGreaterThan(0);
 
-    const history = screen.getByRole('heading', { name: 'Transaction history' }).closest('.card') as HTMLElement;
-    expect(within(history).getByText('Sam Brown')).toBeInTheDocument();
-    expect(within(history).getByText('Richard Brown')).toBeInTheDocument();
+    const history = screen.getByRole('heading', { name: 'Account activity' }).closest('.card') as HTMLElement;
+    expect(within(history).getByText('Sam Brown', { selector: '.trip-money-history-person' })).toBeInTheDocument();
+    expect(within(history).getByText('Richard Brown', { selector: '.trip-money-history-person' })).toBeInTheDocument();
     expect(within(history).getByText('Contributed £150.00')).toBeInTheDocument();
     expect(screen.getByText(/^Each person: £200.00$/)).toBeInTheDocument();
     expect(screen.getByText(/your contribution:/i)).toHaveTextContent('£150.00');
@@ -209,7 +209,7 @@ describe('SharedAccountDetail equal share', () => {
 
     renderDetail();
 
-    const section = (await screen.findByRole('heading', { name: 'Who has contributed' })).closest('.card') as HTMLElement;
+    const section = (await screen.findByRole('heading', { name: 'Account activity' })).closest('.card') as HTMLElement;
     const names = Array.from(section.querySelectorAll('strong')).map((el) => el.textContent?.trim());
     expect(names.some((name) => name === 'Member' || name === 'Member (you)')).toBe(false);
     expect(within(section).getByText('richard@example.com')).toBeInTheDocument();

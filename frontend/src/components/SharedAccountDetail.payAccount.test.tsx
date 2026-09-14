@@ -160,8 +160,8 @@ describe('SharedAccountDetail Pay account', () => {
     expect(await screen.findByText(/your contribution:/i)).toHaveTextContent('£100.00');
     expect(screen.getByText(/your remaining:/i)).toHaveTextContent('£900.00');
 
-    const history = (await screen.findByRole('heading', { name: 'Transaction history' })).closest('.card') as HTMLElement;
-    expect(within(history).getByText('Sam Brown')).toBeInTheDocument();
+    const history = (await screen.findByRole('heading', { name: 'Account activity' })).closest('.card') as HTMLElement;
+    expect(within(history).getByText('Sam Brown', { selector: '.trip-money-history-person' })).toBeInTheDocument();
     expect(within(history).getAllByText('Contributed £100.00')).toHaveLength(1);
     expect(screen.queryByText('Unknown User')).not.toBeInTheDocument();
     expect(mockedAxios.get).not.toHaveBeenCalledWith(expect.stringMatching(/^\/users\//));
@@ -181,8 +181,8 @@ describe('SharedAccountDetail Pay account', () => {
 
     renderDetail();
 
-    const history = (await screen.findByRole('heading', { name: 'Transaction history' })).closest('.card') as HTMLElement;
-    expect(within(history).getByText('Sam Brown')).toBeInTheDocument();
+    const history = (await screen.findByRole('heading', { name: 'Account activity' })).closest('.card') as HTMLElement;
+    expect(within(history).getByText('Sam Brown', { selector: '.trip-money-history-person' })).toBeInTheDocument();
     expect(within(history).getByText('Contributed £100.00')).toBeInTheDocument();
     expect(screen.queryByText('Unknown User')).not.toBeInTheDocument();
     expect(mockedAxios.get).not.toHaveBeenCalledWith(expect.stringMatching(/^\/users\//));

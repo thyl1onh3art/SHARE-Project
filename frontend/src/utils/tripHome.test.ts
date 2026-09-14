@@ -517,7 +517,7 @@ describe('ledger traveller display', () => {
       '507f1f77bcf86cd799439011',
       { _id: 'u1', firstName: 'Sam', lastName: 'Brown' },
       []
-    ))).toBe('Account activity');
+    ))).toBe('A member');
   });
 });
 
@@ -568,8 +568,8 @@ describe('transaction history helpers', () => {
     expect(formatted).not.toContain('Z');
   });
 
-  it('uses Account activity instead of an ObjectId', () => {
-    expect(customerFacingPersonName('507f1f77bcf86cd799439011', owner, [member])).toBe('Account activity');
+  it('uses A member instead of an ObjectId', () => {
+    expect(customerFacingPersonName('507f1f77bcf86cd799439011', owner, [member])).toBe('A member');
   });
 
   it('builds one chronological history with customer wording', () => {

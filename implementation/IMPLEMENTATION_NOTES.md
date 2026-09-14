@@ -2308,3 +2308,13 @@ Login now has **Forgot password?** → `/forgot-password` → email → generic 
 
 **Tests / build:** Targeted frontend Task 18 + Login/App suites passed. Full frontend `30` suites / `227` tests passed. Targeted backend `passwordReset` suite passed (`16` tests; no live Mongo), including same-token replay after a successful reset. `npx tsc --noEmit` clean. Production frontend build compiled successfully. Nothing committed or pushed. stash@{0} untouched.
 
+### Task 19 — Account activity
+
+Shared Account detail now has one customer-facing **Account activity** section instead of separate **Who has contributed** and **Transaction history** cards. Financial behaviour is unchanged: same contribution totals, same `buildSharedAccountHistory` wording/types, same oldest-first order.
+
+**Structure:** `Account activity` → **Contribution summary** (member names, own row, organiser/member, contributed / share / remaining, Done / Still to go, including £0 members) → **Activity** (person, action, date). Empty accounts keep the summary and show “No activity yet.” Closed/archived accounts still show both. Unresolved people display as **A member** in the person slot, not ObjectIds or Unknown User.
+
+**Unchanged:** contribution math, plannedContributors, contribution-plan management (Task 17), Pay account / PaymentRequest, archive, finance record creation, authentication (Task 18), backend APIs.
+
+**Tests / build:** Targeted Account activity + SharedAccountDetail + Task 12/17/18 suites passed (`14` suites / `80` tests). Full frontend `31` suites / `233` tests passed. `npx tsc --noEmit` clean. Production frontend build compiled successfully. Nothing committed or pushed. stash@{0} untouched.
+

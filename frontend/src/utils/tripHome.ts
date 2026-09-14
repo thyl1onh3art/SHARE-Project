@@ -758,7 +758,7 @@ export function customerFacingPersonName(
   if (name && !OBJECT_ID_PATTERN.test(name)) return name;
   const email = (resolved.email || '').trim();
   if (email.includes('@') && !OBJECT_ID_PATTERN.test(email)) return email;
-  return 'Account activity';
+  return 'A member';
 }
 
 export function paymentApprovalNotificationCopy(
