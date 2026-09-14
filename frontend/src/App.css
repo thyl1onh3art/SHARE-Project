@@ -41,8 +41,16 @@ body {
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
-.card.home-balance-card:hover {
+.card.home-balance-card:hover,
+.card.home-static-card:hover {
   transform: none;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.home-welcome {
+  margin: 0.35rem 0 0;
+  color: #4a5568;
+  font-size: 0.95rem;
 }
 
 .home-balance-label {
@@ -55,10 +63,139 @@ body {
 }
 
 .home-balance-amount {
-  margin: 0.35rem 0 0.5rem;
-  font-size: 2rem;
+  margin: 0.25rem 0 0.4rem;
+  font-size: 1.35rem;
   font-weight: 700;
+  color: #4a5568;
+}
+
+.home-section-title {
+  margin: 0 0 0.85rem;
+  font-size: 1.15rem;
+  font-weight: 600;
   color: #2d3748;
+}
+
+.home-section-copy {
+  margin: 0 0 0.65rem;
+  color: #4a5568;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.home-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+}
+
+.home-empty .btn {
+  margin-top: 0.5rem;
+}
+
+.home-attention-list,
+.home-account-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.home-attention-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 0 0;
+  border-top: 1px solid #edf2f7;
+}
+
+.home-attention-item:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.home-attention-title {
+  margin: 0;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.home-attention-account {
+  margin: 0.2rem 0 0;
+  color: #4a5568;
+  font-size: 0.9rem;
+}
+
+.home-attention-action {
+  flex: 0 0 auto;
+}
+
+.home-account-card {
+  display: block;
+  padding: 0.9rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: inherit;
+  text-decoration: none;
+}
+
+.home-account-card:hover,
+.home-account-card:focus-visible {
+  border-color: #cbd5e0;
+  background: #edf2f7;
+}
+
+.home-account-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.home-account-name {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.home-account-open {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #2b6cb0;
+  white-space: nowrap;
+}
+
+.home-account-progress-text,
+.home-account-status {
+  margin: 0.4rem 0 0;
+  color: #4a5568;
+  font-size: 0.9rem;
+}
+
+.home-account-progress-track {
+  margin: 0.45rem 0 0;
+}
+
+.home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 768px) {
+  .home-actions .btn,
+  .home-empty .btn,
+  .home-attention-action {
+    width: 100%;
+  }
 }
 
 .home-balance-note {

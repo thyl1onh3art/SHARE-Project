@@ -231,8 +231,23 @@ describe('EventCountdown Create Shared Account cleanup', () => {
 
     renderCreatePage();
 
-    const card = (await screen.findByRole('heading', { name: 'Barcelona' })).closest('.trip-list-card') as HTMLElement;
+      const card = (await screen.findByRole('heading', { name: 'Barcelona' })).closest('.trip-list-card') as HTMLElement;
     expect(card.querySelector('.trip-list-location')).toHaveTextContent('Barcelona');
     expect(screen.getByRole('link', { name: 'Open Barcelona' })).toBeInTheDocument();
+  });
+
+  it('opens the Create Shared Account form from the Home create query without Location or Type', async () => {
+    render(
+      <MemoryRouter initialEntries={['/events?create=1']}>
+        <Routes>
+          <Route path="/events" element={<EventCountdown />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Create Shared Account' })).toBeInTheDocument();
+    expect(screen.queryByText(/^Location$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Type$/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /create event/i })).not.toBeInTheDocument();
   });
 });

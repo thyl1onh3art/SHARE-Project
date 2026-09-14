@@ -2336,3 +2336,25 @@ The customer create path remains Shared Accounts (`/events` → EventCountdown) 
 
 **Tests / build:** Targeted create/Event/contribution-plan/Account activity/sole-owner/auth suites `15` passed / `101` tests. Full frontend `33` suites / `242` tests passed. `npx tsc --noEmit` clean. Production frontend build compiled successfully. Backend unchanged. Nothing committed or pushed. stash@{0} untouched.
 
+### Task 22 — Home page redesign
+
+Customer Home (`/`, `Home.tsx`) is a compact dashboard, not a second Shared Accounts page. It answers: which Shared Accounts do I have, is anything waiting, and how do I open/create one.
+
+**Structure:** Home heading + welcome; existing prototype **Your balance** (visually secondary; disclaimer unchanged; ledger math unchanged); **Needs your attention** only when something is actionable; **Your Shared Accounts** preview; **Create Shared Account** + **View all Shared Accounts**.
+
+**Data reused (frontend-only, no dashboard endpoint):** `GET /finance`, `GET /shared-accounts` (active only), `GET /events` (name/recorded total/dates), `GET /payment-requests`, `GET /invites/list`. Helpers live in `frontend/src/utils/homeDashboard.ts` and reuse Task 17–20 `tripHome` functions (`canPaySinglePayment`, `canActOnPendingPayment`, `contributionProgressTotal`, `hasAgreedContributionPlan`, etc.). Home does not call `/shared-accounts?archived=true` or `/invites/mark-read`.
+
+**Account ordering:** needs-action first (approval, pay now, organiser close, member plan setup), then soonest goal date (missing dates last), then name. Preview is the first 4 of that ordered active list.
+
+**Attention (routes to existing pages, no duplicated Pay now/approve/close controls):** pending received invitation → `/invitations`; payment approval needed → account detail; fully funded with no pending/completed payment → `?pay=now`; organiser after completed payment → `?close=now`; accepted member without an agreed contribution plan → `?setupPlan=1`. Cap 5 items. Sent or expired invites are not attention.
+
+**Create CTA:** `/events?create=1` opens the Task 21 EventCountdown form. Location/Type were not restored.
+
+**Not shown on Home:** archived/closed accounts; Account activity feed; Location; Event/trip-money/PaymentRequest wording.
+
+**Limitations:** phone-only invitations are not derived (AuthContext has email, not phone). Attention is only what existing list payloads can safely support.
+
+**Unchanged:** balance/ledger, contribution-plan processing, payment approval / sole-owner pay, Account activity, auth, backend, Railway, SharedBackend, `.env`, prototype automatic-contribution scheduler.
+
+**Tests / build:** Targeted Home/dashboard + Task 21 create + Task 20 payment + Task 19 activity + Task 17 contribution-plan + Task 18 auth suites `20` passed / `193` tests. Full frontend `34` suites / `258` tests passed. `npx tsc --noEmit` clean. Production frontend build compiled successfully. Backend unchanged. Nothing committed or pushed. stash@{0} untouched.
+

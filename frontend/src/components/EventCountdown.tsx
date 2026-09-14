@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
   equalShareAmount,
@@ -60,6 +60,7 @@ interface Event {
 
 const EventCountdown: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const currentUserId = (user as { _id?: string; id?: string } | null)?._id
     || (user as { _id?: string; id?: string } | null)?.id
@@ -109,6 +110,12 @@ const EventCountdown: React.FC = () => {
     fetchEvents();
     fetchAccountLists();
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get('create') === '1') {
+      setShowForm(true);
+    }
+  }, [searchParams]);
 
   const fetchEvents = async () => {
     try {
