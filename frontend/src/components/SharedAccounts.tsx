@@ -490,7 +490,7 @@ const SharedAccounts: React.FC = () => {
     setError('');
 
     try {
-      await axios.post('/payment-requests', {
+      const response = await axios.post('/payment-requests', {
         sharedAccountId: selectedAccount._id,
         amount,
         description: `Payment request for ${selectedAccount.name}`
@@ -503,8 +503,10 @@ const SharedAccounts: React.FC = () => {
       setShowPayModal(false);
       setSelectedAccount(null);
       setError(''); // Clear any errors
-      // Show success message
-      alert('Payment request created. Members must approve before it is recorded. SHARE does not send bank payments.');
+      const completedNow = isCompletedPaymentStatus(response.data?.paymentRequest?.status);
+      alert(completedNow
+        ? 'Payment completed. SHARE does not send bank payments.'
+        : 'Payment request created. Members must approve before it is recorded. SHARE does not send bank payments.');
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to create payment request';
       setError(errorMessage);

@@ -31,6 +31,22 @@ const userHasVoted = (paymentRequest, userId) => {
   return { hasApproved, hasRejected };
 };
 
+const populatePaymentRequestById = (paymentRequestId) => PaymentRequest.findById(paymentRequestId)
+  .populate('requestedBy', 'firstName lastName email')
+  .populate('sharedAccount', 'name')
+  .populate('approvals.user', 'firstName lastName email')
+  .populate('rejections.user', 'firstName lastName email');
+
+/** Atomic pending → executed. Used by last required approval and sole-owner create. */
+const markPaymentExecutedIfPending = async (paymentRequestId) => {
+  const claimed = await PaymentRequest.findOneAndUpdate(
+    { _id: paymentRequestId, status: 'pending' },
+    { $set: { status: 'executed' } },
+    { new: true }
+  );
+  return !!claimed;
+};
+
 const loadActiveSharedAccount = async (sharedAccountRef) => {
   const sharedAccountId = resolveId(sharedAccountRef);
   if (!sharedAccountId) {
@@ -174,13 +190,19 @@ exports.createPaymentRequest = async (req, res) => {
     });
 
     await paymentRequest.save();
-    await paymentRequest.populate('requestedBy', 'firstName lastName email');
-    await paymentRequest.populate('sharedAccount', 'name');
+
+    let executed = false;
+    if (requiredApprovals === 0) {
+      executed = await markPaymentExecutedIfPending(paymentRequest._id);
+    }
+
+    const refreshed = await populatePaymentRequestById(paymentRequest._id);
 
     res.status(201).json({
-      message:
-        'Payment request created. Travellers must approve before it is recorded. SHARE does not send bank payments.',
-      paymentRequest
+      message: executed
+        ? 'Payment completed. SHARE does not send bank payments.'
+        : 'Payment request created. Travellers must approve before it is recorded. SHARE does not send bank payments.',
+      paymentRequest: refreshed
     });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -344,19 +366,10 @@ exports.approvePaymentRequest = async (req, res) => {
     let executed = false;
 
     if (approvalCount >= paymentRequest.requiredApprovals) {
-      const claimed = await PaymentRequest.findOneAndUpdate(
-        { _id: paymentRequest._id, status: 'pending' },
-        { $set: { status: 'executed' } },
-        { new: true }
-      );
-      executed = !!claimed;
+      executed = await markPaymentExecutedIfPending(paymentRequest._id);
     }
 
-    const refreshed = await PaymentRequest.findById(paymentRequest._id)
-      .populate('requestedBy', 'firstName lastName email')
-      .populate('sharedAccount', 'name')
-      .populate('approvals.user', 'firstName lastName email')
-      .populate('rejections.user', 'firstName lastName email');
+    const refreshed = await populatePaymentRequestById(paymentRequest._id);
 
     res.json({
       message: executed

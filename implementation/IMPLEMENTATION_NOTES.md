@@ -2318,3 +2318,13 @@ Shared Account detail now has one customer-facing **Account activity** section i
 
 **Tests / build:** Targeted Account activity + SharedAccountDetail + Task 12/17/18 suites passed (`14` suites / `80` tests). Full frontend `31` suites / `233` tests passed. `npx tsc --noEmit` clean. Production frontend build compiled successfully. Nothing committed or pushed. stash@{0} untouched.
 
+### Task 20 — Sole-owner final payment
+
+When the organiser is the only accepted participant (`members` empty; pending invites do not count), a fully funded Pay now request still uses the existing PaymentRequest create path. `requiredApprovals` is already `0`. Create now **atomically executes** that pending row (`findOneAndUpdate` status `executed`) instead of leaving it waiting. Approvals stay empty: the organiser is not recorded as their own approver. Account activity therefore shows proposed + completed payment, not a self-approval. Unread-count already excludes the requester, so no self-notification.
+
+If at least one other member has accepted, `requiredApprovals` stays `otherParticipants.length` and the existing approve/reject/complete path is unchanged. Membership is snapshotted at create: a sole-owner payment completes immediately, so an invite accepted afterwards cannot attach to that request.
+
+**Unchanged:** target/amount rules, contribution math, contribution-plan management, Account activity layout, authentication, archive after completed payment.
+
+**Tests / build:** Targeted backend `paymentRequestSettlement` `37` tests passed (isolated Docker Mongo, no production Mongo), including 8 sole-owner cases. Archive suite `21` passed. Targeted frontend sole-owner + approval/completion/Task 19/Task 17 suites passed. Full frontend `32` suites / `236` tests passed. `npx tsc --noEmit` clean. Production frontend build compiled successfully. Nothing committed or pushed. stash@{0} untouched.
+

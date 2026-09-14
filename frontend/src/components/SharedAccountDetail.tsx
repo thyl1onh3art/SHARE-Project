@@ -471,7 +471,7 @@ const SharedAccountDetail: React.FC = () => {
     setError('');
 
     try {
-      await axios.post('/payment-requests', {
+      const response = await axios.post('/payment-requests', {
         sharedAccountId: accountId,
         amount,
         payee: payForm.payee.trim(),
@@ -481,7 +481,10 @@ const SharedAccountDetail: React.FC = () => {
       setShowPayModal(false);
       setPayForm({ payee: '', reference: '', note: '' });
       await fetchAccountDetails();
-      setPaymentNotice('Payment request sent. Waiting for approval. No money was transferred.');
+      const completedNow = isCompletedPaymentStatus(response.data?.paymentRequest?.status);
+      setPaymentNotice(completedNow
+        ? 'Payment completed. No money was transferred.'
+        : 'Payment request sent. Waiting for approval. No money was transferred.');
     } catch (err: any) {
       setError(userFacingError(err, 'Failed to create payment request'));
     } finally {

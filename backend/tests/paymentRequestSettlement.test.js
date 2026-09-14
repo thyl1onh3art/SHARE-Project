@@ -7,6 +7,7 @@ const User = require('../models/User');
 const SharedAccount = require('../models/SharedAccount');
 const FinanceRecord = require('../models/FinanceRecord');
 const PaymentRequest = require('../models/PaymentRequest');
+const Invite = require('../models/Invite');
 const { contributionProgressTotal } = require('../utils/contributionProgress');
 
 describe('Trip Money settlement records', () => {
@@ -31,6 +32,7 @@ describe('Trip Money settlement records', () => {
     await SharedAccount.deleteMany({});
     await FinanceRecord.deleteMany({});
     await PaymentRequest.deleteMany({});
+    await Invite.deleteMany({});
 
     const hashedPassword = await bcrypt.hash('TestPass123', 10);
     ownerUser = await User.create({
@@ -590,8 +592,198 @@ describe('Trip Money settlement records', () => {
         .set('Authorization', `Bearer ${ownerToken}`)
         .expect(200);
 
-      // Requester is excluded from actionable count
       expect(ownerCount.body.count).toBe(0);
+    });
+  });
+
+  describe('SOLE-OWNER FINAL PAYMENT', () => {
+    let soleAccount;
+
+    beforeEach(async () => {
+      soleAccount = await SharedAccount.create({
+        owner: ownerUser._id,
+        name: 'Solo Pot',
+        members: [],
+        plannedContributors: 4,
+        targetAmount: 100
+      });
+    });
+
+    async function fundSole(amount = 100) {
+      const record = await FinanceRecord.create({
+        user: ownerUser._id,
+        type: 'input',
+        amount,
+        sharedAccount: soleAccount._id
+      });
+      soleAccount.financeRecords.push(record._id);
+      await soleAccount.save();
+      return record;
+    }
+
+    it('completes a fully funded sole-owner payment without another approval or self-approval', async () => {
+      await fundSole(100);
+
+      const response = await request(app)
+        .post('/api/payment-requests')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          sharedAccountId: soleAccount._id.toString(),
+          amount: 100,
+          payee: 'Hotel Solo',
+          reference: 'SOLO-1'
+        })
+        .expect(201);
+
+      expect(response.body.message).toMatch(/payment completed/i);
+      expect(response.body.paymentRequest.status).toBe('executed');
+      expect(response.body.paymentRequest.requiredApprovals).toBe(0);
+      expect(response.body.paymentRequest.approvals).toHaveLength(0);
+      expect(response.body.paymentRequest.amount).toBe(100);
+      expect(response.body.paymentRequest.description).toMatch(/Hotel Solo/);
+      expect(response.body.paymentRequest.description).toMatch(/SOLO-1/);
+      expect(response.body.paymentRequest.rejections).toHaveLength(0);
+
+      const stored = await PaymentRequest.findById(response.body.paymentRequest._id);
+      expect(stored.status).toBe('executed');
+      expect(stored.approvals).toHaveLength(0);
+
+      const outputs = await FinanceRecord.find({ sharedAccount: soleAccount._id, type: 'output' });
+      expect(outputs).toHaveLength(0);
+    });
+
+    it('does not create an approval-needed unread count for the organiser', async () => {
+      await fundSole(100);
+
+      await request(app)
+        .post('/api/payment-requests')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ sharedAccountId: soleAccount._id.toString(), amount: 100, payee: 'Hotel Solo' })
+        .expect(201);
+
+      const ownerCount = await request(app)
+        .get('/api/payment-requests/unread-count')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+
+      expect(ownerCount.body.count).toBe(0);
+    });
+
+    it('rejects a second sole-owner completion after the first succeeds', async () => {
+      await fundSole(100);
+
+      await request(app)
+        .post('/api/payment-requests')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ sharedAccountId: soleAccount._id.toString(), amount: 100, payee: 'Hotel Solo' })
+        .expect(201);
+
+      const second = await request(app)
+        .post('/api/payment-requests')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ sharedAccountId: soleAccount._id.toString(), amount: 100, payee: 'Hotel Two' })
+        .expect(400);
+
+      expect(second.body.message).toMatch(/already been completed/i);
+      expect(await PaymentRequest.countDocuments({ sharedAccount: soleAccount._id })).toBe(1);
+    });
+
+    it('rejects the organiser approving their own sole-owner payment', async () => {
+      await fundSole(100);
+
+      const created = await request(app)
+        .post('/api/payment-requests')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ sharedAccountId: soleAccount._id.toString(), amount: 100, payee: 'Hotel Solo' })
+        .expect(201);
+
+      await request(app)
+        .post(`/api/payment-requests/${created.body.paymentRequest._id}/approve`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(400);
+
+      const stored = await PaymentRequest.findById(created.body.paymentRequest._id);
+      expect(stored.approvals).toHaveLength(0);
+      expect(stored.status).toBe('executed');
+    });
+
+    it('still uses sole-owner completion when a pending invite exists', async () => {
+      await fundSole(100);
+      await Invite.create({
+        sender: ownerUser._id,
+        recipientEmail: 'pending-sam@test.com',
+        status: 'pending',
+        sharedAccount: soleAccount._id
+      });
+
+      const response = await request(app)
+        .post('/api/payment-requests')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ sharedAccountId: soleAccount._id.toString(), amount: 100, payee: 'Hotel Solo' })
+        .expect(201);
+
+      expect(response.body.paymentRequest.status).toBe('executed');
+      expect(response.body.paymentRequest.requiredApprovals).toBe(0);
+      expect(response.body.paymentRequest.approvals).toHaveLength(0);
+    });
+
+    it('still uses sole-owner completion when a declined invite is not an accepted member', async () => {
+      await fundSole(100);
+      expect(soleAccount.members).toHaveLength(0);
+
+      const response = await request(app)
+        .post('/api/payment-requests')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ sharedAccountId: soleAccount._id.toString(), amount: 100, payee: 'Hotel Solo' })
+        .expect(201);
+
+      expect(response.body.paymentRequest.status).toBe('executed');
+      expect(response.body.paymentRequest.requiredApprovals).toBe(0);
+    });
+
+    it('keeps the normal approval requirement once a second member has accepted', async () => {
+      soleAccount.members = [memberUser._id];
+      await soleAccount.save();
+      await fundSole(100);
+
+      const response = await request(app)
+        .post('/api/payment-requests')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ sharedAccountId: soleAccount._id.toString(), amount: 100, payee: 'Hotel Group' })
+        .expect(201);
+
+      expect(response.body.paymentRequest.status).toBe('pending');
+      expect(response.body.paymentRequest.requiredApprovals).toBe(1);
+      expect(response.body.paymentRequest.approvals).toHaveLength(0);
+      expect(response.body.message).toMatch(/must approve/i);
+    });
+
+    it('lets the organiser archive after sole-owner payment completes', async () => {
+      await fundSole(100);
+
+      const created = await request(app)
+        .post('/api/payment-requests')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ sharedAccountId: soleAccount._id.toString(), amount: 100, payee: 'Hotel Solo' })
+        .expect(201);
+
+      expect(created.body.paymentRequest.status).toBe('executed');
+
+      const archived = await request(app)
+        .delete(`/api/shared-accounts/${soleAccount._id}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+
+      expect(archived.body.account.isDeleted).toBe(true);
+
+      const history = await request(app)
+        .get(`/api/payment-requests?sharedAccount=${soleAccount._id}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+
+      expect(history.body).toHaveLength(1);
+      expect(history.body[0].status).toBe('executed');
+      expect(history.body[0].approvals).toHaveLength(0);
     });
   });
 });
