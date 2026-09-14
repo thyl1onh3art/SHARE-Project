@@ -72,12 +72,14 @@ describe('SharedAccounts create Trip Money', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: /set up shared account/i }).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole('button', { name: /^create shared account$/i }).length).toBeGreaterThan(0);
     });
 
-    fireEvent.click(screen.getAllByRole('button', { name: /set up shared account/i })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: /^create shared account$/i })[0]);
 
-    expect(await screen.findByRole('heading', { name: /set up shared account/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /^create shared account$/i })).toBeInTheDocument();
+    expect(screen.queryByText(/^Location$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Type$/)).not.toBeInTheDocument();
     expect(screen.getByLabelText(/how many people will contribute/i)).toBeInTheDocument();
     expect(screen.getByText('Include yourself.')).toBeInTheDocument();
 
@@ -91,7 +93,7 @@ describe('SharedAccounts create Trip Money', () => {
     fireEvent.click(screen.getByRole('radio', { name: /^weekly$/i }));
     fireEvent.click(screen.getByLabelText(/i agree to this contribution plan/i));
 
-    fireEvent.click(screen.getByRole('button', { name: /^create shared account$/i }));
+    fireEvent.submit(screen.getByLabelText(/account name/i).closest('form') as HTMLFormElement);
 
     await waitFor(() => {
       expect(mockedAxios.post).toHaveBeenCalledWith(
@@ -120,8 +122,8 @@ describe('SharedAccounts create Trip Money', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click((await screen.findAllByRole('button', { name: /set up shared account/i }))[0]);
-    expect(await screen.findByRole('heading', { name: /set up shared account/i })).toBeInTheDocument();
+    fireEvent.click((await screen.findAllByRole('button', { name: /^create shared account$/i }))[0]);
+    expect(await screen.findByRole('heading', { name: /^create shared account$/i })).toBeInTheDocument();
 
     const dateInput = screen.getByLabelText(/^date money is needed/i) as HTMLInputElement;
     const originalValue = dateInput.value;
@@ -145,7 +147,7 @@ describe('SharedAccounts create Trip Money', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click((await screen.findAllByRole('button', { name: /set up shared account/i }))[0]);
+    fireEvent.click((await screen.findAllByRole('button', { name: /^create shared account$/i }))[0]);
     const dateInput = await screen.findByLabelText(/^date money is needed/i) as HTMLInputElement;
     expect(typeof dateInput.showPicker).not.toBe('function');
 

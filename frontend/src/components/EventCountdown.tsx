@@ -31,7 +31,7 @@ interface Event {
   eventDate: string;
   eventTime: string;
   location?: string;
-  category: string;
+  category?: string;
   isRecurring: boolean;
   recurringType?: 'daily' | 'weekly' | 'monthly' | 'yearly';
   budget?: {
@@ -73,8 +73,6 @@ const EventCountdown: React.FC = () => {
     description: '',
     eventDate: '',
     eventTime: '00:00',
-    location: '',
-    category: 'holiday',
     isRecurring: false,
     recurringType: 'yearly',
     budget: {
@@ -106,19 +104,6 @@ const EventCountdown: React.FC = () => {
   const [plannedContributors, setPlannedContributors] = useState('');
   const [contributionFrequency, setContributionFrequency] = useState('');
   const [planAgreed, setPlanAgreed] = useState(false);
-
-  // Keep category values aligned with the existing Event API/model; labels are general.
-  const categories = [
-    { value: 'holiday', label: 'Holiday' },
-    { value: 'travel', label: 'Travel' },
-    { value: 'social', label: 'Friends / social' },
-    { value: 'sports', label: 'Sports' },
-    { value: 'concert', label: 'Festival / tickets' },
-    { value: 'birthday', label: 'Birthday' },
-    { value: 'anniversary', label: 'Anniversary' },
-    { value: 'work', label: 'Work' },
-    { value: 'other', label: 'Other' }
-  ];
 
   useEffect(() => {
     fetchEvents();
@@ -196,8 +181,14 @@ const EventCountdown: React.FC = () => {
 
     try {
       const response = await axios.post('/events/with-trip-money', {
-        ...formData,
+        title: formData.title,
+        description: formData.description,
+        eventDate: formData.eventDate,
         eventTime: '00:00',
+        isRecurring: formData.isRecurring,
+        ...(formData.isRecurring && formData.recurringType
+          ? { recurringType: formData.recurringType }
+          : {}),
         targetAmount: amount,
         plannedContributors: planned.value,
         contributionFrequency: frequency.value,
@@ -606,32 +597,6 @@ const EventCountdown: React.FC = () => {
                 placeholder="Tickets, shared meals, or whatever the group needs to track"
                 rows={3}
               />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Location</label>
-              <input
-                type="text"
-                className="form-input"
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                placeholder="e.g., Barcelona, the venue, or leave blank"
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Type</label>
-              <select
-                className="form-input"
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              >
-                {categories.map(cat => (
-                  <option key={cat.value} value={cat.value}>
-                    {cat.label}
-                  </option>
-                ))}
-              </select>
             </div>
 
             <div className="form-group">

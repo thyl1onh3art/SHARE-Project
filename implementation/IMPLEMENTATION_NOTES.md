@@ -2328,3 +2328,11 @@ If at least one other member has accepted, `requiredApprovals` stays `otherParti
 
 **Tests / build:** Targeted backend `paymentRequestSettlement` `37` tests passed (isolated Docker Mongo, no production Mongo), including 8 sole-owner cases. Archive suite `21` passed. Targeted frontend sole-owner + approval/completion/Task 19/Task 17 suites passed. Full frontend `32` suites / `236` tests passed. `npx tsc --noEmit` clean. Production frontend build compiled successfully. Nothing committed or pushed. stash@{0} untouched.
 
+### Task 21 — Create Shared Account cleanup
+
+The customer create path remains Shared Accounts (`/events` → EventCountdown) → Create Shared Account → POST `/events/with-trip-money` → Shared Account detail. Location and Type were removed from that form. Create no longer sends `location` or `category`; Event schema still has those fields for historical records, and Mongo applies `category` default `social` when omitted. List cards still show a stored location when present. Shared Account detail/edit already had no Location/Type. Secondary `/shared-accounts` create (including event-link prefill) never had those fields; its CTA wording now matches Create Shared Account. Event/SharedAccount backend architecture is unchanged.
+
+**Unchanged:** contribution-plan math and agreement, date-only native picker, target/planned contributors, authentication, payment/closeout, Account activity.
+
+**Tests / build:** Targeted create/Event/contribution-plan/Account activity/sole-owner/auth suites `15` passed / `101` tests. Full frontend `33` suites / `242` tests passed. `npx tsc --noEmit` clean. Production frontend build compiled successfully. Backend unchanged. Nothing committed or pushed. stash@{0} untouched.
+

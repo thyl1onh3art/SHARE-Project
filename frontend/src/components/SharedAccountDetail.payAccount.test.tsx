@@ -339,6 +339,8 @@ describe('SharedAccountDetail Pay account', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /edit details/i }));
     expect(screen.getByLabelText(/planned contributors/i)).toHaveValue(4);
+    expect(screen.queryByText(/^Location$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Type$/)).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/planned contributors/i), { target: { value: '6' } });
     fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
 

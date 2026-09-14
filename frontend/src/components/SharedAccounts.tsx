@@ -740,7 +740,7 @@ const SharedAccounts: React.FC = () => {
             style={{ padding: '8px 14px', fontSize: '0.85rem' }}
             onClick={() => openCreateModal()}
           >
-            Set up Shared Account
+            Create Shared Account
           </button>
           <button
             type="button"
@@ -918,7 +918,7 @@ const SharedAccounts: React.FC = () => {
             style={{ padding: '8px 14px', fontSize: '0.85rem' }}
             onClick={() => openCreateModal()}
           >
-            Set up Shared Account
+            Create Shared Account
           </button>
         </div>
         
@@ -938,7 +938,7 @@ const SharedAccounts: React.FC = () => {
               className="btn btn-primary"
               onClick={() => openCreateModal()}
             >
-              Set up Shared Account
+              Create Shared Account
             </button>
           </div>
         ) : (
@@ -1436,7 +1436,7 @@ const SharedAccounts: React.FC = () => {
               alignItems: 'center',
               marginBottom: '1rem'
             }}>
-              <h2 style={{ margin: 0 }}>Set up Shared Account</h2>
+              <h2 style={{ margin: 0 }}>Create Shared Account</h2>
               <button
                 type="button"
                 onClick={closeCreateModal}

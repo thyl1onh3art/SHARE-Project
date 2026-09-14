@@ -448,6 +448,9 @@ describe('EventCountdown trip cards', () => {
     expect(screen.getByRole('radio', { name: /^monthly$/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/i agree to this contribution plan/i)).toBeInTheDocument();
     expect(screen.getByText(/prototype contribution plan — no automatic bank transfer is currently made/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^Location$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Type$/)).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/barcelona, the venue/i)).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/account name/i), { target: { value: 'Ibiza' } });
     fireEvent.change(screen.getByLabelText(/^date/i), { target: { value: '2027-06-01' } });
     fireEvent.change(screen.getByLabelText(/total goal/i), { target: { value: '1000' } });
@@ -470,6 +473,9 @@ describe('EventCountdown trip cards', () => {
       );
     });
     expect(mockedAxios.post).toHaveBeenCalledTimes(1);
+    const posted = (mockedAxios.post as jest.Mock).mock.calls[0][1];
+    expect(posted).not.toHaveProperty('location');
+    expect(posted).not.toHaveProperty('category');
     expect(await screen.findByText('Opened pot pot-new')).toBeInTheDocument();
     expect(screen.queryByText(/set up trip money/i)).not.toBeInTheDocument();
   });

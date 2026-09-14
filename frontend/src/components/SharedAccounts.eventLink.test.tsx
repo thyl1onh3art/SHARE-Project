@@ -70,7 +70,7 @@ describe('SharedAccounts trip link create', () => {
     fireEvent.change(screen.getByLabelText(/how many people will contribute/i), { target: { value: '4' } });
     fireEvent.click(screen.getByRole('radio', { name: /^weekly$/i }));
     fireEvent.click(screen.getByLabelText(/i agree to this contribution plan/i));
-    fireEvent.click(screen.getByRole('button', { name: /^create shared account$/i }));
+    fireEvent.submit(screen.getByLabelText(/account name/i).closest('form') as HTMLFormElement);
 
     await waitFor(() => {
       expect(mockedAxios.post).toHaveBeenCalledWith(

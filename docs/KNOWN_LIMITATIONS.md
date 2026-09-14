@@ -14,6 +14,7 @@ Honest limits of the current SHARE prototype. This list is for reviewers, not a 
 ## Shared Account behaviour
 
 - **Sole-owner final payment:** if the organiser is the only accepted participant, Pay now can complete using the existing PaymentRequest path with `requiredApprovals: 0` and no self-approval. Pending invites do not count as members. One accepted second member restores the normal approval workflow. This is still a prototype ledger record, not a real payout.
+- **Create Shared Account fields:** customer create no longer collects Location or Type. Existing Event documents may still store those values and can still render them on the list. New combined creates omit `location` and omit `category`; the Event schema default (`social`) applies internally. No migration.
 - Soft-archive is the normal close/delete path. Unarchive / restore is not a customer feature.
 - Public tokenised invite links are not implemented. Invites go to registered users.
 - Invitation accept adds membership only. It does not invent a contribution plan or copy the organiser’s frequency. After accept, and on Shared Account detail, a member without an agreed plan can optionally set one up. **Not now** leaves them as a member who can still contribute manually.
