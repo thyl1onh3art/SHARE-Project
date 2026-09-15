@@ -1342,8 +1342,9 @@ const SharedAccounts: React.FC = () => {
 
             <form onSubmit={handleTransferSubmit}>
               <div className="form-group">
-                <label className="form-label">Contribution amount (£)</label>
+                <label className="form-label" htmlFor="pay-account-contribution-amount">Contribution amount (£)</label>
                 <input
+                  id="pay-account-contribution-amount"
                   type="number"
                   step="0.01"
                   min="0.01"
@@ -1383,8 +1384,9 @@ const SharedAccounts: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Description</label>
+                <label className="form-label" htmlFor="pay-account-contribution-note">Description</label>
                 <input
+                  id="pay-account-contribution-note"
                   type="text"
                   className="form-input"
                   value={transferForm.description}

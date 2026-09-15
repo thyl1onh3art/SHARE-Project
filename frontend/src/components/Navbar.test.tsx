@@ -89,6 +89,7 @@ describe('Navbar primary entry point', () => {
     const css = fs.readFileSync(path.join(__dirname, '../App.css'), 'utf8');
     expect(css).toMatch(/\.share-nav\s*\{[^}]*position:\s*sticky/);
     expect(css).toMatch(/\.share-nav\s*\{[^}]*top:\s*0/);
+    expect(css).toMatch(/\.share-nav\s*\{[^}]*z-index:\s*200/);
     fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
     expect(screen.getByRole('button', { name: 'Close menu' })).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getAllByRole('link', { name: 'Shared Accounts' }).length).toBeGreaterThan(0);

@@ -2394,5 +2394,9 @@ When **Pay now** is already eligible (`canPaySinglePayment` and no pending/compl
 
 ### Task 25 — Sticky primary navigation
 
-`.share-nav` uses CSS `position: sticky; top: 0` (plus `flex-shrink: 0`, `align-self: flex-start`, `width: 100%`) so the existing SHARE / Shared Accounts / Notifications / More bar stays visible while scrolling. It remains in normal document flow as the first child of `.App`, so no extra `main-content` padding or duplicated navbar is required. No scroll listeners. Dropdowns and the mobile hamburger panel stay inside the same `<nav>`.
+`.share-nav` uses CSS `position: sticky; top: 0` (plus `flex-shrink: 0`, `align-self: flex-start`, `width: 100%`) so the existing SHARE / Shared Accounts / Notifications / More bar stays visible while scrolling. It remains in normal document flow as the first child of `.App`, so no extra `main-content` padding or duplicated navbar is required. No scroll listeners. Dropdowns and the mobile hamburger panel stay inside the same `<nav>`. Navbar `z-index` is `200` so existing `z-index: 1000` modals stay above it.
+
+### Task 26 — Final prototype polish
+
+Small UX/a11y/docs pass only: overflow-wrap on long names/amounts, button/nav focus-visible, hamburger 44px tap target, Pay account labels, sticky-nav stacking under modals, and Known Limitations invite-link correction. No payment/invite/contribution architecture changes.
 

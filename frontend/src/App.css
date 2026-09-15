@@ -20,6 +20,7 @@ body {
 
 .main-content {
   flex: 1;
+  min-width: 0;
   padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
@@ -51,6 +52,7 @@ body {
   margin: 0.35rem 0 0;
   color: #4a5568;
   font-size: 0.95rem;
+  overflow-wrap: anywhere;
 }
 
 .home-balance-label {
@@ -123,12 +125,14 @@ body {
   margin: 0;
   font-weight: 600;
   color: #2d3748;
+  overflow-wrap: anywhere;
 }
 
 .home-attention-account {
   margin: 0.2rem 0 0;
   color: #4a5568;
   font-size: 0.9rem;
+  overflow-wrap: anywhere;
 }
 
 .home-attention-action {
@@ -169,6 +173,7 @@ body {
   font-size: 1.05rem;
   font-weight: 600;
   color: #2d3748;
+  overflow-wrap: anywhere;
 }
 
 .home-account-open {
@@ -231,6 +236,7 @@ body {
   font-size: 1.5rem;
   font-weight: 600;
   color: #2d3748;
+  overflow-wrap: anywhere;
 }
 
 .trip-money-subsection-title {
@@ -293,6 +299,11 @@ body {
 
 .btn-success:hover {
   background: #2f855a;
+}
+
+.btn:focus-visible {
+  outline: 2px solid #2b6cb0;
+  outline-offset: 2px;
 }
 
 /* Form Styles */
@@ -372,8 +383,9 @@ body {
   color: #5a67d8;
 }
 
-.password-toggle-btn:focus {
-  outline: none;
+.password-toggle-btn:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
   color: #5a67d8;
 }
 
@@ -470,7 +482,7 @@ body {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   position: sticky;
   top: 0;
-  z-index: 1000;
+  z-index: 200;
   flex-shrink: 0;
   align-self: flex-start;
   width: 100%;
@@ -538,6 +550,16 @@ body {
 .share-nav-link:hover {
   background: #e2e8f0;
   color: #2d3748;
+}
+
+.share-nav-link:focus-visible,
+.share-nav-profile-btn:focus-visible,
+.share-nav-hamburger:focus-visible,
+.share-nav-logout:focus-visible,
+.share-nav-mobile-link:focus-visible,
+.share-nav-mobile-logout:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
 }
 
 .share-nav-link-primary {
@@ -618,6 +640,12 @@ body {
   font-weight: 500;
   font-family: inherit;
   white-space: nowrap;
+  max-width: 12rem;
+}
+
+.share-nav-profile-btn > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .share-nav-logout {
@@ -648,8 +676,8 @@ body {
   display: none;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   background: white;
@@ -784,6 +812,7 @@ body {
   margin: 0;
   font-size: clamp(1.5rem, 4vw, 2rem);
   color: #1a202c;
+  overflow-wrap: anywhere;
 }
 
 .trip-money-purpose {
@@ -791,6 +820,7 @@ body {
   color: #4a5568;
   font-size: 1rem;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .trip-money-empty-hint {
@@ -1843,6 +1873,8 @@ body {
   margin: 0;
   font-size: 1.35rem;
   color: #1a202c;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 .shared-account-title-row {
@@ -1894,11 +1926,13 @@ body {
   margin: 0.2rem 0 0;
   color: #4a5568;
   font-size: 0.9rem;
+  overflow-wrap: anywhere;
 }
 
 .trip-list-money {
   margin: 0 0 0.85rem;
   color: #4a5568;
+  overflow-wrap: anywhere;
 }
 
 .trip-list-card-actions {

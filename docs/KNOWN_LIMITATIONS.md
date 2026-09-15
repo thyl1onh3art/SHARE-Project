@@ -16,7 +16,7 @@ Honest limits of the current SHARE prototype. This list is for reviewers, not a 
 - **Sole-owner final payment:** if the organiser is the only accepted participant, Pay now can complete using the existing PaymentRequest path with `requiredApprovals: 0` and no self-approval. Pending invites do not count as members. One accepted second member restores the normal approval workflow. This is still a prototype ledger record, not a real payout.
 - **Create Shared Account fields:** customer create no longer collects Location or Type. Existing Event documents may still store those values and can still render them on the list. New combined creates omit `location` and omit `category`; the Event schema default (`social`) applies internally. No migration.
 - Soft-archive is the normal close/delete path. Unarchive / restore is not a customer feature.
-- Public tokenised invite links are not implemented. Invites go to registered users.
+- Public tokenised invite links (`/invite/<token>`) are implemented as one-use shareable links. They still do not move money. Used or invalid tokens show a customer-facing “link is no longer valid” state.
 - Invitation accept adds membership only. It does not invent a contribution plan or copy the organiser’s frequency. After accept, and on Shared Account detail, a member without an agreed plan can optionally set one up. **Not now** leaves them as a member who can still contribute manually.
 - A completed contribution plan cannot be restarted from Shared Account detail. A cancelled plan can be replaced later with a new explicit agreement; previous contributions stay in history. Members can still contribute manually in every plan state.
 
@@ -40,7 +40,7 @@ Honest limits of the current SHARE prototype. This list is for reviewers, not a 
 
 ## Secondary features
 
-- Accommodations search can fall back to demonstration data.
+- `/gallery`, `/map`, and `/accommodations` redirect to Shared Accounts. The old Photos / Map / Places to stay screens are not in primary navigation.
 - Calendar sharing settings may be unavailable if the optional endpoint is not present.
 - Email verification is implemented but currently disabled / unmounted.
 - Password reset reuses the existing nodemailer helper. Railway/production email is not configured by this task, so public production use still needs real email delivery.
