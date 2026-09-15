@@ -11,11 +11,14 @@ It is not only a travel product. A Shared Account can be used for a hotel deposi
 What works today:
 
 - **Home** — personal overview and tracked personal balance
-- **Shared Accounts** — create an account with a target, invite members, record contributions
-- **Notifications** — Shared Account invitations and updates
-- **Pay Now / approval** — when the target is reached, request and approve a final payment record
+- **Shared Accounts** — create an account with a target, invite members, shareable invite links, record contributions, optional contribution plans
+- **Notifications** — Shared Account invitations and payment-request updates
+- **Pay Now / approval** — when the target is reached, request and approve a final payment record (sole-owner accounts can complete without a second approver)
 - **Close / archive** — close a Shared Account and keep read-only history
-- **Secondary tools** under **More** — calendar, photos, map, friends, personal activity
+- **Password reset** — forgot-password / reset-link flow (production email still needs SMTP configuration)
+- **Secondary tools** under **More** — Friends, Personal tracking, Activity history, Calendar
+
+`/gallery`, `/map`, and `/accommodations` redirect to Shared Accounts. They are not in primary or More navigation.
 
 SHARE records coordination and activity. It does not provide wallets, held balances, cards, FX, or real payouts.
 
@@ -84,7 +87,9 @@ npm install
 npm start
 ```
 
-The frontend development server typically runs on port 3000 and proxies API calls to the backend.
+The frontend development server typically runs on port **3000**. The backend listens on port **5000**. There is no CRA `proxy` field: copy `frontend/.env.example` to `frontend/.env` so `REACT_APP_API_URL=http://localhost:5000/api`. Without that, the UI defaults to the hosted Railway API.
+
+Also copy `backend/.env.example` to `backend/.env` (`MONGO_URI`, `JWT_SECRET`). Local MongoDB is expected at `mongodb://localhost:27017/share_project` unless you change the URI.
 
 Windows helpers `start-servers.bat` and `stop-servers.bat` can start both processes together.
 
@@ -136,6 +141,7 @@ Additional root folders (`controllers/`, `models/`, `routes/`, `app.js`) are a *
 
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — how the system is structured
 - [docs/KNOWN_LIMITATIONS.md](./docs/KNOWN_LIMITATIONS.md) — honest current limits
+- [docs/PROTOTYPE_FREEZE.md](./docs/PROTOTYPE_FREEZE.md) — freeze snapshot (16 September 2026)
 - [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) — Railway setup
 - [implementation/IMPLEMENTATION_NOTES.md](./implementation/IMPLEMENTATION_NOTES.md) — development history
 - [START_HERE_CURSOR.md](./START_HERE_CURSOR.md) — Cursor implementation brief

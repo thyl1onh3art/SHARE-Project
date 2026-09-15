@@ -26,7 +26,7 @@ Required:
 Optional:
 
 - `CORS_ORIGIN` — frontend origin
-- `EMAIL_USER` / `EMAIL_PASS` — invite email notifications
+- `EMAIL_USER` / `EMAIL_PASS` — invite notifications and password-reset email (unset in production, send fails closed)
 - Twilio vars — SMS invite / 2FA if used
 
 ### Frontend

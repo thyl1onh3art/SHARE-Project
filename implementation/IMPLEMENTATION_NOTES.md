@@ -2417,3 +2417,7 @@ Hardened the existing forgot/reset flow; did not add a second auth system.
 **Limitation:** This does not make SHARE production-secure. Production email is still unconfigured. Browser replay of a used URL is rejected by the backend; history replace only reduces accidental local reuse.
 
 **Tests / build:** Targeted backend `passwordReset` + `passwordReset.mongo` `21` tests passed, including isolated Docker Mongo `127.0.0.1:27018/share_task27_password_reset` lifecycle/replay/JWT invalidation. Targeted frontend Reset/Forgot password `10` tests passed. Full frontend `47` suites / `323` tests passed. `npx tsc --noEmit` clean. Production frontend build compiled successfully. Full backend on isolated 27018: `18` suites passed; `user.test.js` and `sharedAccount.test.js` remain the documented pre-existing failures. Nothing committed or pushed. stash@{0} untouched.
+
+### Task 28 — Prototype freeze
+
+Documentation-only freeze record at baseline `f0a5b3b2279e685a4764241253fdf50547fd5130`. See `docs/PROTOTYPE_FREEZE.md`. No product behaviour changes.

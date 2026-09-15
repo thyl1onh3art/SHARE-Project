@@ -1,6 +1,6 @@
 # Known limitations
 
-Honest limits of the current SHARE prototype. This list is for reviewers, not a roadmap.
+Honest limits of the current SHARE prototype. This list is for reviewers, not a roadmap. The freeze snapshot is [PROTOTYPE_FREEZE.md](./PROTOTYPE_FREEZE.md).
 
 ## Money
 

@@ -16,9 +16,9 @@ Primary routes:
 | `/shared-accounts` | Legacy / setup list (deep links, archived pots, create-from-event) |
 | `/shared-accounts/:accountId` | Shared Account detail |
 | `/invitations` | Notifications |
-| `/login`, `/register` | Authentication |
+| `/login`, `/register`, `/forgot-password`, `/reset-password/:token` | Authentication |
 
-Secondary screens (Calendar, Photos, Map, Friends, personal activity) sit under **More**.
+Secondary screens under **More**: Friends, Personal tracking, Activity history, Calendar. `/gallery`, `/map`, and `/accommodations` redirect to Shared Accounts.
 
 ## Backend
 
@@ -46,7 +46,7 @@ There is no separate money-movement store. Recorded amounts are documents, not h
 
 ## Authentication
 
-Users register and log in. The API issues a JWT. The frontend stores the token and sends `Authorization: Bearer`. Protected React routes use `ProtectedRoute`.
+Users register and log in. The API issues a JWT that includes `authVersion`. The frontend stores the token and sends `Authorization: Bearer`. Protected React routes use `ProtectedRoute`. Forgot-password / reset-password is implemented; a successful reset increments that user’s `authVersion` so older JWTs for that user are rejected. Production SMTP is not configured in this repository.
 
 Email verification exists in code but is currently unmounted / disabled. Two-factor routes are mounted.
 
