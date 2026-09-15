@@ -28,22 +28,19 @@ Honest limits of the current SHARE prototype. This list is for reviewers, not a 
 
 ## Authentication
 
-- **Password reset — prototype limitation.** The password-reset flow is suitable only for private/local prototype testing. It must not be treated as production-ready authentication. During browser testing, reset-link replay behaviour was inconsistent despite the backend’s atomic token-consumption path (`findOneAndUpdate` + `$unset`) and direct API tests rejecting same-token replay.
-- Before public beta or real-user use:
-  - password-reset token consumption must be re-audited end-to-end
-  - same-token replay must be proven impossible in supported browsers
-  - production email delivery must be configured and tested
-  - already-issued JWT/session behaviour after password reset should be reviewed
-- `developmentResetUrl` is development-only. Production responses never include the raw token or reset URL.
+- **Password reset** is implemented (hashed tokens, expiry, atomic consume, generic unknown-email responses, JWT invalidation after a successful reset). It is still a prototype flow: production SMTP is not configured in this repository, and the product should not be treated as production-secure authentication merely because these controls exist.
+- Browser cache/history hardening (`Cache-Control: no-store` on reset-related API responses, replace-navigation off the used token URL) reduces accidental reuse/exposure. The backend remains the authority for whether a token is valid.
+- `developmentResetUrl` is development-only. Production API responses never include the raw token or reset URL.
 - Testers should use disposable/test passwords, not passwords reused elsewhere.
-- SHARE uses stateless JWTs with no revocation list. A password reset does not invalidate already-issued sign-in tokens; they remain valid until they expire (7 days).
+- Successful password reset increments per-user `authVersion` and existing JWTs for that user are rejected. Tokens for other users are unaffected. This is not a global revocation list or refresh-token system; JWTs still expire after 7 days.
+- Real production email delivery remains a deployment requirement (`EMAIL_USER` / `EMAIL_PASS` / SMTP host). Production without those credentials fails closed for sending mail and still returns the generic forgot-password message.
 
 ## Secondary features
 
 - `/gallery`, `/map`, and `/accommodations` redirect to Shared Accounts. The old Photos / Map / Places to stay screens are not in primary navigation.
 - Calendar sharing settings may be unavailable if the optional endpoint is not present.
 - Email verification is implemented but currently disabled / unmounted.
-- Password reset reuses the existing nodemailer helper. Railway/production email is not configured by this task, so public production use still needs real email delivery.
+- Password reset reuses the existing nodemailer helper. Railway/production SMTP is still unconfigured, so public production forgot-password email delivery will not work until those credentials are set as a deployment step.
 
 ## Tests
 

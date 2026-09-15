@@ -1,8 +1,8 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import axios from 'axios';
-import ResetPassword from './ResetPassword';
+import ResetPassword, { ResetPasswordComplete } from './ResetPassword';
 
 jest.mock('axios', () => ({
   __esModule: true,
@@ -16,16 +16,18 @@ jest.mock('axios', () => ({
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 const VALID_TOKEN = 'a'.repeat(64);
 
-function renderReset(token = VALID_TOKEN) {
-  return render(
-    <MemoryRouter initialEntries={[`/reset-password/${token}`]}>
-      <Routes>
-        <Route path="/reset-password/:token" element={<ResetPassword />} />
-        <Route path="/forgot-password" element={<div>Forgot password page</div>} />
-        <Route path="/login" element={<div>Sign in page</div>} />
-      </Routes>
-    </MemoryRouter>
+function renderReset(token = VALID_TOKEN, prefixEntries: string[] = []) {
+  const router = createMemoryRouter(
+    [
+      { path: '/login', element: <div>Sign in page</div> },
+      { path: '/forgot-password', element: <div>Forgot password page</div> },
+      { path: '/reset-password/complete', element: <ResetPasswordComplete /> },
+      { path: '/reset-password/:token', element: <ResetPassword /> }
+    ],
+    { initialEntries: [...prefixEntries, `/reset-password/${token}`] }
   );
+  const view = render(<RouterProvider router={router} />);
+  return { ...view, router };
 }
 
 describe('Reset password page', () => {
@@ -56,10 +58,10 @@ describe('Reset password page', () => {
     expect(mockedAxios.post).not.toHaveBeenCalled();
   });
 
-  it('shows success and a back to sign in action after a valid reset', async () => {
+  it('replaces the token URL after a successful reset and keeps success copy token-free', async () => {
     (mockedAxios.get as jest.Mock).mockResolvedValue({ data: { valid: true } });
     (mockedAxios.post as jest.Mock).mockResolvedValue({ data: { message: 'Password updated' } });
-    renderReset();
+    const { router } = renderReset(VALID_TOKEN, ['/login']);
     await screen.findByRole('heading', { name: /choose a new password/i });
 
     fireEvent.change(screen.getByLabelText(/^new password$/i), { target: { value: 'NewPass123' } });
@@ -68,7 +70,18 @@ describe('Reset password page', () => {
 
     expect(await screen.findByTestId('reset-password-success')).toHaveTextContent('Password updated');
     expect(screen.getByText(/your password has been changed successfully/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('link', { name: /back to sign in/i }));
+    expect(screen.getByRole('link', { name: /back to sign in/i })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/reset-password/complete');
+    expect(router.state.location.pathname).not.toContain(VALID_TOKEN);
+    expect(JSON.stringify(router.state.location)).not.toContain(VALID_TOKEN);
+    expect(screen.queryByText(VALID_TOKEN)).not.toBeInTheDocument();
+    expect(mockedAxios.get).toHaveBeenCalledWith(`/users/reset-password/${VALID_TOKEN}`);
+    expect(mockedAxios.get).not.toHaveBeenCalledWith('/users/reset-password/complete');
+
+    await act(async () => {
+      await router.navigate(-1);
+    });
+    expect(router.state.location.pathname).toBe('/login');
     expect(screen.getByText('Sign in page')).toBeInTheDocument();
   });
 

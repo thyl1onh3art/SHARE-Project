@@ -41,8 +41,18 @@ function resetTokenLookupQuery(rawToken, now = new Date()) {
 function consumeResetTokenUpdate(hashedPassword) {
   return {
     $set: { password: hashedPassword },
+    $inc: { authVersion: 1 },
     $unset: { passwordResetTokenHash: 1, passwordResetExpiresAt: 1 }
   };
+}
+
+function applyNoStore(res) {
+  res.set('Cache-Control', 'no-store');
+}
+
+function noStoreResetResponses(_req, res, next) {
+  applyNoStore(res);
+  next();
 }
 
 function isResetTokenFormatValid(token) {
@@ -89,6 +99,8 @@ module.exports = {
   clearResetToken,
   resetTokenLookupQuery,
   consumeResetTokenUpdate,
+  applyNoStore,
+  noStoreResetResponses,
   isResetTokenFormatValid,
   frontendOrigin,
   buildResetUrl,

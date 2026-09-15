@@ -1,6 +1,7 @@
 const express = require('express');
 const request = require('supertest');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const {
   GENERIC_REQUEST_MESSAGE,
@@ -33,7 +34,8 @@ function mockMatchesQuery(user, query) {
 
 jest.mock('../models/User', () => ({
   findOne: jest.fn(),
-  findOneAndUpdate: jest.fn()
+  findOneAndUpdate: jest.fn(),
+  findById: jest.fn()
 }));
 
 jest.mock('../services/emailService', () => ({
@@ -90,6 +92,7 @@ describe('password reset helpers', () => {
     expect(user).not.toHaveProperty('passwordResetExpiresAt');
     expect(consumeResetTokenUpdate('hashed')).toEqual({
       $set: { password: 'hashed' },
+      $inc: { authVersion: 1 },
       $unset: { passwordResetTokenHash: 1, passwordResetExpiresAt: 1 }
     });
   });
@@ -120,12 +123,23 @@ describe('password reset API', () => {
       const user = mockUsers.find((row) => mockMatchesQuery(row, query));
       if (!user) return null;
       if (update.$set) Object.assign(user, update.$set);
+      if (update.$inc) {
+        Object.entries(update.$inc).forEach(([key, amount]) => {
+          user[key] = (user[key] || 0) + amount;
+        });
+      }
       if (update.$unset) {
         Object.keys(update.$unset).forEach((key) => {
           delete user[key];
         });
       }
       return user;
+    });
+    User.findById.mockImplementation((id) => {
+      const user = mockUsers.find((row) => String(row._id) === String(id)) || null;
+      return {
+        select: async () => (user ? { ...user } : null)
+      };
     });
     emailService.sendPasswordResetEmail.mockResolvedValue({ success: true });
     process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-key-for-testing-only';
@@ -201,6 +215,7 @@ describe('password reset API', () => {
 
     expect(user.passwordResetTokenHash).toBeUndefined();
     expect(user.passwordResetExpiresAt).toBeUndefined();
+    expect(user.authVersion).toBe(1);
     expect(await bcrypt.compare('NewPass123', user.password)).toBe(true);
     expect(await bcrypt.compare('OldPass123', user.password)).toBe(false);
 
@@ -364,5 +379,112 @@ describe('password reset API', () => {
       .post('/api/users/login')
       .send({ email: 'sam@example.com', password: 'SecondPass123' })
       .expect(400);
+  });
+
+  it('sets Cache-Control: no-store on forgot and reset responses', async () => {
+    seedUser();
+    const forgot = await request(app)
+      .post('/api/users/forgot-password')
+      .send({ email: 'sam@example.com' })
+      .expect(200);
+    expect(forgot.headers['cache-control']).toBe('no-store');
+
+    const raw = forgot.body.developmentResetUrl.split('/reset-password/')[1];
+    const check = await request(app)
+      .get(`/api/users/reset-password/${raw}`)
+      .expect(200);
+    expect(check.headers['cache-control']).toBe('no-store');
+
+    const invalid = await request(app)
+      .get(`/api/users/reset-password/${'c'.repeat(64)}`)
+      .expect(400);
+    expect(invalid.headers['cache-control']).toBe('no-store');
+
+    const weak = await request(app)
+      .post(`/api/users/reset-password/${raw}`)
+      .send({ password: 'Pass12', confirmPassword: 'Pass12' })
+      .expect(400);
+    expect(weak.headers['cache-control']).toBe('no-store');
+    expect(weak.body.message).toBe('Validation failed');
+  });
+
+  it('rejects empty and too-short passwords without consuming the token', async () => {
+    const user = seedUser();
+    const forgot = await request(app)
+      .post('/api/users/forgot-password')
+      .send({ email: 'sam@example.com' })
+      .expect(200);
+    const raw = forgot.body.developmentResetUrl.split('/reset-password/')[1];
+    const hashBefore = user.passwordResetTokenHash;
+
+    const empty = await request(app)
+      .post(`/api/users/reset-password/${raw}`)
+      .send({ password: '', confirmPassword: '' })
+      .expect(400);
+    expect(empty.body.message).toBe('Validation failed');
+
+    const short = await request(app)
+      .post(`/api/users/reset-password/${raw}`)
+      .send({ password: 'Pass12', confirmPassword: 'Pass12' })
+      .expect(400);
+    expect(short.body.message).toBe('Validation failed');
+
+    expect(user.passwordResetTokenHash).toBe(hashBefore);
+  });
+
+  it('invalidates JWTs issued before a password reset for that user only', async () => {
+    const user = seedUser();
+    const other = seedUser({ email: 'other@example.com' });
+
+    const login = await request(app)
+      .post('/api/users/login')
+      .send({ email: 'sam@example.com', password: 'OldPass123' })
+      .expect(200);
+    const oldToken = login.body.token;
+    expect(jwt.decode(oldToken).authVersion).toBe(0);
+
+    const otherLogin = await request(app)
+      .post('/api/users/login')
+      .send({ email: 'other@example.com', password: 'OldPass123' })
+      .expect(200);
+
+    await request(app)
+      .get('/api/users/me')
+      .set('Authorization', `Bearer ${oldToken}`)
+      .expect(200);
+
+    const forgot = await request(app)
+      .post('/api/users/forgot-password')
+      .send({ email: 'sam@example.com' })
+      .expect(200);
+    const raw = forgot.body.developmentResetUrl.split('/reset-password/')[1];
+
+    await request(app)
+      .post(`/api/users/reset-password/${raw}`)
+      .send({ password: 'NewPass123', confirmPassword: 'NewPass123' })
+      .expect(200);
+    expect(user.authVersion).toBe(1);
+    expect(other.authVersion || 0).toBe(0);
+
+    await request(app)
+      .get('/api/users/me')
+      .set('Authorization', `Bearer ${oldToken}`)
+      .expect(401);
+
+    await request(app)
+      .get('/api/users/me')
+      .set('Authorization', `Bearer ${otherLogin.body.token}`)
+      .expect(200);
+
+    const nextLogin = await request(app)
+      .post('/api/users/login')
+      .send({ email: 'sam@example.com', password: 'NewPass123' })
+      .expect(200);
+    expect(jwt.decode(nextLogin.body.token).authVersion).toBe(1);
+
+    await request(app)
+      .get('/api/users/me')
+      .set('Authorization', `Bearer ${nextLogin.body.token}`)
+      .expect(200);
   });
 });

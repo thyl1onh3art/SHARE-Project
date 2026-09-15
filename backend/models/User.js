@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   passwordResetTokenHash: { type: String },
   passwordResetExpiresAt: { type: Date },
+  authVersion: { type: Number, default: 0 },
   calendarSettings: {
     privacy: { type: String, enum: ['private', 'shared'], default: 'private' },
     sharedWith: [{ type: String }] // Array of email addresses

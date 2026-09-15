@@ -9,6 +9,7 @@ const {
   validateResetPassword
 } = require('../middleware/validation');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { noStoreResetResponses } = require('../utils/passwordReset');
 
 // Register
 router.post('/register', validateUserRegistration, asyncHandler(userController.register));
@@ -17,9 +18,9 @@ router.post('/register', validateUserRegistration, asyncHandler(userController.r
 router.post('/login', validateUserLogin, asyncHandler(userController.login));
 
 // Forgot / reset password
-router.post('/forgot-password', validateForgotPassword, asyncHandler(userController.forgotPassword));
-router.get('/reset-password/:token', asyncHandler(userController.getResetPassword));
-router.post('/reset-password/:token', validateResetPassword, asyncHandler(userController.resetPassword));
+router.post('/forgot-password', noStoreResetResponses, validateForgotPassword, asyncHandler(userController.forgotPassword));
+router.get('/reset-password/:token', noStoreResetResponses, asyncHandler(userController.getResetPassword));
+router.post('/reset-password/:token', noStoreResetResponses, validateResetPassword, asyncHandler(userController.resetPassword));
 
 // Get current user profile
 router.get('/me', auth, asyncHandler(userController.getProfile));

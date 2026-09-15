@@ -1,13 +1,39 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { userFacingError } from '../utils/userFacingError';
 import { validateRegistrationPassword } from '../utils/passwordRules';
 
 const INVALID_TOKEN_MESSAGE = 'This password reset link is invalid or has expired.';
 
+export const ResetPasswordComplete: React.FC = () => (
+  <div style={{
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: '80vh'
+  }}>
+    <div className="card" style={{ width: '100%', maxWidth: '400px' }}>
+      <div data-testid="reset-password-success">
+        <div className="card-header">
+          <h2 className="card-title">Password updated</h2>
+        </div>
+        <p style={{ color: '#2d3748', lineHeight: 1.5 }}>
+          Your password has been changed successfully.
+        </p>
+        <p className="text-center" style={{ marginTop: '1.25rem' }}>
+          <Link to="/login" className="btn btn-primary" style={{ display: 'inline-block' }}>
+            Back to sign in
+          </Link>
+        </p>
+      </div>
+    </div>
+  </div>
+);
+
 const ResetPassword: React.FC = () => {
   const { token = '' } = useParams<{ token: string }>();
+  const navigate = useNavigate();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -15,7 +41,6 @@ const ResetPassword: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [checkingToken, setCheckingToken] = useState(true);
   const [tokenInvalid, setTokenInvalid] = useState(false);
-  const [updated, setUpdated] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,7 +78,7 @@ const ResetPassword: React.FC = () => {
     setLoading(true);
     try {
       await axios.post(`/users/reset-password/${token}`, { password, confirmPassword });
-      setUpdated(true);
+      navigate('/reset-password/complete', { replace: true });
     } catch (err: unknown) {
       const message = userFacingError(err, INVALID_TOKEN_MESSAGE);
       if (/invalid or has expired/i.test(message)) {
@@ -76,20 +101,6 @@ const ResetPassword: React.FC = () => {
       <div className="card" style={{ width: '100%', maxWidth: '400px' }}>
         {checkingToken ? (
           <p style={{ color: '#4a5568' }}>Checking reset link…</p>
-        ) : updated ? (
-          <div data-testid="reset-password-success">
-            <div className="card-header">
-              <h2 className="card-title">Password updated</h2>
-            </div>
-            <p style={{ color: '#2d3748', lineHeight: 1.5 }}>
-              Your password has been changed successfully.
-            </p>
-            <p className="text-center" style={{ marginTop: '1.25rem' }}>
-              <Link to="/login" className="btn btn-primary" style={{ display: 'inline-block' }}>
-                Back to sign in
-              </Link>
-            </p>
-          </div>
         ) : tokenInvalid ? (
           <div data-testid="reset-password-invalid">
             <div className="card-header">

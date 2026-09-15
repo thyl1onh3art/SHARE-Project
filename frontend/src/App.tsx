@@ -4,7 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import Login from './components/Login';
 import Register from './components/Register';
 import ForgotPassword from './components/ForgotPassword';
-import ResetPassword from './components/ResetPassword';
+import ResetPassword, { ResetPasswordComplete } from './components/ResetPassword';
 import FinancialRecords from './components/FinancialRecords';
 import PersonalFinance from './components/PersonalFinance';
 import SharedAccounts from './components/SharedAccounts';
@@ -33,6 +33,7 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password/complete" element={<ResetPasswordComplete />} />
               <Route path="/reset-password/:token" element={<ResetPassword />} />
               <Route path="/invite/:token" element={<InviteLanding />} />
               <Route

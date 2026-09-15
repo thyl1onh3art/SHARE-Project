@@ -89,7 +89,9 @@ app.use(cors(corsOptions));
 app.use(compression());
 
 // Logging middleware
-app.use(morgan('combined'));
+app.use(morgan('combined', {
+  skip: (req) => /\/reset-password(?:\/|$)/i.test(req.originalUrl || req.url || '')
+}));
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));

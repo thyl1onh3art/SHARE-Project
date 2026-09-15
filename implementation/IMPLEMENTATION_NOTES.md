@@ -2400,3 +2400,20 @@ When **Pay now** is already eligible (`canPaySinglePayment` and no pending/compl
 
 Small UX/a11y/docs pass only: overflow-wrap on long names/amounts, button/nav focus-visible, hamburger 44px tap target, Pay account labels, sticky-nav stacking under modals, and Known Limitations invite-link correction. No payment/invite/contribution architecture changes.
 
+### Task 27 — Password reset production hardening
+
+Hardened the existing forgot/reset flow; did not add a second auth system.
+
+**Kept:** cryptographically random 32-byte tokens, SHA-256 hashes only, 60-minute expiry, generic unknown-email responses, bcrypt hashing, atomic `findOneAndUpdate` + `$unset` consumption, development-only `developmentResetUrl`.
+
+**Cache / history:** Forgot/reset HTTP responses set `Cache-Control: no-store` on the server (route middleware + handlers). After a successful reset the React app `replace`s to `/reset-password/complete` so the used token URL is not left as a useful history entry. The token is not shown on the success screen. The client does not attempt to be authoritative about reuse.
+
+**JWT invalidation:** Login JWTs now include `authVersion` (default `0`, matching existing users). A successful reset `$inc`s that user’s `authVersion`. Auth middleware loads `authVersion` and rejects tokens whose version does not match. Other users are unaffected. No refresh-token architecture.
+
+**Email:** Duplicate `sendPasswordResetEmail` removed. Production without `EMAIL_USER`/`EMAIL_PASS` leaves the transporter unset and send returns `success: false` without throwing. Forgot-password still returns the generic message. Real SMTP remains a deployment requirement. `developmentResetUrl` still omitted when `NODE_ENV === "production"`.
+
+**Password rules:** Backend minimum length aligned to 8 characters (same complexity class as the frontend). Empty/too-short reset bodies fail validation and do not consume the token.
+
+**Limitation:** This does not make SHARE production-secure. Production email is still unconfigured. Browser replay of a used URL is rejected by the backend; history replace only reduces accidental local reuse.
+
+**Tests / build:** Targeted backend `passwordReset` + `passwordReset.mongo` `21` tests passed, including isolated Docker Mongo `127.0.0.1:27018/share_task27_password_reset` lifecycle/replay/JWT invalidation. Targeted frontend Reset/Forgot password `10` tests passed. Full frontend `47` suites / `323` tests passed. `npx tsc --noEmit` clean. Production frontend build compiled successfully. Full backend on isolated 27018: `18` suites passed; `user.test.js` and `sharedAccount.test.js` remain the documented pre-existing failures. Nothing committed or pushed. stash@{0} untouched.

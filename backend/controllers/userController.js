@@ -9,10 +9,10 @@ const emailService = require('../services/emailService');
 const {
   GENERIC_INVALID_MESSAGE,
   generateResetToken,
-  hashResetToken,
   applyResetToken,
   resetTokenLookupQuery,
   consumeResetTokenUpdate,
+  applyNoStore,
   isResetTokenFormatValid,
   buildResetUrl,
   forgotPasswordResponse
@@ -105,7 +105,7 @@ exports.login = async (req, res) => {
     }
     // Generate JWT
     const token = jwt.sign(
-      { userId: user._id, email: user.email },
+      { userId: user._id, email: user.email, authVersion: user.authVersion || 0 },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -117,9 +117,9 @@ exports.login = async (req, res) => {
 
 exports.forgotPassword = async (req, res) => {
   try {
+    applyNoStore(res);
     const email = req.body.email;
     const rawToken = generateResetToken();
-    hashResetToken(rawToken);
 
     const user = await User.findOne({ email });
     let developmentResetUrl;
@@ -149,6 +149,7 @@ async function findUserForResetToken(rawToken) {
 
 exports.getResetPassword = async (req, res) => {
   try {
+    applyNoStore(res);
     const user = await findUserForResetToken(req.params.token);
     if (!user) {
       return res.status(400).json({ message: GENERIC_INVALID_MESSAGE });
@@ -161,6 +162,7 @@ exports.getResetPassword = async (req, res) => {
 
 exports.resetPassword = async (req, res) => {
   try {
+    applyNoStore(res);
     if (!isResetTokenFormatValid(req.params.token)) {
       return res.status(400).json({ message: GENERIC_INVALID_MESSAGE });
     }
