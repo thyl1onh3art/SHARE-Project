@@ -2,6 +2,8 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
 import Navbar from './Navbar';
 
 jest.mock('axios', () => ({
@@ -68,6 +70,29 @@ describe('Navbar primary entry point', () => {
     expect(screen.queryByRole('link', { name: 'Places to stay' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Accommodation' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Accommodations' })).not.toBeInTheDocument();
+    const nav = screen.getByRole('navigation');
+    expect(nav).toHaveClass('share-nav');
+    expect(nav).toHaveClass('share-nav-sticky');
+    expect(screen.getByRole('button', { name: 'Open menu' })).toBeInTheDocument();
+  });
+
+  it('keeps sticky navigation in document flow with the existing mobile menu control', () => {
+    render(
+      <MemoryRouter>
+        <Navbar />
+      </MemoryRouter>
+    );
+
+    const nav = screen.getByRole('navigation');
+    expect(nav).toHaveClass('share-nav-sticky');
+    expect(nav.parentElement).not.toBeNull();
+    const css = fs.readFileSync(path.join(__dirname, '../App.css'), 'utf8');
+    expect(css).toMatch(/\.share-nav\s*\{[^}]*position:\s*sticky/);
+    expect(css).toMatch(/\.share-nav\s*\{[^}]*top:\s*0/);
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    expect(screen.getByRole('button', { name: 'Close menu' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getAllByRole('link', { name: 'Shared Accounts' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: 'Notifications' }).length).toBeGreaterThan(0);
   });
 
   it('returns to Home when the SHARE logo is clicked', () => {

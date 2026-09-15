@@ -2392,3 +2392,7 @@ Badges appear on Home cards, Shared Accounts overview (`/events`) and list (`/sh
 
 When **Pay now** is already eligible (`canPaySinglePayment` and no pending/completed final payment), Shared Account detail shows local **Pay with** choices beside it: Apple Pay, Debit / credit card, Google Pay, PayPal. Default is Debit / credit card. Selection is frontend-only and is not sent to `/payment-requests`. Pay now still opens the existing Final payment form. Hidden below target, while waiting for approval, after completion, and when closed. Copy: “Prototype payment option — no real money is processed.” No Stripe/PayPal/Apple/Google SDKs or card collection.
 
+### Task 25 — Sticky primary navigation
+
+`.share-nav` uses CSS `position: sticky; top: 0` (plus `flex-shrink: 0`, `align-self: flex-start`, `width: 100%`) so the existing SHARE / Shared Accounts / Notifications / More bar stays visible while scrolling. It remains in normal document flow as the first child of `.App`, so no extra `main-content` padding or duplicated navbar is required. No scroll listeners. Dropdowns and the mobile hamburger panel stay inside the same `<nav>`.
+

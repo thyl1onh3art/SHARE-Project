@@ -150,7 +150,7 @@ const Navbar: React.FC = () => {
   );
 
   return (
-    <nav className="share-nav">
+    <nav className="share-nav share-nav-sticky">
       <div className="share-nav-inner">
         <Link
           to="/"
