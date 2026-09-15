@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { userFacingError } from '../utils/userFacingError';
+import { safeInviteReturnTo, withReturnTo } from '../utils/inviteLink';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -11,6 +12,8 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnTo = safeInviteReturnTo(searchParams.get('returnTo'));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,7 +22,7 @@ const Login: React.FC = () => {
 
     try {
       await login(email, password);
-      navigate('/');
+      navigate(returnTo || '/');
     } catch (err: unknown) {
       setError(userFacingError(err, 'Login failed'));
     } finally {
@@ -120,7 +123,7 @@ const Login: React.FC = () => {
         <div className="text-center">
           <p style={{ color: '#4a5568' }}>
             Don't have an account?{' '}
-            <Link to="/register" style={{ color: '#667eea', textDecoration: 'none' }}>
+            <Link to={withReturnTo('/register', returnTo)} style={{ color: '#667eea', textDecoration: 'none' }}>
               Register here
             </Link>
           </p>

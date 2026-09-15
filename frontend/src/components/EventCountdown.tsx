@@ -22,7 +22,9 @@ import {
 } from '../utils/tripHome';
 import { userFacingError } from '../utils/userFacingError';
 import { openNativeDatePicker } from '../utils/openNativeDatePicker';
+import { currentUserSharedAccountRole } from '../utils/sharedAccountRole';
 import ContributionPlanFields from './ContributionPlanFields';
+import SharedAccountRoleBadge from './SharedAccountRoleBadge';
 
 interface Event {
   _id?: string;
@@ -265,8 +267,8 @@ const EventCountdown: React.FC = () => {
   const cardFromAccount = (account: any, isClosed: boolean): DashboardCard => {
     const event = eventByPotId.get(String(account._id));
     const tripMoney = event?.tripMoney;
-    const owner = tripMoney?.owner || account.owner;
-    const members = tripMoney?.members || account.members;
+    const owner = account.owner || tripMoney?.owner;
+    const members = Array.isArray(account.members) ? account.members : tripMoney?.members;
     const recorded = tripMoney?.recordedTotal != null
       ? Number(tripMoney.recordedTotal)
       : contributionProgressTotal(account.financeRecords || [], paymentsForAccount(account._id));
@@ -361,6 +363,11 @@ const EventCountdown: React.FC = () => {
       ? card.owner._id
       : card.owner;
     const isOrganiser = !!currentUserId && !!ownerId && String(ownerId) === String(currentUserId);
+    const viewerRole = currentUserSharedAccountRole({
+      userId: currentUserId,
+      owner: card.owner,
+      members: card.members
+    });
     const showCloseAccount = !card.isClosed && hasCompletedPayment && isOrganiser;
 
     const openAccount = () => navigate(`/shared-accounts/${card.id}`);
@@ -400,7 +407,10 @@ const EventCountdown: React.FC = () => {
       >
         <div className="trip-list-card-header">
           <div>
-            <h3 className="trip-list-title">{card.name}</h3>
+            <div className="shared-account-title-row">
+              <h3 className="trip-list-title">{card.name}</h3>
+              <SharedAccountRoleBadge role={viewerRole} />
+            </div>
             {card.isClosed && (
               <p className="trip-list-countdown">Closed</p>
             )}

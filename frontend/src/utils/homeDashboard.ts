@@ -12,6 +12,7 @@ import {
   personRecordId,
   startOfLocalCalendarDay
 } from './tripHome';
+import { currentUserSharedAccountRole, SharedAccountRole } from './sharedAccountRole';
 
 export const HOME_ACCOUNT_PREVIEW_LIMIT = 4;
 export const HOME_ATTENTION_LIMIT = 5;
@@ -37,6 +38,7 @@ export interface HomeAccountSummary {
   needsAction: boolean;
   needsPlan: boolean;
   isOrganiser: boolean;
+  viewerRole: SharedAccountRole | null;
   openTo: string;
 }
 
@@ -183,8 +185,12 @@ export function buildHomeAccountSummaries(input: {
     const id = String(account._id);
     const event = eventByPot.get(id);
     const tripMoney = event?.tripMoney;
-    const owner = tripMoney?.owner || account.owner;
-    const isOrganiser = personRecordId(owner) === userId;
+    const isOrganiser = personRecordId(account.owner) === userId;
+    const viewerRole = currentUserSharedAccountRole({
+      userId,
+      owner: account.owner,
+      members: account.members
+    });
     const accountPayments = paymentsForAccount(payments, id);
     const recorded = tripMoney?.recordedTotal != null
       ? Number(tripMoney.recordedTotal)
@@ -234,6 +240,7 @@ export function buildHomeAccountSummaries(input: {
       needsAction: approvalNeeded || readyToPay || readyToClose || needsPlan,
       needsPlan,
       isOrganiser,
+      viewerRole,
       openTo: `/shared-accounts/${id}`
     });
   });

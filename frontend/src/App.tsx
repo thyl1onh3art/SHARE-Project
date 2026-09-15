@@ -19,6 +19,7 @@ import Profile from './components/Profile';
 import Settings from './components/Settings';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
+import InviteLanding from './components/InviteLanding';
 import './App.css';
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
               <Route path="/register" element={<Register />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password/:token" element={<ResetPassword />} />
+              <Route path="/invite/:token" element={<InviteLanding />} />
               <Route
                 path="/"
                 element={

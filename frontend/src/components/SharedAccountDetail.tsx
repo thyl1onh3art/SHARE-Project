@@ -30,7 +30,10 @@ import {
   StoredContributionPlan
 } from '../utils/tripHome';
 import { userFacingError } from '../utils/userFacingError';
+import { currentUserSharedAccountRole } from '../utils/sharedAccountRole';
 import MemberContributionPlanPanel from './MemberContributionPlanPanel';
+import InviteSharePanel from './InviteSharePanel';
+import SharedAccountRoleBadge from './SharedAccountRoleBadge';
 
 interface FinanceRecord {
   _id: string;
@@ -136,9 +139,11 @@ const SharedAccountDetail: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId]);
 
-  const fetchAccountDetails = async () => {
+  const fetchAccountDetails = async (options?: { silent?: boolean }) => {
     try {
-      setLoading(true);
+      if (!options?.silent) {
+        setLoading(true);
+      }
       setError('');
 
       // Fetch account details
@@ -623,13 +628,17 @@ const SharedAccountDetail: React.FC = () => {
     setOrganiserTransferSubmitting(true);
     setError('');
     try {
-      await axios.post(`/shared-accounts/${accountId}/transfer-ownership`, {
+      const response = await axios.post(`/shared-accounts/${accountId}/transfer-ownership`, {
         newOwnerId: organiserTransferId,
         removeCurrentOwner: false
       });
+      const transferredAccount = response.data?.account;
+      if (transferredAccount) {
+        setAccount(transferredAccount);
+      }
       setShowOrganiserTransferModal(false);
       setOrganiserTransferId('');
-      await fetchAccountDetails();
+      await fetchAccountDetails({ silent: true });
     } catch (err: any) {
       setError(userFacingError(err, 'Failed to transfer organiser role'));
     } finally {
@@ -661,6 +670,11 @@ const SharedAccountDetail: React.FC = () => {
   const allParticipants = [account.owner, ...account.members].filter(Boolean);
   const ownerId = typeof account.owner === 'object' ? account.owner._id : account.owner;
   const isOwner = String(ownerId) === String(userId);
+  const viewerRole = currentUserSharedAccountRole({
+    userId,
+    owner: account.owner,
+    members: account.members
+  });
   const hasOtherTravellers = Array.isArray(account.members) && account.members.length > 0;
   const isSoleOwner = isOwner && !hasOtherTravellers;
   const isArchived = !!account.isDeleted;
@@ -871,9 +885,11 @@ const SharedAccountDetail: React.FC = () => {
         </div>
       )}
 
-      {/* Contribution progress hero */}
       <div className="card trip-money-hero">
-        <h1 className="trip-money-title">{account.name}</h1>
+        <div className="shared-account-title-row">
+          <h1 className="trip-money-title">{account.name}</h1>
+          <SharedAccountRoleBadge role={viewerRole} />
+        </div>
         {account.description ? (
           <p className="trip-money-purpose">{account.description}</p>
         ) : (
@@ -1180,6 +1196,10 @@ const SharedAccountDetail: React.FC = () => {
         )}
 
       </div>
+
+      {isOwner && !isArchived && (
+        <InviteSharePanel accountId={account._id} accountName={account.name} />
+      )}
 
       <MemberContributionPlanPanel
         key={account._id}
@@ -2091,8 +2111,9 @@ const SharedAccountDetail: React.FC = () => {
               Choose a current member to become organiser. This transfers administration only — not money.
             </p>
             <div className="form-group">
-              <label className="form-label">Make organiser</label>
+              <label className="form-label" htmlFor="organiser-transfer-select">Make organiser</label>
               <select
+                id="organiser-transfer-select"
                 className="form-input"
                 value={organiserTransferId}
                 onChange={(e) => setOrganiserTransferId(e.target.value)}

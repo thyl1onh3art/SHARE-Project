@@ -12,6 +12,7 @@ import {
   canActOnPendingPayment,
   paymentApprovalNotificationCopy
 } from '../utils/tripHome';
+import { buildInviteShareMessage, inviteUrlFromToken } from '../utils/inviteLink';
 
 interface SharedAccountRef {
   _id: string;
@@ -43,6 +44,7 @@ interface SharedAccount {
   _id: string;
   name: string;
   description?: string;
+  owner?: string | { _id?: string };
 }
 
 interface PaymentApprovalRequest {
@@ -174,7 +176,7 @@ const Invitations: React.FC = () => {
     );
   };
 
-  const buildShareMessage = (tripName: string) => {
+  const buildLoginFallbackMessage = (tripName: string) => {
     const inviter = user?.name || 'A friend';
     const loginUrl = `${window.location.origin}/login`;
     return (
@@ -184,24 +186,39 @@ const Invitations: React.FC = () => {
     );
   };
 
-  const copyInviteMessage = async (tripName: string) => {
-    const message = buildShareMessage(tripName);
+  const shareMessageForAccount = async (tripName: string, accountId?: string) => {
+    if (accountId) {
+      try {
+        const response = await axios.post('/invites/link', { sharedAccountId: accountId });
+        const token = String(response.data?.token || '');
+        if (token) {
+          return buildInviteShareMessage(tripName, inviteUrlFromToken(token));
+        }
+      } catch {
+        // Organiser-only link create — fall back for members
+      }
+    }
+    return buildLoginFallbackMessage(tripName);
+  };
+
+  const copyInviteMessage = async (tripName: string, accountId?: string) => {
+    const message = await shareMessageForAccount(tripName, accountId);
     try {
       await navigator.clipboard.writeText(message);
-      setShareNotice('Invite message copied. Paste it into WhatsApp or any chat.');
+      setShareNotice('Invite link copied. Paste it into WhatsApp or any chat.');
     } catch {
-      setShareNotice('Could not copy automatically. Use Share via WhatsApp instead.');
+      setShareNotice('Could not copy automatically. Use Share instead.');
     }
   };
 
-  const shareViaWhatsApp = (tripName: string) => {
-    const message = buildShareMessage(tripName);
+  const shareViaWhatsApp = async (tripName: string, accountId?: string) => {
+    const message = await shareMessageForAccount(tripName, accountId);
     const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const shareNative = async (tripName: string) => {
-    const message = buildShareMessage(tripName);
+  const shareNative = async (tripName: string, accountId?: string) => {
+    const message = await shareMessageForAccount(tripName, accountId);
     if (navigator.share) {
       try {
         await navigator.share({
@@ -213,7 +230,7 @@ const Invitations: React.FC = () => {
         // User cancelled or share failed — fall through to copy
       }
     }
-    await copyInviteMessage(tripName);
+    await copyInviteMessage(tripName, accountId);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -322,6 +339,10 @@ const Invitations: React.FC = () => {
 
   const renderInviteCard = (invitation: Invitation, role: 'received' | 'sent') => {
     const tripName = getAccountName(invitation.sharedAccount);
+    const accountId =
+      typeof invitation.sharedAccount === 'object'
+        ? invitation.sharedAccount?._id
+        : invitation.sharedAccount;
     const expired = isExpired(invitation.expiresAt) && invitation.status === 'pending';
     const isUnread =
       role === 'received' &&
@@ -407,15 +428,15 @@ const Invitations: React.FC = () => {
             <>
               <button
                 type="button"
-                onClick={() => copyInviteMessage(tripName)}
+                onClick={() => copyInviteMessage(tripName, accountId)}
                 className="btn btn-secondary"
                 style={{ padding: '6px 12px', fontSize: '13px' }}
               >
-                Copy invite
+                Copy invite link
               </button>
               <button
                 type="button"
-                onClick={() => shareViaWhatsApp(tripName)}
+                onClick={() => shareViaWhatsApp(tripName, accountId)}
                 className="btn btn-secondary"
                 style={{ padding: '6px 12px', fontSize: '13px' }}
               >
@@ -454,7 +475,7 @@ const Invitations: React.FC = () => {
           </button>
         </div>
         <div className="trip-money-transparency" style={{ marginTop: '1rem' }}>
-          Invitations add people to a Shared Account. They accept after they log in — there is no public invite link yet.
+          Invitations add people to a Shared Account. They accept after they log in. Organisers can also copy a one-use invite link.
         </div>
       </div>
 
@@ -529,15 +550,15 @@ const Invitations: React.FC = () => {
                   type="button"
                   className="btn btn-secondary"
                   style={{ padding: '6px 12px', fontSize: '13px' }}
-                  onClick={() => copyInviteMessage(selectedTripName)}
+                  onClick={() => copyInviteMessage(selectedTripName, formData.sharedAccountId)}
                 >
-                  Copy invite
+                  Copy invite link
                 </button>
                 <button
                   type="button"
                   className="btn btn-secondary"
                   style={{ padding: '6px 12px', fontSize: '13px' }}
-                  onClick={() => shareViaWhatsApp(selectedTripName)}
+                  onClick={() => shareViaWhatsApp(selectedTripName, formData.sharedAccountId)}
                 >
                   Share on WhatsApp
                 </button>
@@ -545,13 +566,13 @@ const Invitations: React.FC = () => {
                   type="button"
                   className="btn btn-secondary"
                   style={{ padding: '6px 12px', fontSize: '13px' }}
-                  onClick={() => shareNative(selectedTripName)}
+                  onClick={() => shareNative(selectedTripName, formData.sharedAccountId)}
                 >
-                  Share…
+                  Share invite
                 </button>
               </div>
               <p style={{ color: '#0369a1', fontSize: '0.8rem', margin: '0.65rem 0 0' }}>
-                Share copies a message with the SHARE login page. Friends still need an email invite (or matching account email) to accept in Notifications — SHARE does not yet issue public invite links.
+                Copy or share a one-use invite link. Friends still need to sign in and Accept. SHARE does not hold a group bank balance.
               </p>
             </div>
           )}

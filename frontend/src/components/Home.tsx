@@ -15,6 +15,7 @@ import {
   homeProgressText,
   previewHomeAccounts
 } from '../utils/homeDashboard';
+import SharedAccountRoleBadge from './SharedAccountRoleBadge';
 
 const Home: React.FC = () => {
   const { user } = useAuth();
@@ -159,7 +160,10 @@ const Home: React.FC = () => {
                   aria-label={`Open ${account.name}`}
                 >
                   <div className="home-account-card-header">
-                    <h3 className="home-account-name">{account.name}</h3>
+                    <div className="shared-account-title-row home-account-heading">
+                      <h3 className="home-account-name">{account.name}</h3>
+                      <SharedAccountRoleBadge role={account.viewerRole} />
+                    </div>
                     <span className="home-account-open">View</span>
                   </div>
                   <p className="home-account-progress-text">

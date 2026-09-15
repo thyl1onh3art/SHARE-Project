@@ -225,6 +225,11 @@ describe('home dashboard helpers', () => {
       })
     ]));
     expect(items.length).toBeLessThanOrEqual(HOME_ATTENTION_LIMIT);
+
+    const byId = Object.fromEntries(accounts.map((account) => [account.id, account]));
+    expect(byId['pot-approve'].viewerRole).toBe('organiser');
+    expect(byId['pot-plan'].viewerRole).toBe('shared');
+    expect(byId['pot-plan'].isOrganiser).toBe(false);
   });
 
   it('ignores expired and unmatched invitations', () => {
@@ -239,5 +244,51 @@ describe('home dashboard helpers', () => {
       recipientEmail: 'sam@example.com',
       expiresAt: '2028-01-01'
     }, 'sam@example.com')).toBe(false);
+  });
+
+  it('uses Shared Account ownership after transfer even if tripMoney owner is stale', () => {
+    const summaries = buildHomeAccountSummaries({
+      userId: 'user-1',
+      payments: [],
+      events: [{
+        title: 'Canada Holiday',
+        tripMoney: {
+          _id: 'pot-canada',
+          name: 'Canada Holiday',
+          owner,
+          isDeleted: false
+        }
+      }],
+      accounts: [{
+        _id: 'pot-canada',
+        name: 'Canada Holiday',
+        targetAmount: 500,
+        owner: other,
+        members: [owner],
+        financeRecords: [{ type: 'input', amount: 50 }]
+      }]
+    });
+
+    expect(summaries[0].viewerRole).toBe('shared');
+    expect(summaries[0].isOrganiser).toBe(false);
+  });
+
+  it('gives the new owner Organiser after transfer', () => {
+    const summaries = buildHomeAccountSummaries({
+      userId: 'user-2',
+      payments: [],
+      events: [],
+      accounts: [{
+        _id: 'pot-canada',
+        name: 'Canada Holiday',
+        targetAmount: 500,
+        owner: other,
+        members: [owner],
+        financeRecords: []
+      }]
+    });
+
+    expect(summaries[0].viewerRole).toBe('organiser');
+    expect(summaries[0].isOrganiser).toBe(true);
   });
 });

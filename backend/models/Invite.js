@@ -2,9 +2,12 @@ const mongoose = require('mongoose');
 
 const inviteSchema = new mongoose.Schema({
   sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  recipientEmail: { type: String, required: true },
+  recipientEmail: { type: String, default: '' },
   recipientPhone: { type: String }, // optional, for phone-based invites
-  status: { type: String, enum: ['pending', 'accepted'], default: 'pending' },
+  inviteType: { type: String, enum: ['email', 'link'], default: 'email' },
+  inviteTokenHash: { type: String, default: undefined, index: true, unique: true, sparse: true },
+  acceptedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  status: { type: String, enum: ['pending', 'accepted', 'declined', 'cancelled'], default: 'pending' },
   /**
    * When the invited recipient last marked this invitation as read.
    * Safe for Invite because each document has one intended recipient.

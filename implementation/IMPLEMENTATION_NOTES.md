@@ -2358,3 +2358,33 @@ Customer Home (`/`, `Home.tsx`) is a compact dashboard, not a second Shared Acco
 
 **Tests / build:** Targeted Home/dashboard + Task 21 create + Task 20 payment + Task 19 activity + Task 17 contribution-plan + Task 18 auth suites `20` passed / `193` tests. Full frontend `34` suites / `258` tests passed. `npx tsc --noEmit` clean. Production frontend build compiled successfully. Backend unchanged. Nothing committed or pushed. stash@{0} untouched.
 
+### Task 23 — Shareable invite links
+
+Existing email/phone invites (`POST /invites/send`, accept by `inviteId` + matching recipient email, 7-day `expiresAt`, cancel deletes the row) are unchanged. Shareable links extend the same Invite model.
+
+**Token design:** 32-byte `crypto.randomBytes` hex token. Only SHA-256 `inviteTokenHash` is stored (same pattern as password-reset hashes). Raw token is returned once on create and placed in `/invite/<token>` using `window.location.origin` on the client (backend `inviteUrl` uses `FRONTEND_URL` / `CORS_ORIGIN`, never a hardcoded production localhost). One outstanding pending link per Shared Account; copying reissues the token so older copies stop working. A link can be accepted by one signed-in user.
+
+**API:** `POST /api/invites/link` (organiser/owner only), public `GET /api/invites/link/:token` (preview only — does not join), authenticated `POST .../accept` and `.../decline`. Accept uses `findOneAndUpdate` on `status: pending`. Decline sets `declined`. Preview returns account name, organiser name, optional target/date; no member emails or finance. Opening a link never adds a member.
+
+**Auth returnTo:** `/invite/:token` is public. Logged-out users get Sign in / Create account with `?returnTo=/invite/<token>` (safe-path allowlist). Navbar Login/Register on that route reuse the same `withReturnTo` helper. Login/Register only honour that invite path. After sign-in, the user returns to the exact invite URL. Registration keeps `returnTo` through `/login`, then the following sign-in returns to the invite.
+
+**After accept:** `/shared-accounts/:id?setupPlan=1`. Accepting is not contribution-plan consent. Pending link invites are not members, so Task 20 sole-owner rules stay the same until acceptance.
+
+**Limitations:** Prototype, not a production deep-link system. Copying a link again rotates the token. Phone-only Home attention still does not see link invites (empty recipient email). Not presented as production-secure.
+
+**Unchanged:** contribution math, scheduler, Account activity, payment/sole-owner logic, Home layout, Task 21 create fields, password reset.
+
+**Tests / build:** Isolated Docker Mongo (never production). Invite-link helpers + HTTP `12` passed; existing inviteHelpers `19` passed; Task 20 paymentRequestSettlement `37` passed (including pending-invite sole-owner). Full frontend `39` suites / `271` tests passed. `npx tsc --noEmit` clean. Production frontend build compiled successfully. Nothing committed or pushed. stash@{0} untouched.
+
+### Task 23 amendment — Organiser / Shared with you badges
+
+Display-only. No new database field. `currentUserSharedAccountRole()` uses existing Shared Account `owner` and accepted `members`. Owner wins (`Organiser`); otherwise an accepted member sees `Shared with you`; unknown/legacy ownership shows no badge.
+
+Badges appear on Home cards, Shared Accounts overview (`/events`) and list (`/shared-accounts`), and Shared Account detail next to the title. Compact pill with icon + exact labels `Organiser` / `Shared with you`. Invite-token, accept/decline, returnTo, email invites, membership, and Task 16 setupPlan are unchanged.
+
+**Ownership transfer:** Backend already sets the new `owner`, removes them from `members`, and keeps the previous owner in `members` unless `removeCurrentOwner`. Detail applies the transfer response immediately, then silently refetches. Home/overview badges use Shared Account `owner`/`members` (not a stale event `tripMoney` owner).
+
+**Used invite-link reuse:** Membership was already de-duplicated, but a used token could still look pending (cacheable GET, no `no-store`) and a second `POST .../accept` could still return `200` `{ sharedAccount }` when the row was pending and the user was already a member. That sent InviteLanding through `?setupPlan=1` again. Fix: keep the hashed token; first accept is pending→accepted once; later GET is `accepted` with `Cache-Control: no-store`; later POST is **409** `{ state: 'accepted' }` with no `sharedAccount` (including pending+already-member heal). InviteLanding shows “This invitation has already been accepted.”, no Accept/Decline, optional Open Shared Account without `setupPlan`.
+
+**Amendment tests / build:** Ownership-transfer backend `sharedAccountArchive` **21 passed** on isolated Docker Mongo `127.0.0.1:27018` (never production). Role-badge, Home, invite-link, Account activity, EventCountdown, and SharedAccounts tests passed. Full frontend **44** suites / **303** tests passed. `npx tsc --noEmit` clean. Production frontend build compiled successfully. Nothing committed or pushed. stash@{0} untouched.
+

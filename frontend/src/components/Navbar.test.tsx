@@ -12,10 +12,16 @@ jest.mock('axios', () => ({
   }
 }));
 
+let mockUser: { id: string; name: string; email: string } | null = {
+  id: 'user-1',
+  name: 'Sam Brown',
+  email: 'sam@example.com'
+};
+
 jest.mock('../contexts/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: 'user-1', name: 'Sam Brown', email: 'sam@example.com' },
-    token: 'test-token',
+    user: mockUser,
+    token: mockUser ? 'test-token' : null,
     loading: false,
     login: jest.fn(),
     register: jest.fn(),
@@ -29,10 +35,12 @@ jest.mock('../contexts/AuthContext', () => ({
 }));
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
+const inviteToken = 'b'.repeat(64);
 
 describe('Navbar primary entry point', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUser = { id: 'user-1', name: 'Sam Brown', email: 'sam@example.com' };
     (mockedAxios.get as jest.Mock).mockResolvedValue({ data: { count: 0 } });
   });
 
@@ -99,5 +107,39 @@ describe('Navbar primary entry point', () => {
     expect(await screen.findAllByLabelText('2 payment requests awaiting your review')).not.toHaveLength(0);
     expect(screen.getByLabelText('1 unread invitations')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /notifications/i })).toBeInTheDocument();
+  });
+});
+
+describe('Navbar auth links on invite pages', () => {
+  beforeEach(() => {
+    mockUser = null;
+  });
+
+  it('adds returnTo to Login and Register while on an invite link', () => {
+    render(
+      <MemoryRouter initialEntries={[`/invite/${inviteToken}`]}>
+        <Navbar />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('link', { name: 'Login' })).toHaveAttribute(
+      'href',
+      `/login?returnTo=${encodeURIComponent(`/invite/${inviteToken}`)}`
+    );
+    expect(screen.getByRole('link', { name: 'Register' })).toHaveAttribute(
+      'href',
+      `/register?returnTo=${encodeURIComponent(`/invite/${inviteToken}`)}`
+    );
+  });
+
+  it('leaves Login and Register unchanged outside invite pages', () => {
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <Navbar />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('link', { name: 'Login' })).toHaveAttribute('href', '/login');
+    expect(screen.getByRole('link', { name: 'Register' })).toHaveAttribute('href', '/register');
   });
 });

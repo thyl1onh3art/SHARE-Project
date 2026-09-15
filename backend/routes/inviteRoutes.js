@@ -2,11 +2,17 @@ const express = require('express');
 const router = express.Router();
 const inviteController = require('../controllers/inviteController');
 const auth = require('../middleware/auth');
-const { validateInvite, validateAcceptInvite, validateRemoveMember } = require('../middleware/validation');
+const { validateInvite, validateAcceptInvite, validateRemoveMember, validateLinkInviteAccount } = require('../middleware/validation');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 // Send an invite to a user by email/phone
 router.post('/send', auth, validateInvite, asyncHandler(inviteController.sendInvite));
+
+// Shareable one-use invite link (organiser only to create)
+router.post('/link', auth, validateLinkInviteAccount, asyncHandler(inviteController.createLinkInvite));
+router.get('/link/:token', asyncHandler(inviteController.previewLinkInvite));
+router.post('/link/:token/accept', auth, asyncHandler(inviteController.acceptLinkInvite));
+router.post('/link/:token/decline', auth, asyncHandler(inviteController.declineLinkInvite));
 
 // Accept an invite
 router.post('/accept', auth, validateAcceptInvite, asyncHandler(inviteController.acceptInvite));

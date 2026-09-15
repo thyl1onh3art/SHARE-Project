@@ -414,4 +414,99 @@ describe('Home dashboard', () => {
     expect(screen.queryByRole('heading', { name: 'Preview fund 5' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'View all Shared Accounts' })).toBeInTheDocument();
   });
+
+  it('shows Organiser on a Home card the current user owns', async () => {
+    mockHomeApis({
+      accounts: [{
+        _id: 'pot-canada',
+        name: 'Canada Holiday',
+        targetAmount: 500,
+        owner,
+        members: [{ _id: 'user-2' }],
+        financeRecords: [{ type: 'input', amount: 50 }]
+      }]
+    });
+
+    renderHome();
+
+    expect(await screen.findByRole('heading', { name: 'Canada Holiday' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Organiser' })).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Shared with you' })).not.toBeInTheDocument();
+    expect(document.querySelector('.shared-account-title-row')).toBeTruthy();
+    expect(document.querySelector('.shared-account-title-row')).toHaveClass('home-account-heading');
+  });
+
+  it('shows Shared with you on a Home card the current user joined', async () => {
+    mockHomeApis({
+      accounts: [{
+        _id: 'pot-weekend',
+        name: 'Weekend Fund',
+        targetAmount: 120,
+        owner: { _id: 'user-2' },
+        members: [owner],
+        financeRecords: [{ type: 'input', amount: 10 }]
+      }]
+    });
+
+    renderHome();
+
+    expect(await screen.findByRole('heading', { name: 'Weekend Fund' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Shared with you' })).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Organiser' })).not.toBeInTheDocument();
+  });
+
+  it('does not invent a Home badge when ownership cannot be determined', async () => {
+    mockHomeApis({
+      accounts: [{
+        _id: 'pot-legacy',
+        name: 'Legacy hotel pot',
+        targetAmount: 80,
+        financeRecords: [{ type: 'input', amount: 10 }]
+      }]
+    });
+
+    renderHome();
+
+    expect(await screen.findByRole('heading', { name: 'Legacy hotel pot' })).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Organiser' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Shared with you' })).not.toBeInTheDocument();
+  });
+
+  it('shows Shared with you on Home after ownership is transferred away and the user remains a member', async () => {
+    mockHomeApis({
+      accounts: [{
+        _id: 'pot-canada',
+        name: 'Canada Holiday',
+        targetAmount: 500,
+        owner: { _id: 'user-2', firstName: 'Alex' },
+        members: [owner],
+        financeRecords: [{ type: 'input', amount: 50 }]
+      }]
+    });
+
+    renderHome();
+
+    expect(await screen.findByRole('heading', { name: 'Canada Holiday' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Shared with you' })).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Organiser' })).not.toBeInTheDocument();
+  });
+
+  it('shows no Home badge after ownership is transferred away and the user is no longer a member', async () => {
+    mockHomeApis({
+      accounts: [{
+        _id: 'pot-canada',
+        name: 'Canada Holiday',
+        targetAmount: 500,
+        owner: { _id: 'user-2', firstName: 'Alex' },
+        members: [],
+        financeRecords: [{ type: 'input', amount: 50 }]
+      }]
+    });
+
+    renderHome();
+
+    expect(await screen.findByRole('heading', { name: 'Canada Holiday' })).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Organiser' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Shared with you' })).not.toBeInTheDocument();
+  });
 });

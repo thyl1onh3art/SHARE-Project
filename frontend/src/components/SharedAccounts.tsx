@@ -15,7 +15,9 @@ import {
   parseContributionAgreement
 } from '../utils/tripHome';
 import { openNativeDatePicker } from '../utils/openNativeDatePicker';
+import { currentUserSharedAccountRole } from '../utils/sharedAccountRole';
 import ContributionPlanFields from './ContributionPlanFields';
+import SharedAccountRoleBadge from './SharedAccountRoleBadge';
 
 const emptyCreateForm = () => {
   const defaultDate = new Date();
@@ -968,6 +970,11 @@ const SharedAccounts: React.FC = () => {
               const showPayNow = canPaySinglePayment(balance, account.targetAmount, false)
                 && !hasPendingPayment
                 && !hasCompletedPayment;
+              const viewerRole = currentUserSharedAccountRole({
+                userId: user?.id || (user as { _id?: string } | undefined)?._id,
+                owner: account.owner,
+                members: account.members
+              });
               
               return (
                 <div
@@ -1003,14 +1010,17 @@ const SharedAccounts: React.FC = () => {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem' }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <h3 style={{ 
-                        margin: '0 0 0.35rem 0', 
-                        color: '#2d3748',
-                        fontSize: '1.1rem',
-                        fontWeight: '600'
-                      }}>
-                        {account.name}
-                      </h3>
+                      <div className="shared-account-title-row">
+                        <h3 style={{
+                          margin: '0',
+                          color: '#2d3748',
+                          fontSize: '1.1rem',
+                          fontWeight: '600'
+                        }}>
+                          {account.name}
+                        </h3>
+                        <SharedAccountRoleBadge role={viewerRole} />
+                      </div>
                       {account.description ? (
                         <p style={{ 
                           margin: '0 0 0.75rem 0', 
@@ -1132,7 +1142,16 @@ const SharedAccounts: React.FC = () => {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
                     <div>
-                      <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.05rem' }}>{account.name}</h3>
+                      <div className="shared-account-title-row">
+                        <h3 style={{ margin: '0', fontSize: '1.05rem' }}>{account.name}</h3>
+                        <SharedAccountRoleBadge
+                          role={currentUserSharedAccountRole({
+                            userId: user?.id || (user as { _id?: string } | undefined)?._id,
+                            owner: account.owner,
+                            members: account.members
+                          })}
+                        />
+                      </div>
                       <span style={{ fontSize: '0.75rem', color: '#718096', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                         Closed
                       </span>

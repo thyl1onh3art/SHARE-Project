@@ -1,9 +1,18 @@
+const jwt = require('jsonwebtoken');
 const Invite = require('../models/Invite');
 const SharedAccount = require('../models/SharedAccount');
 const User = require('../models/User');
 const { rememberFriendsMutual } = require('../services/friendService');
 const nodemailer = require('nodemailer');
 const twilio = require('twilio');
+const {
+  generateInviteToken,
+  hashInviteToken,
+  isInviteTokenFormatValid,
+  inviteExpiryFrom,
+  buildInviteUrl,
+  organiserDisplayName
+} = require('../utils/inviteLink');
 
 // Helper: Send SMS via Twilio
 const sendSMS = (to, body) => {
@@ -57,6 +66,99 @@ const isCurrentParticipant = (sharedAccount, userId) => {
   return isOwner || isMember;
 };
 
+const isAccountOwner = (sharedAccount, userId) => {
+  if (!sharedAccount?.owner || !userId) return false;
+  const ownerId = sharedAccount.owner._id || sharedAccount.owner;
+  return ownerId.toString() === userId.toString();
+};
+
+const isExistingMember = (sharedAccount, userId) => {
+  if (!userId || !Array.isArray(sharedAccount?.members)) return false;
+  const userIdStr = userId.toString();
+  return sharedAccount.members.some((member) => {
+    if (!member) return false;
+    const memberId = member._id || member.id || member;
+    return memberId.toString() === userIdStr;
+  });
+};
+
+const getOptionalUser = (req) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token || !process.env.JWT_SECRET) return null;
+  try {
+    return jwt.verify(token, process.env.JWT_SECRET);
+  } catch {
+    return null;
+  }
+};
+
+const inviteStateMessage = (state) => {
+  if (state === 'expired') return 'This invitation has expired.';
+  if (state === 'accepted') return 'This invitation has already been accepted.';
+  if (state === 'unavailable') return 'This invitation is no longer available.';
+  return 'This invitation link is invalid.';
+};
+
+const resolveInviteState = (invite, now = new Date()) => {
+  if (!invite) return 'invalid';
+  if (invite.status === 'accepted') return 'accepted';
+  if (invite.status === 'declined' || invite.status === 'cancelled') return 'unavailable';
+  if (invite.expiresAt && invite.expiresAt < now) return 'expired';
+  if (invite.status === 'pending') return 'pending';
+  return 'unavailable';
+};
+
+const publicInvitePreview = (invite, optionalUser) => {
+  const account = invite.sharedAccount && typeof invite.sharedAccount === 'object'
+    ? invite.sharedAccount
+    : null;
+  const state = account?.isDeleted ? 'unavailable' : resolveInviteState(invite);
+  const viewerId = optionalUser?.userId;
+  const isOwnInvite = !!(viewerId && (
+    (invite.sender && (invite.sender._id || invite.sender).toString() === viewerId.toString())
+    || isAccountOwner(account, viewerId)
+  ));
+  const acceptedById = invite.acceptedBy && (invite.acceptedBy._id || invite.acceptedBy);
+  const acceptedByCurrentUser = !!(
+    viewerId && acceptedById && acceptedById.toString() === viewerId.toString()
+  );
+  const canOpenAccount = state === 'accepted' && !!(
+    acceptedByCurrentUser || isAccountOwner(account, viewerId) || isExistingMember(account, viewerId)
+  );
+  const targetAmount = Number(account?.targetAmount);
+  return {
+    state,
+    message: state === 'pending' ? null : inviteStateMessage(state),
+    accountName: account?.name || 'Shared Account',
+    organiserName: organiserDisplayName(invite.sender),
+    targetAmount: Number.isFinite(targetAmount) && targetAmount > 0 ? targetAmount : null,
+    targetDate: account?.targetDate || null,
+    isOwnInvite: state === 'pending' ? isOwnInvite : false,
+    acceptedByCurrentUser,
+    accountId: canOpenAccount && account?._id ? String(account._id) : undefined
+  };
+};
+
+const usedInviteBody = (invite, sharedAccount, userId) => {
+  const previewInvite = invite && typeof invite.toObject === 'function'
+    ? invite.toObject()
+    : { ...invite };
+  if (sharedAccount) {
+    previewInvite.sharedAccount = sharedAccount;
+  }
+  return publicInvitePreview(previewInvite, userId ? { userId } : null);
+};
+
+const addAcceptedMember = async (sharedAccount, userId) => {
+  if (isAccountOwner(sharedAccount, userId) || isExistingMember(sharedAccount, userId)) {
+    return sharedAccount;
+  }
+  sharedAccount.members.push(userId);
+  await sharedAccount.save();
+  return sharedAccount;
+};
+
 // List invites for the logged-in user (with optional status filter, only non-expired)
 exports.listInvites = async (req, res) => {
   try {
@@ -74,7 +176,8 @@ exports.listInvites = async (req, res) => {
         ...(userEmail ? [{ recipientEmail: userEmail }] : []),
         ...(userPhone ? [{ recipientPhone: userPhone }] : [])
       ],
-      expiresAt: { $gt: now }
+      expiresAt: { $gt: now },
+      inviteType: { $ne: 'link' }
     };
     if (status) filter.status = status;
     const invites = await Invite.find(filter)
@@ -279,13 +382,7 @@ exports.acceptInvite = async (req, res) => {
       });
     }
 
-    const alreadyMember = sharedAccount.members.some(
-      (id) => id && id.toString() === req.user.userId.toString()
-    );
-    if (!alreadyMember) {
-      sharedAccount.members.push(req.user.userId);
-      await sharedAccount.save();
-    }
+    await addAcceptedMember(sharedAccount, req.user.userId);
 
     invite.status = 'accepted';
     if (!invite.readAt) {
@@ -399,6 +496,243 @@ exports.removeMember = async (req, res) => {
     sharedAccount.members = sharedAccount.members.filter(id => id.toString() !== memberId);
     await sharedAccount.save();
     res.json({ message: 'Member removed', sharedAccount });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+exports.createLinkInvite = async (req, res) => {
+  try {
+    const { sharedAccountId } = req.body;
+    const senderId = req.user.userId;
+    const sharedAccount = await SharedAccount.findById(sharedAccountId);
+    if (!sharedAccount) return res.status(404).json({ message: 'Shared account not found' });
+    if (sharedAccount.isDeleted) {
+      return res.status(400).json({ message: 'This Shared Account is archived. New invitations cannot be sent.' });
+    }
+    if (!isAccountOwner(sharedAccount, senderId)) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const rawToken = generateInviteToken();
+    const inviteTokenHash = hashInviteToken(rawToken);
+    const expiresAt = inviteExpiryFrom();
+
+    let invite = await Invite.findOne({
+      sharedAccount: sharedAccountId,
+      inviteType: 'link',
+      status: 'pending'
+    });
+
+    if (invite) {
+      invite.inviteTokenHash = inviteTokenHash;
+      invite.expiresAt = expiresAt;
+      invite.sender = senderId;
+      await invite.save();
+    } else {
+      invite = await Invite.create({
+        sender: senderId,
+        recipientEmail: '',
+        inviteType: 'link',
+        inviteTokenHash,
+        sharedAccount: sharedAccountId,
+        status: 'pending',
+        expiresAt
+      });
+    }
+
+    res.status(201).json({
+      token: rawToken,
+      inviteUrl: buildInviteUrl(rawToken),
+      expiresAt: invite.expiresAt,
+      inviteId: invite._id
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+exports.previewLinkInvite = async (req, res) => {
+  try {
+    const { token } = req.params;
+    if (!isInviteTokenFormatValid(token)) {
+      return res.status(404).json({
+        state: 'invalid',
+        message: inviteStateMessage('invalid')
+      });
+    }
+
+    const invite = await Invite.findOne({ inviteTokenHash: hashInviteToken(token) })
+      .populate('sharedAccount', 'name targetAmount targetDate isDeleted owner members')
+      .populate('sender', 'firstName lastName name');
+
+    if (!invite) {
+      return res.status(404).json({
+        state: 'invalid',
+        message: inviteStateMessage('invalid')
+      });
+    }
+
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.json(publicInvitePreview(invite, getOptionalUser(req)));
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+exports.acceptLinkInvite = async (req, res) => {
+  try {
+    const { token } = req.params;
+    if (!isInviteTokenFormatValid(token)) {
+      return res.status(404).json({
+        state: 'invalid',
+        message: inviteStateMessage('invalid')
+      });
+    }
+
+    const now = new Date();
+    const hash = hashInviteToken(token);
+    const userId = req.user.userId;
+    const { email: userEmail } = await getUserContact(userId, req.user.email, req.user.phone);
+
+    const invite = await Invite.findOne({ inviteTokenHash: hash });
+    if (!invite) {
+      return res.status(404).json({
+        state: 'invalid',
+        message: inviteStateMessage('invalid')
+      });
+    }
+
+    const state = resolveInviteState(invite, now);
+    if (state === 'accepted') {
+      const sharedAccount = await SharedAccount.findById(invite.sharedAccount);
+      return res.status(409).json(usedInviteBody(invite, sharedAccount, userId));
+    }
+    if (state !== 'pending') {
+      return res.status(400).json({ state, message: inviteStateMessage(state) });
+    }
+
+    const sharedAccount = await SharedAccount.findById(invite.sharedAccount);
+    if (!sharedAccount || sharedAccount.isDeleted) {
+      return res.status(400).json({
+        state: 'unavailable',
+        message: inviteStateMessage('unavailable')
+      });
+    }
+
+    if (isAccountOwner(sharedAccount, userId)) {
+      return res.status(400).json({
+        message: 'You already organise this Shared Account.'
+      });
+    }
+
+    if (isExistingMember(sharedAccount, userId)) {
+      await Invite.findOneAndUpdate(
+        { _id: invite._id, status: 'pending', inviteTokenHash: hash },
+        {
+          $set: {
+            status: 'accepted',
+            acceptedBy: userId,
+            readAt: now,
+            recipientEmail: userEmail || invite.recipientEmail || ''
+          }
+        }
+      );
+      const stored = await Invite.findById(invite._id);
+      return res.status(409).json(usedInviteBody(stored || invite, sharedAccount, userId));
+    }
+
+    const claimed = await Invite.findOneAndUpdate(
+      {
+        _id: invite._id,
+        status: 'pending',
+        inviteTokenHash: hash
+      },
+      {
+        $set: {
+          status: 'accepted',
+          acceptedBy: userId,
+          readAt: now,
+          recipientEmail: userEmail || invite.recipientEmail || ''
+        }
+      },
+      { new: true }
+    );
+
+    if (!claimed) {
+      const current = await Invite.findById(invite._id);
+      const currentState = resolveInviteState(current, now);
+      if (currentState === 'accepted') {
+        return res.status(409).json(usedInviteBody(current, sharedAccount, userId));
+      }
+      return res.status(400).json({
+        state: currentState === 'pending' ? 'unavailable' : currentState,
+        message: inviteStateMessage(currentState === 'pending' ? 'unavailable' : currentState)
+      });
+    }
+
+    await addAcceptedMember(sharedAccount, userId);
+    await rememberFriendsMutual(invite.sender, userId);
+    const updatedAccount = await SharedAccount.findById(sharedAccount._id);
+    res.json({ message: 'Invite accepted', sharedAccount: updatedAccount });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+exports.declineLinkInvite = async (req, res) => {
+  try {
+    const { token } = req.params;
+    if (!isInviteTokenFormatValid(token)) {
+      return res.status(404).json({
+        state: 'invalid',
+        message: inviteStateMessage('invalid')
+      });
+    }
+
+    const now = new Date();
+    const hash = hashInviteToken(token);
+    const userId = req.user.userId;
+
+    const invite = await Invite.findOne({ inviteTokenHash: hash });
+    if (!invite) {
+      return res.status(404).json({
+        state: 'invalid',
+        message: inviteStateMessage('invalid')
+      });
+    }
+
+    const state = resolveInviteState(invite, now);
+    if (state !== 'pending') {
+      return res.status(400).json({ state, message: inviteStateMessage(state) });
+    }
+
+    const sharedAccount = await SharedAccount.findById(invite.sharedAccount);
+    if (sharedAccount && isAccountOwner(sharedAccount, userId)) {
+      return res.status(400).json({
+        message: 'You already organise this Shared Account.'
+      });
+    }
+
+    const declined = await Invite.findOneAndUpdate(
+      {
+        _id: invite._id,
+        status: 'pending',
+        inviteTokenHash: hash
+      },
+      { $set: { status: 'declined', readAt: now } },
+      { new: true }
+    );
+
+    if (!declined) {
+      return res.status(400).json({
+        state: 'unavailable',
+        message: inviteStateMessage('unavailable')
+      });
+    }
+
+    res.json({ message: 'Invitation declined' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

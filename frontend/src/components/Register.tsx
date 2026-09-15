@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { userFacingError } from '../utils/userFacingError';
 import { validateRegistrationPassword } from '../utils/passwordRules';
+import { safeInviteReturnTo, withReturnTo } from '../utils/inviteLink';
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -19,6 +20,8 @@ const Register: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnTo = safeInviteReturnTo(searchParams.get('returnTo'));
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -87,8 +90,8 @@ const Register: React.FC = () => {
         formData.interests
       );
       
-      // Redirect to login on success
-      navigate('/login');
+      // Redirect to login on success, keeping a safe invite return path
+      navigate(withReturnTo('/login', returnTo));
     } catch (err: unknown) {
       setError(userFacingError(err, 'Registration failed'));
     } finally {
@@ -355,7 +358,7 @@ const Register: React.FC = () => {
         <div className="text-center">
           <p style={{ color: '#4a5568' }}>
             Already have an account?{' '}
-            <Link to="/login" style={{ color: '#667eea', textDecoration: 'none' }}>
+            <Link to={withReturnTo('/login', returnTo)} style={{ color: '#667eea', textDecoration: 'none' }}>
               Login here
             </Link>
           </p>

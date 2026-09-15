@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import { withReturnTo } from '../utils/inviteLink';
 
 const primaryLinks = [
   { to: '/events', label: 'Shared Accounts' },
@@ -265,10 +266,16 @@ const Navbar: React.FC = () => {
           </>
         ) : (
           <div className="share-nav-auth">
-            <Link to="/login" className="share-nav-link share-nav-link-primary">
+            <Link
+              to={withReturnTo('/login', location.pathname)}
+              className="share-nav-link share-nav-link-primary"
+            >
               Login
             </Link>
-            <Link to="/register" className="share-nav-link">
+            <Link
+              to={withReturnTo('/register', location.pathname)}
+              className="share-nav-link"
+            >
               Register
             </Link>
           </div>

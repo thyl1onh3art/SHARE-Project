@@ -141,6 +141,13 @@ const validateRemoveMember = [
   handleValidationErrors
 ];
 
+const validateLinkInviteAccount = [
+  body('sharedAccountId')
+    .isMongoId()
+    .withMessage('Shared account ID must be a valid MongoDB ObjectId'),
+  handleValidationErrors
+];
+
 const validateAddFriend = [
   body('email')
     .isEmail()
@@ -175,6 +182,7 @@ module.exports = {
   validateInvite,
   validateAcceptInvite,
   validateRemoveMember,
+  validateLinkInviteAccount,
   validateAddFriend,
   handleValidationErrors
 };
