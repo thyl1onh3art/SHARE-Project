@@ -2388,3 +2388,7 @@ Badges appear on Home cards, Shared Accounts overview (`/events`) and list (`/sh
 
 **Amendment tests / build:** Ownership-transfer backend `sharedAccountArchive` **21 passed** on isolated Docker Mongo `127.0.0.1:27018` (never production). Role-badge, Home, invite-link, Account activity, EventCountdown, and SharedAccounts tests passed. Full frontend **44** suites / **303** tests passed. `npx tsc --noEmit` clean. Production frontend build compiled successfully. Nothing committed or pushed. stash@{0} untouched.
 
+### Task 24 — Prototype payment method visuals
+
+When **Pay now** is already eligible (`canPaySinglePayment` and no pending/completed final payment), Shared Account detail shows local **Pay with** choices beside it: Apple Pay, Debit / credit card, Google Pay, PayPal. Default is Debit / credit card. Selection is frontend-only and is not sent to `/payment-requests`. Pay now still opens the existing Final payment form. Hidden below target, while waiting for approval, after completion, and when closed. Copy: “Prototype payment option — no real money is processed.” No Stripe/PayPal/Apple/Google SDKs or card collection.
+

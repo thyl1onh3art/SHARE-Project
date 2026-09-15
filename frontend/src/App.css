@@ -1339,6 +1339,136 @@ body {
   padding: 14px 28px;
 }
 
+.pay-now-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.pay-now-row .pay-now-cta {
+  flex: 0 0 auto;
+}
+
+.pay-now-row .pay-now-more {
+  margin-left: auto;
+}
+
+.prototype-pay-methods {
+  flex: 1 1 18rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.prototype-pay-methods-legend {
+  padding: 0;
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #4a5568;
+}
+
+.prototype-pay-method-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.prototype-pay-method {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.4rem 0.65rem;
+  min-height: 40px;
+  border: 1px solid #cbd5e0;
+  border-radius: 8px;
+  background: #fff;
+  color: #2d3748;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.prototype-pay-method input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.prototype-pay-method:focus-within {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+.prototype-pay-method.is-selected {
+  border-width: 2px;
+  border-color: #2b6cb0;
+  background: #ebf8ff;
+  box-shadow: inset 0 0 0 1px #2b6cb0;
+}
+
+.prototype-pay-method-apple.is-selected {
+  background: #1a202c;
+  border-color: #1a202c;
+  color: #fff;
+  box-shadow: none;
+}
+
+.prototype-pay-method-paypal.is-selected {
+  background: #ebf4ff;
+  border-color: #2b6cb0;
+  color: #1a365d;
+}
+
+.prototype-pay-method-icon,
+.prototype-pay-method-g,
+.prototype-pay-method-pp {
+  flex: 0 0 auto;
+}
+
+.prototype-pay-method-g,
+.prototype-pay-method-pp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.prototype-pay-method-g {
+  background: #fff;
+  color: #4285f4;
+  border: 1px solid #cbd5e0;
+}
+
+.prototype-pay-method-pp {
+  background: #003087;
+  color: #fff;
+}
+
+.prototype-pay-methods-note {
+  margin: 0.4rem 0 0;
+  color: #718096;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: normal;
+}
+
 .trip-money-list-progress {
   margin-top: 0.25rem;
 }
@@ -1367,6 +1497,22 @@ body {
     width: 100%;
     margin-bottom: 0;
     min-height: 44px;
+  }
+
+  .pay-now-row .pay-now-cta,
+  .pay-now-row .pay-now-more {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .prototype-pay-methods {
+    flex: 1 1 100%;
+  }
+
+  .prototype-pay-method {
+    flex: 1 1 calc(50% - 0.4rem);
+    white-space: normal;
+    min-width: 0;
   }
 
   .trip-money-more-actions .trip-money-actions .btn {

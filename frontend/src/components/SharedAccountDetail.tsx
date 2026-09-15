@@ -34,6 +34,8 @@ import { currentUserSharedAccountRole } from '../utils/sharedAccountRole';
 import MemberContributionPlanPanel from './MemberContributionPlanPanel';
 import InviteSharePanel from './InviteSharePanel';
 import SharedAccountRoleBadge from './SharedAccountRoleBadge';
+import PrototypePaymentMethods from './PrototypePaymentMethods';
+import { DEFAULT_PROTOTYPE_PAYMENT_METHOD, PrototypePaymentMethodId } from '../utils/prototypePaymentMethods';
 
 interface FinanceRecord {
   _id: string;
@@ -131,6 +133,9 @@ const SharedAccountDetail: React.FC = () => {
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [paymentNotice, setPaymentNotice] = useState('');
   const [setupPlanDismissed, setSetupPlanDismissed] = useState(false);
+  const [prototypePaymentMethod, setPrototypePaymentMethod] = useState<PrototypePaymentMethodId>(
+    DEFAULT_PROTOTYPE_PAYMENT_METHOD
+  );
 
   useEffect(() => {
     if (accountId) {
@@ -1087,17 +1092,23 @@ const SharedAccountDetail: React.FC = () => {
             )
           )}
           {!isArchived && isCloseOutFocus && !hasCompletedFinalPayment && !hasPendingFinalPayment && (
-            <>
+            <div className="pay-now-row">
               {payNowCta}
+              {paySinglePaymentReady && (
+                <PrototypePaymentMethods
+                  value={prototypePaymentMethod}
+                  onChange={setPrototypePaymentMethod}
+                />
+              )}
               <button
                 type="button"
-                className="btn btn-secondary"
+                className="btn btn-secondary pay-now-more"
                 onClick={() => setShowMoreActions((open) => !open)}
                 aria-expanded={showMoreActions}
               >
                 {showMoreActions ? 'Hide more' : 'More'}
               </button>
-            </>
+            </div>
           )}
           {!isArchived && !isCloseOutFocus && !hasCompletedFinalPayment && (
             <>
